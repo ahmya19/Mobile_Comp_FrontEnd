@@ -10,13 +10,23 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.pinpoint.data.Report
 import org.maplibre.android.MapLibre
-import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 import org.maplibre.android.module.http.HttpRequestUtil
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleRadius
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 import java.io.File
@@ -32,6 +42,13 @@ private object MapNetwork {
         initialized=true
     }
 }
+
+private const val REPORT_SOURCE="reports"
+private const val REPORT_LAYER="reports-layer"
+
+private fun List<Report>.toFeatures(): FeatureCollection = FeatureCollection.fromFeatures(mapNotNull { report ->
+    report.mapCoordinate()?.let { Feature.fromGeometry(Point.fromLngLat(it.longitude,it.latitude)).apply { addStringProperty("id",report.id) } }
+})
 
 private fun Report.mapCoordinate(): LatLng? {
     val lat=latitude ?: return null
@@ -50,6 +67,7 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
     val pick by rememberUpdatedState(onPick)
     val view=remember(context) { MapLibre.getInstance(context);MapNetwork.initialize(context.applicationContext); MapView(context) }
     var ready by remember { mutableStateOf<MapLibreMap?>(null) }
+    var framed by remember { mutableStateOf(false) }
     DisposableEffect(view,lifecycle) {
         view.onCreate(Bundle())
         var destroyed=false
@@ -64,12 +82,17 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
         lifecycle.addObserver(listener)
         view.getMapAsync { map ->
             map.setStyle(Style.Builder().fromJson("""{"version":8,"sources":{"osm":{"type":"raster","tiles":["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],"tileSize":256,"attribution":"© OpenStreetMap contributors"}},"layers":[{"id":"osm","type":"raster","source":"osm"}]}""")) {
+                // Core style APIs (source + layer) replace the deprecated marker annotations.
+                it.addSource(GeoJsonSource(REPORT_SOURCE,latestReports.toFeatures()))
+                it.addLayer(CircleLayer(REPORT_LAYER,REPORT_SOURCE).withProperties(
+                    circleColor("#7C4DCC"),circleRadius(9f),circleStrokeColor("#FFFFFF"),circleStrokeWidth(2f)))
                 map.cameraPosition=CameraPosition.Builder().target(LatLng(13.7565,121.0583)).zoom(13.0).build()
                 ready=map
             }
-            map.setOnMarkerClickListener { marker ->
-                latestReports.firstOrNull { it.id==marker.snippet }?.let { reportClick(it.id) }
-                true
+            map.addOnMapClickListener { coordinate ->
+                val hits=map.queryRenderedFeatures(map.projection.toScreenLocation(coordinate),REPORT_LAYER)
+                val id=hits.firstOrNull()?.getStringProperty("id")
+                if(id!=null && latestReports.any { it.id==id }) { reportClick(id);true } else false
             }
             map.addOnMapLongClickListener { coordinate -> pick?.invoke(coordinate.latitude,coordinate.longitude);pick!=null }
         }
@@ -77,11 +100,15 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
     }
     LaunchedEffect(ready,reports) {
         ready?.let { map ->
-            map.clear()
-            reports.forEach { report -> report.mapCoordinate()?.let { coordinate ->
-                map.addMarker(MarkerOptions().position(coordinate)
-                    .title(report.title).snippet(report.id))
-            } }
+            map.style?.getSourceAs<GeoJsonSource>(REPORT_SOURCE)?.setGeoJson(reports.toFeatures())
+            // Frame the community's reports once, so pins are visible without manual panning.
+            val points=reports.mapNotNull { it.mapCoordinate() }
+            if(onPick==null && !framed && points.isNotEmpty()) {
+                framed=true
+                if(points.size==1) map.cameraPosition=CameraPosition.Builder().target(points.first()).zoom(15.0).build()
+                else map.easeCamera(CameraUpdateFactory.newLatLngBounds(
+                    LatLngBounds.Builder().includes(points).build(),80),600)
+            }
             if(onPick!=null && reports.size==1) reports.first().let { point ->
                 point.mapCoordinate()?.let { coordinate -> map.cameraPosition=CameraPosition.Builder(map.cameraPosition)
                     .target(coordinate).build() }

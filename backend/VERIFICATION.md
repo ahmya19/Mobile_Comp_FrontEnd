@@ -92,7 +92,7 @@ Record device/OS, build commit, connection type, sample count, timestamps, expec
 - Select SMS gateway, configure its credentials and approved barangay centroids, then adapt the exact payload format.
 - Confirm the provisional 3/10 vote thresholds with the group.
 - Notification history now loads 50 at a time with a stable created_at/id cursor and a "Load older notifications" button. It builds, lints and passes JVM tests; a live check with the demo accounts is still pending.
-- Map marker APIs in the pinned SDK are deprecated but functional; a later SDK/annotation migration remains maintenance work.
+- Map markers were migrated from MapLibre's deprecated marker annotations to a GeoJSON source and circle layer (core SDK, no new dependency). On emulator-5554 the pins render, the view frames the loaded reports on first load, tapping a pin opens that report's details, and the map smoke test, lint (0 errors, 33 warnings) and unit tests pass. Long-press pin placement on the report form uses the unchanged long-click path and was not re-exercised by hand.
 - Team build, review and acceptance of the shared branch/PR.
 
 ## CP-16 emulator UI rehearsal, November 21
