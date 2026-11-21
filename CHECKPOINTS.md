@@ -82,5 +82,6 @@ Do not enable a paid plan to close any checkpoint. Ask about genuinely missing i
 | 2026-11-21 | CP-08, CP-10, CP-13, CP-14, CP-16 | Three emulator UI phases passed against the live backend: citizen photo report, official status change and citizen notification/read state. Added an emulator-only, credential-redacting runner. Physical-phone testing remains deferred. |
 | 2026-11-21 | CP-08 | Email-confirmation flow implemented; EmailConfirmationTest passed 6/6 on emulator-5554 and on the user's physical TECNO phone (first real-device run). No SMTP/template changes. |
 | 2026-11-21 | CP-14, CP-16 | Notification pagination implemented. Workflow runner accepts a physical phone only with -AllowPhysicalDevice. Builds, JVM tests and lint (0 errors) pass; live runs need the private demo credentials file. |
+| 2026-11-21 | CP-23, CP-25 | Added a tested adapter for the free SMS Gateway for Android webhook (17 backend tests, Edge type check pass); not deployed, no gateway chosen, no carrier test. Added backend/CP25_PHONE_TESTS.md for the on-phone measurements. |
 
 Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).

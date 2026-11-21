@@ -126,6 +126,16 @@ Body: {"text":"PIN ROAD;Alangilan;Large pothole near school gate."}
 
 Category codes: ROAD, LIGHT, FLOOD, GARBAGE, WATER, OTHER. Messages must fit one GSM-7 SMS of at most 160 septets; extension characters count twice. The gateway sends POST with x-gateway-id, x-message-id, x-timestamp (Unix seconds), and x-signature (64-character hex HMAC-SHA256). Sign the exact bytes described by supabase/functions/_shared/sms.mjs; do not reserialize between signing and sending. Timestamp tolerance is five minutes, message IDs are unique per gateway, and different content under an existing ID is rejected.
 
+### Candidate gateway: SMS Gateway for Android (not yet selected or deployed)
+
+sms-report also understands the webhook of the open-source SMS Gateway for Android (docs.sms-gate.app), documented as free in its Local, Cloud and Private modes. A spare Android phone with a SIM runs the app. Selecting it is still the group's decision.
+
+- Set SMS_GATEWAY_FORMAT=sms-gate, SMS_GATEWAY_ID to the phone's deviceId (shown in the app) and SMS_GATEWAY_SECRET to the webhook Signing Key (at least 32 characters). Store these only as Supabase Edge secrets. Leave SMS_GATEWAY_FORMAT unset to keep the original signed format.
+- In the app, register a webhook for the sms:received event pointing to the deployed sms-report URL.
+- Verification follows the vendor's documented scheme: lowercase-hex HMAC-SHA256 over the raw body immediately followed by the X-Timestamp value, five-minute tolerance. Only the event type, deviceId and payload.messageId/message are used; the sender's phone number is not stored.
+- A webhook retry reuses payload.messageId, and the idempotency hash covers only messageId and message text, so a retry creates no duplicate report.
+- Tested locally against the documented payload shape (backend/tests/sms.test.mjs). It has not been run against the real app or a carrier. The deployed function still has the original code until redeployed, and no secrets have been set. The vendor's signing details came from its public docs and must be confirmed with a real webhook before relying on them.
+
 Parser and server tests do not prove carrier delivery. Hardware integration and the 90% / two-minute proposal target remain pending.
 
 ## Verification and limitations

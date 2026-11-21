@@ -31,3 +31,23 @@ export async function verifyGateway(rawBody,headers,secret,allowedGateway,nowSec
   if(!await crypto.subtle.verify('HMAC',key,bytes,payload)) throw new Error('Invalid or expired gateway signature.');
   return {gateway,messageId};
 }
+
+// Adapter for the open-source "SMS Gateway for Android" (docs.sms-gate.app) webhook.
+// It signs HMAC-SHA256(rawBody + X-Timestamp) as lowercase hex and posts an sms:received event.
+export async function verifySmsGate(rawBody,headers,secret,allowedDevice,nowSeconds=Math.floor(Date.now()/1000)) {
+  if(!secret || secret.length<32 || !allowedDevice) throw new Error('SMS gateway is not configured.');
+  const timestamp=headers.get('x-timestamp'),signature=headers.get('x-signature');
+  if(!/^\d{10}$/.test(timestamp || '') || Math.abs(nowSeconds-Number(timestamp))>300 ||
+    !/^[0-9a-f]{64}$/i.test(signature || '')) throw new Error('Invalid or expired gateway signature.');
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['verify']);
+  const bytes=Uint8Array.from(signature.match(/../g),hex=>parseInt(hex,16));
+  if(!await crypto.subtle.verify('HMAC',key,bytes,new TextEncoder().encode(rawBody+timestamp))) throw new Error('Invalid or expired gateway signature.');
+  // Only after authentication do we trust the body's structure.
+  const body=JSON.parse(rawBody);
+  const messageId=body?.payload?.messageId,text=body?.payload?.message;
+  if(body?.event!=='sms:received' || body.deviceId!==allowedDevice || !/^[A-Za-z0-9_-]{1,64}$/.test(allowedDevice) ||
+    !/^[A-Za-z0-9_.:-]{1,128}$/.test(messageId || '') || typeof text!=='string') throw new Error('Unsupported gateway event.');
+  // Hash only stable fields so a webhook retry (new delivery id, same SMS) stays idempotent.
+  return {gateway:allowedDevice,messageId,text,hashInput:`${messageId}
+${text}`};
+}
