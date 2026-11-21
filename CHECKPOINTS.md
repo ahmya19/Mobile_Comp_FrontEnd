@@ -8,9 +8,11 @@ The free cloud backend is deployed and connected to the existing Kotlin frontend
 
 Code is shared in [draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) on backend/pinpoint-free. The draft is ready for team testing and review.
 
+Latest work assignment: Codex owns all backend implementation/fixes. Claude owns UI structuring to mirror the provided UI/UX and whole-app testing, including the backend. Authoritative ownership is in HANDOFF.md; Claude's work package is CLAUDE_HANDOFF.md.
+
 **Budget boundary: Supabase Free and free Firebase FCM only. No Blaze or billing account.** The user approved this provider change and authorized the mobile features as well as backend work. The original Firebase baseline is saved in commit 70d84e9; it is no longer the active architecture.
 
-Statuses: **Done** = stated setup/implementation condition verified; **Prototype verified** = functional checks passed, with acceptance measurements still separate; **Partial** = listed work remains; **External** = needs a real device, gateway or participant.
+Statuses: **Done** = stated setup/implementation condition verified; **Prototype verified** = functional checks passed, with acceptance measurements still separate; **Partial** = listed work remains; **External** = needs a real device, gateway or participant; **Assigned** = owner/scope agreed, implementation or acceptance pending.
 
 ## Per-task checkpoints
 
@@ -42,11 +44,13 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-24 | Automated baseline | Done | 17 backend tests, 10 JVM tests, Edge checks and Android builds pass; lint 0 errors, 33 warnings. New emulator notification/map checks pass 2/2 using local fixtures. Earlier Auth and full-workflow evidence remains in backend/VERIFICATION.md. |
 | CP-25 | Proposal acceptance measurements | Partial / External | Ten offline recovery samples recorded. New runs 4–7 recovered over Wi-Fi; 7 has a transport deviation. Run 8 recovered after reopening with invalid timing. Foreground cellular runs 9–10: 12.579 / 12.333 s from availability (4.387 / 11.171 s from validation). No automatic-latency pass or pooled average is claimed. Background diagnosis, five handoffs, outdoor GPS, push timing and SUS remain. |
 | CP-26 | Review and GitHub delivery | Done | Changes reviewed, secret/whitespace checks passed, committed and pushed to backend/pinpoint-free. Draft PR #1 is open for the group: https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1. |
-| CP-27 | Team handoff | Partial | Free setup/architecture guide, checkpoint tracker, verification matrix and debug APK delivered. The group still needs to build/rehearse on its own phones and accept the handoff. |
+| CP-27 | Team handoff | Partial | Setup/evidence/APK delivered; ownership and Claude's UI/whole-app test package documented. Design comparison, complete regression evidence and team acceptance remain pending. |
+| CP-28 | Mirror supplied UI/UX | Assigned to Claude | Inventory the supplied reference and existing screens, restructure Compose UI/navigation and compare screenshots for every screen/state. Reference location must be established; visual parity is not yet verified. |
+| CP-29 | Whole-app regression including backend | Assigned to Claude | Execute the complete matrix in CLAUDE_HANDOFF.md, including API/security and full citizen/official flows. Record Pass/Fail/Blocked with evidence and backend defects for Codex. Historical prototype checks do not close this checkpoint. |
 
 ## Implementation ownership
 
-The user authorized this batch's backend and mobile implementation. Coordinate further changes through the branch/PR rather than starting a second queue, Auth layer or database. The group still supplies the selected SMS gateway, approved barangay names/centroids, urgency thresholds, real phones and evaluation participants.
+Follow the current ownership table in HANDOFF.md: Codex implements/fixes the backend; Claude structures the UI to match the supplied reference and validates the whole app, including backend behavior. Reuse the existing Auth, queue and data contracts, and coordinate shared-file changes through the branch/PR. The group supplies design references, gateway/hardware, approved barangays/thresholds and evaluation participants.
 
 The attached proposal is a requirements source, not permission to spend money or alter accounts. The user's later zero-budget and Supabase decisions override its Firebase stack choice.
 
@@ -86,5 +90,6 @@ Do not enable a paid plan to close any checkpoint. Ask about genuinely missing i
 | 2026-11-21 | CP-23 | Simulated hosted SMS test passed (8 cases); temporary secrets and test report removed. Real carrier test deferred until a spare gateway phone is available. |
 | 2026-11-21 | CP-14, CP-20, CP-24 | Resumed from 3b66064; baseline passed. Fixed disappearing notifications during page refresh and failed-read rollback. Six new JVM and two emulator UI checks pass; native map long-press updates the form. No hosted data, secrets, deployments or phone settings changed. |
 | 2026-11-22 | CP-18, CP-25 | Recorded the approved seven additional phone trials from November 21: all reports/photos recovered once, one wrong-transport deviation and one invalid background observation retained. Added a guarded/redacting runner, private evidence files and a tested host deadline. Main app build unchanged; no billing/schema/secret/deployment changes. |
+| 2026-11-22 | CP-27 through CP-29 | User assigned backend implementation/fixes to Codex and UI/UX mirroring plus whole-app/backend testing to Claude. Added the actionable Claude handoff and pending acceptance checkpoints; no new implementation/test pass is claimed. |
 
 Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).

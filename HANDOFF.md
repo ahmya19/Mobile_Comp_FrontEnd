@@ -1,8 +1,18 @@
 # PinPoint team handoff
 
-One-page start for teammates. Details: [backend/README.md](backend/README.md). Task status: [CHECKPOINTS.md](CHECKPOINTS.md). Evidence: [backend/VERIFICATION.md](backend/VERIFICATION.md).
+Start here for ownership and current project state. Details: [backend/README.md](backend/README.md). Task status: [CHECKPOINTS.md](CHECKPOINTS.md). Evidence: [backend/VERIFICATION.md](backend/VERIFICATION.md).
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
+
+## Current ownership — user assignment, November 22
+
+| Owner | Responsibility |
+| --- | --- |
+| User with Codex | All backend implementation and fixes: Auth, PostgreSQL/schema/RLS/RPCs, private Storage, Edge Functions, FCM server delivery, SMS adapter, security and integration contracts. Preserve the existing session, queue and upload behavior when coordinating mobile changes. |
+| Claude | Restructure the Kotlin/Compose UI and navigation to mirror the user's provided UI/UX; connect every screen to the existing backend integration; test the whole application, including backend behavior and security. This includes finding and documenting backend failures even where Claude did not change backend code. |
+| User/group | Supply the authoritative UI/UX references, approved barangays/thresholds, account/device access and evaluation participants; approve hosted-data/deployment/secret changes and phone operations. |
+
+Before UI restructuring or whole-app verification, Claude must read [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md). That work package defines design matching, the complete functional/backend test matrix and the evidence required for completion. Backend defects go to Codex with a reproducible case and exact redacted error; coordinate changes to shared data/ViewModel files through the branch/PR.
 
 ## What exists
 
@@ -37,9 +47,11 @@ Two confirmed demo accounts (citizen and official) exist. Their passwords are no
 | Vote thresholds | Confirm 3 for Medium and 10 for High, or change them |
 | Measurements (CP-25) | Real phones, outdoor GPS, mobile data and a user study (SUS 70 or higher) |
 | PR review | Review and merge [draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) |
+| UI/UX and whole-app acceptance | Claude must mirror the supplied design and verify every user flow against the backend; use CLAUDE_HANDOFF.md and retain failed/blocked cases |
 
 ## Rules that keep this safe
 
 - Secrets (service-role key, FCM private key, SMS gateway secret, account passwords) live only in Supabase Edge secrets or private files, never in the app or Git.
 - Authorization is enforced in PostgreSQL functions and policies; a hidden button is not security.
 - Do not describe unmeasured acceptance targets as met.
+- Whole-app acceptance requires UI evidence and backend/integration evidence. A successful build or a visually matching screen alone does not close the handoff.
