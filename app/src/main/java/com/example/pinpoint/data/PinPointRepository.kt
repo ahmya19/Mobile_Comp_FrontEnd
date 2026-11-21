@@ -80,12 +80,6 @@ class PinPointRepository(private val backend: SupabaseBackend) {
             ReportNotification(it.string("id").orEmpty(),it.string("report_id").orEmpty(),it.string("message").orEmpty(),it["read"].asBoolean,it.string("created_at").orEmpty())
         }, if (rows.size()>limit) selected.lastOrNull()?.let { ReportCursor(it.string("created_at").orEmpty(),it.string("id").orEmpty()) } else null)
     }
-    fun notifications(onError: (Throwable)->Unit = {}) = flow {
-        while (true) { emit(pageNotifications(null)); delay(10000) }
-    }.retryWhen { cause,_ ->
-        if(cause is CancellationException) throw cause
-        onError(cause);delay(10000);true
-    }
     fun newReportId(): String = UUID.randomUUID().toString()
     suspend fun submit(id: String,draft: ReportDraft,photo: ByteArray?,expectedOwner: String? = null): String {
         draft.validate()

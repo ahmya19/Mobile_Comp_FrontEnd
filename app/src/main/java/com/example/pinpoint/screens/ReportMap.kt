@@ -4,6 +4,9 @@ import android.os.Bundle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -115,5 +118,8 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
             }
         }
     }
-    AndroidView(factory={view},modifier=modifier)
+    AndroidView(factory={view},modifier=modifier.semantics {
+        contentDescription=if(onPick!=null) "Choose report location on map" else "Community report map"
+        stateDescription=if(ready!=null) "Map ready" else "Map loading"
+    })
 }

@@ -12,6 +12,9 @@ import java.util.UUID
 import java.io.File
 import androidx.work.WorkManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,9 +62,8 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
     private val deviceId: String
     private val queue = ReportQueue.get(application)
     private var remoteMine = emptyList<Report>()
-    private var latestNotices = emptyList<ReportNotification>()
-    private var olderNotices = emptyList<ReportNotification>()
-    private var noticeNext: ReportCursor? = null
+    private var notificationFeed: NotificationFeed? = null
+    private var notificationScope: CoroutineScope? = null
     private var queuedItems = emptyList<QueuedReport>()
     private var lastSubmissionId: String? = null
     private var mineFeed: ReportFeed? = null
@@ -74,7 +76,8 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
             listeners.clear()
             detailJob?.cancel()
             remoteMine = emptyList()
-            latestNotices = emptyList(); olderNotices = emptyList(); noticeNext = null
+            notificationFeed = null
+            notificationScope?.cancel(); notificationScope=null
             queuedItems = emptyList()
             mineFeed=null
             communityFeed=null
@@ -143,13 +146,16 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         listeners += viewModelScope.launch {
             while(observedUid==uid) { community.refresh();kotlinx.coroutines.delay(15000) }
         }
-        listeners += viewModelScope.launch {
-            repo.notifications(::handle)
-                .collect { page ->
-                    latestNotices = page.items
-                    if (olderNotices.isEmpty()) noticeNext = page.next
-                    publishNotices()
-                }
+        val notices=NotificationFeed({ repo.pageNotifications(it) },repo::markRead).also { notificationFeed=it }
+        notificationScope?.cancel()
+        val noticeScope=CoroutineScope(viewModelScope.coroutineContext + SupervisorJob(viewModelScope.coroutineContext[Job]))
+            .also { notificationScope=it }
+        noticeScope.launch {
+            notices.state.collect { feed -> mutableState.update { it.copy(notifications=feed.items,
+                notificationsHasMore=feed.next!=null,notificationsLoadingMore=feed.loadingMore,error=feed.error ?: it.error) } }
+        }
+        noticeScope.launch {
+            while(observedUid==uid) { notices.refresh();kotlinx.coroutines.delay(10000) }
         }
         registerPushToken()
     }
@@ -261,29 +267,14 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         mutableState.update { it.copy(message = "Report updated.") }
     }
 
-    private fun publishNotices() {
-        val merged = (latestNotices + olderNotices).distinctBy { it.id }.sortedWith(compareByDescending<ReportNotification> { it.createdAt }.thenByDescending { it.id })
-        mutableState.update { it.copy(notifications = merged, notificationsHasMore = noticeNext != null) }
-    }
     fun loadMoreNotifications() {
-        val cursor = noticeNext ?: return
-        val repo = repository ?: return
-        val uid = observedUid
-        if (state.value.notificationsLoadingMore) return
-        mutableState.update { it.copy(notificationsLoadingMore = true) }
-        viewModelScope.launch {
-            try {
-                val page = repo.pageNotifications(cursor)
-                if (observedUid == uid) { olderNotices = olderNotices + page.items; noticeNext = page.next; publishNotices() }
-            } catch (error: Exception) { handle(error) }
-            finally { mutableState.update { it.copy(notificationsLoadingMore = false) } }
-        }
+        val notices=notificationFeed ?: return
+        if(notices.state.value.loadingMore) return
+        notificationScope?.launch { notices.loadMore() }
     }
     fun markRead(id: String) {
-        latestNotices = latestNotices.map { if (it.id == id) it.copy(read = true) else it }
-        olderNotices = olderNotices.map { if (it.id == id) it.copy(read = true) else it }
-        publishNotices()
-        action { requireNotNull(repository).markRead(id) }
+        val notices=notificationFeed ?: return
+        notificationScope?.launch { notices.markRead(id) }
     }
     fun vote(id: String) = action {
         val repo=requireNotNull(repository)
