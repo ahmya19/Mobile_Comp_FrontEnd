@@ -94,7 +94,7 @@ For a new deployment, after migration and function deployment, put its API URL a
 
 ## Accounts and roles
 
-Two disposable prototype accounts exist, one citizen and one official assigned to Alangilan. Credentials are kept outside Git in this machine's private test fixtures; they are not included in handoff files. Production citizens use email/password registration and confirm their email. Public signup is subject to the provider's email limits; use a real, reachable address. These test accounts were created with dashboard auto-confirm, so they do not prove public confirmation email delivery.
+Two disposable prototype accounts exist, one citizen and one official assigned to Alangilan. Credentials are kept outside Git in this machine's private test fixtures; they are not included in handoff files. These accounts were created with dashboard auto-confirm, so they do not prove public confirmation email delivery. Supabase's default email service sends only to organization-team addresses and currently allows two emails per hour. Registration emails for other addresses need custom SMTP; that setup remains CP-08. Existing confirmed accounts work for the emulator rehearsal without it. See [Supabase SMTP requirements](https://supabase.com/docs/guides/auth/auth-smtp).
 
 Assign an official only through a trusted administrator using the authenticated user's UUID:
 
@@ -128,6 +128,8 @@ Parser and server tests do not prove carrier delivery. Hardware integration and 
 
 ## Verification and limitations
 
+For the sequential citizen/official UI rehearsal on one emulator, see [emulator testing](EMULATOR_TESTING.md). Physical-phone testing can remain deferred while this workflow runs.
+
 ~~~powershell
 cd backend
 npm ci
@@ -138,6 +140,8 @@ npm run check:edge
 Backend tests run the actual PostgreSQL migrations in PGlite with simulated Auth/Storage schemas. They test business constraints and access control; they do not replace testing the hosted PostgREST, Storage or Google services. Android checkpoint instrumentation is in BackendCheckpointTest.kt; its phases require explicit test credentials passed privately by the host, not committed passwords.
 
 The latest evidence, exact failed checks and next actions live in CHECKPOINTS.md and backend/VERIFICATION.md. Do not equate successful compilation with completion of device, SMS or user-study targets.
+
+For the citizen-form → official status UI → citizen notification workflow on one emulator, see [emulator rehearsal](EMULATOR_TESTING.md). The runner requires an explicit emulator serial and never targets a physical phone.
 
 Supabase advisories flag authenticated SECURITY DEFINER functions. These RPCs are intentional and use an empty search_path with explicit owner/role checks and restricted grants. Review every new RPC against these constraints. [Advisor reference](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
 

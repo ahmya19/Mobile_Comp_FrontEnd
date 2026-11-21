@@ -95,6 +95,26 @@ Record device/OS, build commit, connection type, sample count, timestamps, expec
 - Map marker APIs in the pinned SDK are deprecated but functional; a later SDK/annotation migration remains maintenance work.
 - Team build, review and acceptance of the shared branch/PR.
 
+## CP-16 emulator UI rehearsal, November 21
+
+The existing Pixel_8 Google Play emulator (API 37) was confirmed available for PinPoint. All actions targeted emulator-5554; physical-phone testing remained deferred.
+
+WorkflowRehearsalTest and the emulator-only PowerShell runner passed three consecutive phases using the existing Compose screens and live backend:
+
+| Phase | Result | Test runtime |
+| --- | --- | --- |
+| Citizen | UI login, form entry, selected JPEG result, durable submission, acknowledged report, displayed photo, no official controls | 16.65 s |
+| Official | UI logout/login, community report, assigned-barangay controls, Pending → Under Review and persisted history | 19.76 s |
+| Citizen review | UI logout/login, notification opens the correct report and persists its read flag | 8.87 s |
+
+Hosted verification of report a3695397-0d75-4e88-94e8-0aa81602c88b returned Water Interruption, Under Review, both photo paths present, one history row and one read notification. These runtimes cover complete test phases and are not submission-latency averages.
+
+The native photo-picker result is stubbed with a generated JPEG; Auth, queue workers, Storage uploads, report mutation and notification reads use the live services. Sequential role switching on one emulator does not test simultaneous two-phone push. Real gallery permissions, GPS accuracy, cellular switching and carrier SMS remain unverified.
+
+The initial harness used the full description to match a card whose title is capped at 80 characters, then lost its Compose hierarchy during the long wait. Matchers now use the displayed title, transient root absence is tolerated, and the runner uses short independent sessions. The corrected three-phase run and Android lint passed (0 errors, 33 warnings). No production application logic changed in this batch.
+
+One later repeat timed out waiting for Home after the official sign-in click; an isolated official retry passed without changing Auth or application code. The harness now replaces credential fields, closes the keyboard, waits for the enabled sign-in control and includes redacted UI diagnostics on failure. Two complete consecutive repeats then passed: citizen/official/review took 24.02/22.64/11.03 seconds and 18.73/21.67/11.54 seconds. These are functional repeat checks, not statistical acceptance results. Runner checks also verified literal Android-shell handling of special characters, rejection of a physical-device target, and rejection of malformed credential JSON without echoing its contents.
+
 ## Shared code
 
 [Draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) contains the backend and mobile integration on backend/pinpoint-free. GitHub confirms DreiwanabeTexh has write collaborator access. No merge was performed. Final review included business/ownership boundaries, current schema/function grants, queue identity, Wi-Fi binding, recipient checks, credentials, whitespace and the documented acceptance gaps.
