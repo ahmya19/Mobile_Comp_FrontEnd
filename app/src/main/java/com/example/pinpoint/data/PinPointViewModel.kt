@@ -30,6 +30,8 @@ data class PinPointState(
     val reports: List<Report> = emptyList(),
     val community: List<Report> = emptyList(),
     val notifications: List<ReportNotification> = emptyList(),
+    val notificationsHasMore: Boolean = false,
+    val notificationsLoadingMore: Boolean = false,
     val selectedReport: Report? = null,
     val detailLoading: Boolean = false,
     val detailError: String? = null,
@@ -57,6 +59,9 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
     private val deviceId: String
     private val queue = ReportQueue.get(application)
     private var remoteMine = emptyList<Report>()
+    private var latestNotices = emptyList<ReportNotification>()
+    private var olderNotices = emptyList<ReportNotification>()
+    private var noticeNext: ReportCursor? = null
     private var queuedItems = emptyList<QueuedReport>()
     private var lastSubmissionId: String? = null
     private var mineFeed: ReportFeed? = null
@@ -69,6 +74,7 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
             listeners.clear()
             detailJob?.cancel()
             remoteMine = emptyList()
+            latestNotices = emptyList(); olderNotices = emptyList(); noticeNext = null
             queuedItems = emptyList()
             mineFeed=null
             communityFeed=null
@@ -139,7 +145,11 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         }
         listeners += viewModelScope.launch {
             repo.notifications(::handle)
-                .collect { notices -> mutableState.update { it.copy(notifications = notices) } }
+                .collect { page ->
+                    latestNotices = page.items
+                    if (olderNotices.isEmpty()) noticeNext = page.next
+                    publishNotices()
+                }
         }
         registerPushToken()
     }
@@ -251,7 +261,30 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         mutableState.update { it.copy(message = "Report updated.") }
     }
 
-    fun markRead(id: String) = action { requireNotNull(repository).markRead(id) }
+    private fun publishNotices() {
+        val merged = (latestNotices + olderNotices).distinctBy { it.id }.sortedWith(compareByDescending<ReportNotification> { it.createdAt }.thenByDescending { it.id })
+        mutableState.update { it.copy(notifications = merged, notificationsHasMore = noticeNext != null) }
+    }
+    fun loadMoreNotifications() {
+        val cursor = noticeNext ?: return
+        val repo = repository ?: return
+        val uid = observedUid
+        if (state.value.notificationsLoadingMore) return
+        mutableState.update { it.copy(notificationsLoadingMore = true) }
+        viewModelScope.launch {
+            try {
+                val page = repo.pageNotifications(cursor)
+                if (observedUid == uid) { olderNotices = olderNotices + page.items; noticeNext = page.next; publishNotices() }
+            } catch (error: Exception) { handle(error) }
+            finally { mutableState.update { it.copy(notificationsLoadingMore = false) } }
+        }
+    }
+    fun markRead(id: String) {
+        latestNotices = latestNotices.map { if (it.id == id) it.copy(read = true) else it }
+        olderNotices = olderNotices.map { if (it.id == id) it.copy(read = true) else it }
+        publishNotices()
+        action { requireNotNull(repository).markRead(id) }
+    }
     fun vote(id: String) = action {
         val repo=requireNotNull(repository)
         repo.vote(id,!state.value.hasVoted)

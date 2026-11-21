@@ -43,6 +43,7 @@ data class ReportDraft(
 }
 
 val CATEGORIES = listOf("Road Damage", "Streetlight", "Flooding", "Garbage", "Water Interruption", "Other")
-data class ReportNotification(val id: String, val reportId: String, val message: String, val read: Boolean)
+data class ReportNotification(val id: String, val reportId: String, val message: String, val read: Boolean, val createdAt: String = "")
+data class NotificationPage(val items: List<ReportNotification>, val next: ReportCursor?)
 
 data class StatusChange(val status: String,val previousStatus: String,val createdAt: String)

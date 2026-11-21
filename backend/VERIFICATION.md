@@ -91,7 +91,7 @@ Record device/OS, build commit, connection type, sample count, timestamps, expec
 - Actual GPS accuracy, cellular handoffs, statistical acceptance targets and user study.
 - Select SMS gateway, configure its credentials and approved barangay centroids, then adapt the exact payload format.
 - Confirm the provisional 3/10 vote thresholds with the group.
-- The notification list currently displays the latest 100 items. Full older-notification pagination is not implemented.
+- Notification history now loads 50 at a time with a stable created_at/id cursor and a "Load older notifications" button. It builds, lints and passes JVM tests; a live check with the demo accounts is still pending.
 - Map marker APIs in the pinned SDK are deprecated but functional; a later SDK/annotation migration remains maintenance work.
 - Team build, review and acceptance of the shared branch/PR.
 

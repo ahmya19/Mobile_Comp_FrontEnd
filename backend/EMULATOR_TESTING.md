@@ -33,7 +33,7 @@ Run from the repository root, choosing the emulator serial explicitly:
   -Install
 ~~~
 
-The default full run uses three instrumentation sessions, retaining the saved report ID and authenticated session between steps. This keeps each UI test short and checks restoration across app restarts. Credentials are quoted for the Android shell; output and failure diagnostics redact demo emails and passwords. Malformed credential JSON produces a generic error without echoing its contents. The script never changes Wi-Fi/cellular settings, uninstalls an app, or targets a physical phone.
+The default full run uses three instrumentation sessions, retaining the saved report ID and authenticated session between steps. This keeps each UI test short and checks restoration across app restarts. Credentials are quoted for the Android shell; output and failure diagnostics redact demo emails and passwords. Malformed credential JSON produces a generic error without echoing its contents. The script never changes Wi-Fi/cellular settings or uninstalls an app. It targets emulators by default; a physical phone (`-DeviceSerial <adb serial>`) is accepted only with `-AllowPhysicalDevice`, and the device must be listed as connected by adb.
 
 ## What the rehearsal checks
 

@@ -67,13 +67,21 @@ class PinPointRepository(private val backend: SupabaseBackend) {
         if(cause is CancellationException) throw cause
         onError(cause);delay(10000);true
     }
-    fun notifications(onError: (Throwable)->Unit = {}) = flow {
-        while (true) {
-            emit(backend.json("rest/v1/notifications?select=*&order=created_at.desc,id.desc&limit=100").asJsonArray.map {
-                val row=it.asJsonObject
-                ReportNotification(row.string("id").orEmpty(),row.string("report_id").orEmpty(),row.string("message").orEmpty(),row["read"].asBoolean)
-            }); delay(10000)
+    suspend fun pageNotifications(cursor: ReportCursor?, limit: Int = 50): NotificationPage {
+        require(limit in 1..100)
+        val params = mutableListOf("select=*","order=created_at.desc,id.desc","limit=${limit+1}")
+        cursor?.let {
+            require(it.id.matches(Regex("[0-9a-fA-F-]{36}")) && it.createdAt.matches(Regex("[0-9T:.+Z-]+"))) { "Invalid notification cursor." }
+            params += "or=" + encode("(created_at.lt.${it.createdAt},and(created_at.eq.${it.createdAt},id.lt.${it.id}))")
         }
+        val rows = backend.json("rest/v1/notifications?${params.joinToString("&")}").asJsonArray
+        val selected = rows.take(limit).map { it.asJsonObject }
+        return NotificationPage(selected.map {
+            ReportNotification(it.string("id").orEmpty(),it.string("report_id").orEmpty(),it.string("message").orEmpty(),it["read"].asBoolean,it.string("created_at").orEmpty())
+        }, if (rows.size()>limit) selected.lastOrNull()?.let { ReportCursor(it.string("created_at").orEmpty(),it.string("id").orEmpty()) } else null)
+    }
+    fun notifications(onError: (Throwable)->Unit = {}) = flow {
+        while (true) { emit(pageNotifications(null)); delay(10000) }
     }.retryWhen { cause,_ ->
         if(cause is CancellationException) throw cause
         onError(cause);delay(10000);true

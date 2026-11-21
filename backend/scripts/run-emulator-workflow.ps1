@@ -1,8 +1,9 @@
 param(
-    [Parameter(Mandatory)][ValidatePattern('^emulator-[0-9]+$')][string]$EmulatorSerial,
+    [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9._:-]+$')][Alias('DeviceSerial')][string]$EmulatorSerial,
     [Parameter(Mandatory)][string]$CredentialFile,
     [ValidateSet('full','citizen','official','review')][string]$Phase='full',
-    [switch]$Install
+    [switch]$Install,
+    [switch]$AllowPhysicalDevice
 )
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'AndroidShell.ps1')
@@ -10,6 +11,11 @@ $taskSdk=if($env:ANDROID_HOME){$env:ANDROID_HOME}else{Join-Path $env:LOCALAPPDAT
 $taskAdb=Join-Path $taskSdk 'platform-tools\adb.exe'
 if(!(Test-Path -LiteralPath $taskAdb)){throw 'Set ANDROID_HOME to the Android SDK directory.'}
 $taskRepo=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+if($EmulatorSerial -notmatch '^emulator-[0-9]+$'){
+    if(!$AllowPhysicalDevice){throw 'Physical devices need -AllowPhysicalDevice. The run signs the test accounts in/out and stubs the photo picker.'}
+    $taskListed=(& $taskAdb devices) -join "`n"
+    if($taskListed -notmatch "(?m)^$([regex]::Escape($EmulatorSerial))\s+device\s*$"){throw "Device $EmulatorSerial is not connected and authorized."}
+}
 try {$taskCredentials=Get-Content -Raw -LiteralPath $CredentialFile | ConvertFrom-Json}
 catch {throw 'Could not read the private demo credential JSON. Check its path and syntax locally.'}
 foreach($taskRole in @('citizen','official')) {

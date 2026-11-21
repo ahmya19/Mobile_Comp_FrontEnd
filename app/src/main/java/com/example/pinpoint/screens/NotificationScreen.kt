@@ -26,6 +26,9 @@ import com.example.pinpoint.data.ReportNotification
 fun NotificationsScreen(
     onBackClick: () -> Unit,
     notifications: List<ReportNotification>,
+    hasMore: Boolean = false,
+    loadingMore: Boolean = false,
+    onLoadMore: () -> Unit = {},
     onNotificationClick: (ReportNotification) -> Unit
 ) {
 
@@ -73,6 +76,11 @@ fun NotificationsScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(18.dp)
                     )
+                }
+            }
+            if (hasMore) item {
+                androidx.compose.material3.OutlinedButton(onClick = onLoadMore, enabled = !loadingMore, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (loadingMore) "Loading…" else "Load older notifications")
                 }
             }
         }

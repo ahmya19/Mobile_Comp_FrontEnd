@@ -119,7 +119,7 @@ fun AppNavigation(model: PinPointViewModel = viewModel(),notificationReportId: S
                                 onHomeClick = { go("home") }, onReportsClick = { go("reports") }, onMapClick = { go("map") })
                         }
                         composable("notifications") {
-                            NotificationsScreen(notifications = state.notifications, onBackClick = { nav.popBackStack() },
+                            NotificationsScreen(notifications = state.notifications, hasMore = state.notificationsHasMore, loadingMore = state.notificationsLoadingMore, onLoadMore = model::loadMoreNotifications, onBackClick = { nav.popBackStack() },
                                 onNotificationClick = { notice -> model.markRead(notice.id); details(notice.reportId) })
                         }
                     }
