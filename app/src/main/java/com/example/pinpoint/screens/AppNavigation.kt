@@ -22,7 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.pinpoint.data.PinPointViewModel
 
 @Composable
-fun AppNavigation(model: PinPointViewModel = viewModel()) {
+fun AppNavigation(model: PinPointViewModel = viewModel(),notificationReportId: String?=null,onNotificationConsumed: ()->Unit={}) {
     val state by model.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -48,14 +48,17 @@ fun AppNavigation(model: PinPointViewModel = viewModel()) {
         Box(Modifier.weight(1f)) {
             when {
                 !state.configured -> Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Firebase setup required", style = MaterialTheme.typography.headlineMedium)
-                    Text("This app is ready for its Firebase project. Add the project's Android configuration and rebuild.")
+                    Text("Backend setup required", style = MaterialTheme.typography.headlineMedium)
+                    Text("Connect the team's Supabase Free project, then rebuild the app.")
                 }
                 state.user == null -> AuthScreen(state.busy, model::authenticate)
                 else -> key(state.user?.id) {
                     val nav = rememberNavController()
                     fun go(route: String) { nav.navigate(route) { launchSingleTop = true } }
                     fun details(id: String) { go("reportDetails/$id") }
+                    LaunchedEffect(notificationReportId) {
+                        notificationReportId?.let { details(it);onNotificationConsumed() }
+                    }
                     NavHost(navController = nav, startDestination = "home") {
                         composable("home") {
                             HomeScreen(onQuickReportClick = { model.startReport(); go("report") }, onReportsClick = { go("reports") },
@@ -75,16 +78,19 @@ fun AppNavigation(model: PinPointViewModel = viewModel()) {
                                 onSubmitClick = model::submit)
                         }
                         composable("reportSuccess") {
-                            ReportSuccessScreen(onViewReportsClick = { nav.navigate("reports") { popUpTo("home") } },
+                            ReportSuccessScreen(pending=state.submissionPending,onViewReportsClick = { nav.navigate("reports") { popUpTo("home") } },
                                 onHomeClick = { nav.navigate("home") { popUpTo("home") { inclusive = true } } })
                         }
                         composable("reports") {
                             MyReportsScreen(reports = state.reports, loading = state.loading,
+                                feed=state.mineFeed,onFilter={model.filterReports(true,it)},onLoadMore={model.loadMoreReports(true)},
+                                pendingUploads=state.pendingUploads,onRetryUploads=model::retryUploads,
                                 onReportClick = ::details, onHomeClick = { go("home") },
                                 onMapClick = { go("map") }, onProfileClick = { go("profile") })
                         }
                         composable("community") {
                             MyReportsScreen(reports = state.community, loading = state.loading,
+                                feed=state.communityFeed,onFilter={model.filterReports(false,it)},onLoadMore={model.loadMoreReports(false)},
                                 onReportClick = ::details, onHomeClick = { go("home") },
                                 onMapClick = { go("map") }, onProfileClick = { go("profile") }, communityFeed = true)
                         }
@@ -93,12 +99,16 @@ fun AppNavigation(model: PinPointViewModel = viewModel()) {
                             LaunchedEffect(id) { model.openReport(id) }
                             ReportDetailsScreen(onBackClick = { nav.popBackStack() }, report = state.selectedReport,
                                 loading = state.detailLoading, error = state.detailError, photo = state.photo,
-                                official = state.user?.official == true, busy = state.busy,
-                                onUpdateStatus = { status, priority -> model.updateStatus(id, status, priority) })
+                                official = state.user?.official == true && state.user?.barangay==state.selectedReport?.barangay, busy = state.busy,
+                                onUpdateStatus = { status, priority -> model.updateStatus(id, status, priority) },
+                                hasVoted=state.hasVoted,onVote={model.vote(id)},
+                                canReadOriginal=(state.user?.official==true && state.user?.barangay==state.selectedReport?.barangay) || state.selectedReport?.ownerId==state.user?.id,
+                                onShowOriginal=model::showOriginal,history=state.statusHistory)
                         }
                         composable("map") {
                             MapScreen(onHomeClick = { go("home") }, onReportsClick = { go("reports") },
-                                onProfileClick = { go("profile") })
+                                onProfileClick = { go("profile") },reports=state.community,onReportClick=::details,
+                                feed=state.communityFeed,onFilter={model.filterReports(false,it)},onLoadMore={model.loadMoreReports(false)})
                         }
                         composable("profile") {
                             ProfileScreen(user = requireNotNull(state.user), busy = state.busy,

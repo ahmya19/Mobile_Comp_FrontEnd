@@ -13,9 +13,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.pinpoint.data.ReportFeedState
+import com.example.pinpoint.data.ReportFilter
 import com.example.pinpoint.ui.theme.VioletTint
 import com.example.pinpoint.data.Report
 
@@ -27,7 +31,12 @@ fun MyReportsScreen(
     onHomeClick: () -> Unit,
     onMapClick: () -> Unit,
     onProfileClick: () -> Unit,
-    communityFeed: Boolean = false
+    communityFeed: Boolean = false,
+    feed: ReportFeedState,
+    onFilter: (ReportFilter)->Unit,
+    onLoadMore: ()->Unit,
+    pendingUploads: Int=0,
+    onRetryUploads: ()->Unit={}
 ) {
 
     Scaffold(
@@ -67,8 +76,14 @@ fun MyReportsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
-                if (loading) item { Text("Loading reports...") }
-                else if (reports.isEmpty()) item { Text(if (communityFeed) "No community reports yet." else "You have not submitted any reports yet.") }
+                item { ReportFilters(feed.filter,onFilter) }
+                if(pendingUploads>0) item {
+                    Text("$pendingUploads report(s) have uploads pending. Originals wait for unmetered Wi-Fi.")
+                    TextButton(onClick=onRetryUploads) { Text("Retry uploads") }
+                }
+                feed.error?.let { message -> item { Text(message,color=MaterialTheme.colorScheme.error) } }
+                if (feed.loading) item { Text("Loading reports...") }
+                else if (reports.isEmpty()) item { Text("No reports match these filters.") }
                 items(reports, key = { it.id }) { report ->
 
                     Card(
@@ -100,8 +115,12 @@ fun MyReportsScreen(
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
+                            report.originalUploadStatus?.let { Text("Original: $it",style=MaterialTheme.typography.labelSmall) }
                         }
                     }
+                }
+                if(feed.next!=null) item {
+                    OutlinedButton(onClick=onLoadMore,enabled=!feed.loading,modifier=Modifier.fillMaxWidth()) { Text("Load more reports") }
                 }
             }
         }

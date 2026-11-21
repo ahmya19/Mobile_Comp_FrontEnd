@@ -1,145 +1,131 @@
 package com.example.pinpoint.data
 
-import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.GeoPoint
-import com.google.firebase.firestore.Query
-import com.google.firebase.storage.StorageMetadata
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import java.net.URLEncoder
 import java.text.DateFormat
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.CancellationException
 
-class PinPointRepository(private val backend: FirebaseBackend) {
+/** All screen callers use this module; SQL policies remain the authority. */
+class PinPointRepository(private val backend: SupabaseBackend) {
     val auth get() = backend.auth
-
     suspend fun citizen(): Citizen? {
         val user = auth.currentUser ?: return null
-        val claims = user.getIdToken(false).await().claims
-        return Citizen(user.uid, user.email.orEmpty(), user.displayName.orEmpty(), claims["official"] == true)
+        val profile = rpc("my_profile").takeUnless { it.isJsonNull }?.asJsonObject
+        return Citizen(user.id,user.email,profile?.string("display_name") ?: user.displayName,profile?.get("official")?.asBoolean == true,profile?.string("barangay"))
     }
-
-    suspend fun signIn(email: String, password: String) {
-        auth.signInWithEmailAndPassword(email.trim(), password).await()
+    suspend fun signIn(email: String, password: String) = auth.signIn(email,password)
+    suspend fun register(name: String, email: String, password: String): Boolean {
+        val signedIn = auth.register(name,email,password)
+        if (signedIn) saveProfile(name)
+        return signedIn
     }
-
-    suspend fun register(name: String, email: String, password: String) {
-        require(name.trim().length in 2..80) { "Name must contain 2 to 80 characters." }
-        require(password.length >= 8) { "Use a password with at least 8 characters." }
-        val user = auth.createUserWithEmailAndPassword(email.trim(), password).await().user
-            ?: error("Registration did not return a user.")
-        // Auth is the source of display name; profile fields never contain roles.
-        user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name.trim()).build()).await()
-        saveProfile(name)
-    }
-
     suspend fun saveProfile(name: String) {
         require(name.trim().length in 2..80) { "Name must contain 2 to 80 characters." }
-        val user = auth.currentUser ?: error("Sign in first.")
-        user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name.trim()).build()).await()
-        backend.database.collection("users").document(user.uid).set(mapOf(
-            "displayName" to name.trim(), "updatedAt" to FieldValue.serverTimestamp()
-        )).await()
+        rpc("save_profile",mapOf("p_display_name" to name.trim()))
     }
-
-    fun reports(mine: Boolean) = callbackFlow {
-        val user = auth.currentUser ?: run { close(IllegalStateException("Sign in first.")); return@callbackFlow }
-        var query: Query = backend.database.collection("reports")
-        if (mine) query = query.whereEqualTo("ownerId", user.uid)
-        val registration = query.orderBy("createdAt", Query.Direction.DESCENDING).limit(100)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) close(error)
-                else trySend(snapshot?.documents.orEmpty().map { it.toReport() })
-            }
-        awaitClose { registration.remove() }
+    // Short polling avoids a persistent socket while preserving the existing
+    // screen contract. The durable queue is separate from these remote reads.
+    fun reports(mine: Boolean) = flow {
+        while (true) { emit(pageReports(ReportFilter(mine=mine),null,100).reports); delay(15000) }
     }
-
-    fun report(id: String) = callbackFlow {
-        val registration = backend.database.collection("reports").document(id).addSnapshotListener { doc, error ->
-            if (error != null) close(error)
-            else trySend(doc?.takeIf { it.exists() }?.toReport())
+    suspend fun pageReports(filter: ReportFilter, cursor: ReportCursor?, limit: Int = 25): ReportPage {
+        require(limit in 1..100)
+        val params = mutableListOf("select=*","order=created_at.desc,id.desc","limit=${limit+1}")
+        if (filter.mine) params += "owner_id=eq.${requireNotNull(auth.currentUser).id}"
+        listOf("barangay" to filter.barangay,"category" to filter.category,"status" to filter.status).forEach { (key,value) ->
+            if (!value.isNullOrBlank()) params += "$key=eq.${encode(value)}"
         }
-        awaitClose { registration.remove() }
+        filter.after?.let { params += "created_at=gte.${encode(it)}" }
+        filter.before?.let { params += "created_at=lte.${encode(it)}" }
+        cursor?.let {
+            require(it.id.matches(Regex("[0-9a-fA-F-]{36}")) && it.createdAt.matches(Regex("[0-9T:.+Z-]+"))) { "Invalid report cursor." }
+            params += "or=" + encode("(created_at.lt.${it.createdAt},and(created_at.eq.${it.createdAt},id.lt.${it.id}))")
+        }
+        val rows = backend.json("rest/v1/reports?${params.joinToString("&")}").asJsonArray
+        val selected = rows.take(limit).map { it.asJsonObject }
+        return ReportPage(selected.map { it.toReport() }, if (rows.size()>limit) selected.lastOrNull()?.let {
+            ReportCursor(it.string("created_at").orEmpty(),it.string("id").orEmpty())
+        } else null)
     }
-
-    fun notifications() = callbackFlow {
-        val uid = auth.currentUser?.uid ?: run { close(IllegalStateException("Sign in first.")); return@callbackFlow }
-        val registration = backend.database.collection("users").document(uid).collection("notifications")
-            .orderBy("createdAt", Query.Direction.DESCENDING).limit(100)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) close(error)
-                else trySend(snapshot?.documents.orEmpty().map { doc ->
-                    ReportNotification(doc.id, doc.getString("reportId").orEmpty(),
-                        doc.getString("message").orEmpty(), doc.getBoolean("read") == true)
-                })
-            }
-        awaitClose { registration.remove() }
+    fun report(id: String, onError: (Throwable)->Unit = {}) = flow {
+        require(UUID.fromString(id).toString()==id)
+        while (true) {
+            emit(backend.json("rest/v1/reports?id=eq.$id&select=*&limit=1").asJsonArray.firstOrNull()?.asJsonObject?.toReport())
+            delay(10000)
+        }
+    }.retryWhen { cause,_ ->
+        if(cause is CancellationException) throw cause
+        onError(cause);delay(10000);true
     }
-
-    // The caller keeps this ID across retries, so an uncertain network result
-    // cannot create a second report. Only a server acknowledgement means success.
-    fun newReportId(): String = backend.database.collection("reports").document().id
-
-    suspend fun submit(id: String, draft: ReportDraft, photo: ByteArray?): String {
+    fun notifications(onError: (Throwable)->Unit = {}) = flow {
+        while (true) {
+            emit(backend.json("rest/v1/notifications?select=*&order=created_at.desc,id.desc&limit=100").asJsonArray.map {
+                val row=it.asJsonObject
+                ReportNotification(row.string("id").orEmpty(),row.string("report_id").orEmpty(),row.string("message").orEmpty(),row["read"].asBoolean)
+            }); delay(10000)
+        }
+    }.retryWhen { cause,_ ->
+        if(cause is CancellationException) throw cause
+        onError(cause);delay(10000);true
+    }
+    fun newReportId(): String = UUID.randomUUID().toString()
+    suspend fun submit(id: String,draft: ReportDraft,photo: ByteArray?,expectedOwner: String? = null): String {
         draft.validate()
-        val uid = auth.currentUser?.uid ?: error("Sign in first.")
-        val ref = backend.database.collection("reports").document(id)
-        val existing = ref.get(com.google.firebase.firestore.Source.SERVER).await()
-        if (existing.exists()) {
-            check(existing.getString("ownerId") == uid) { "Report does not belong to this account." }
-            return id
+        val uid=auth.currentUser?.id ?: error("Sign in first.")
+        check(expectedOwner==null || uid==expectedOwner) { "The queued report belongs to another account." }
+        val photoPath=photo?.let { "$uid/$id/photo.jpg" }
+        if (photo!=null && photoPath!=null) {
+            require(photo.size<=256000) { "Photo must be at most 250 KB." }
+            try { backend.request("storage/v1/object/report-images/$photoPath","POST",photo,"image/jpeg",expectedUserId=uid) }
+            catch (error: BackendException) {
+                if (error.status !in listOf(400,409) || !backend.request("storage/v1/object/authenticated/report-images/$photoPath","GET",expectedUserId=uid).contentEquals(photo)) throw error
+            }
         }
-        val photoPath = photo?.let { "report-images/$uid/$id/photo.jpg" }
-        if (photo != null && photoPath != null) {
-            require(photo.size <= 256000) { "Photo must be at most 250 KB." }
-            backend.storage.reference.child(photoPath).putBytes(photo,
-                StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
-        }
-        // Do not delete the photo if acknowledgement fails: the write may already
-        // have committed. Retrying this ID checks the server before uploading.
-        ref.set(mapOf(
-            "ownerId" to uid, "category" to draft.category,
-            "description" to draft.description.trim(), "location" to draft.location.trim(),
-            "barangay" to draft.barangay.trim(), "status" to "Pending", "priority" to "Low",
-            "source" to "app", "photoPath" to photoPath,
-            "coordinates" to draft.latitude?.let { GeoPoint(it, requireNotNull(draft.longitude)) },
-            "createdAt" to FieldValue.serverTimestamp(), "updatedAt" to FieldValue.serverTimestamp()
-        )).await()
+        rpc("submit_report",mapOf("p_id" to id,"p_category" to draft.category,"p_description" to draft.description.trim(),
+            "p_location" to draft.location.trim(),"p_barangay" to draft.barangay.trim(),
+            "p_latitude" to draft.latitude,"p_longitude" to draft.longitude,"p_photo_path" to photoPath),uid)
         return id
     }
-
-    suspend fun photo(path: String): ByteArray = backend.storage.reference.child(path).getBytes(256000).await()
-
-    suspend fun updateStatus(id: String, status: String, priority: String) {
-        backend.functions.getHttpsCallable("updateReportStatus").call(mapOf(
-            "reportId" to id, "status" to status, "priority" to priority
-        )).await()
+    suspend fun photo(path: String): ByteArray = backend.request("storage/v1/object/authenticated/report-images/${path.split('/').joinToString("/"){encode(it)}}","GET")
+    suspend fun history(id: String): List<StatusChange> = backend.json("rest/v1/report_history?report_id=eq.${UUID.fromString(id)}&select=*&order=created_at.asc,id.asc").asJsonArray.map {
+        val row=it.asJsonObject
+        StatusChange(row.string("status").orEmpty(),row.string("previous_status").orEmpty(),row.string("created_at").orEmpty())
     }
-
-    suspend fun markRead(id: String) {
-        val uid = auth.currentUser?.uid ?: return
-        backend.database.document("users/$uid/notifications/$id").update("read", true).await()
+    suspend fun updateStatus(id: String,status: String,priority: String) {
+        rpc("update_report_status",mapOf("p_report_id" to id,"p_status" to status,"p_priority" to priority))
     }
-
-    suspend fun registerDevice(deviceId: String, token: String) {
-        val uid = auth.currentUser?.uid ?: return
-        backend.database.document("users/$uid/devices/$deviceId").set(mapOf(
-            "token" to token, "updatedAt" to FieldValue.serverTimestamp()
-        )).await()
+    suspend fun deliverPush(id: String,owner: String) { backend.json("functions/v1/deliver-push","POST",mapOf("report_id" to id),expectedUserId=owner) }
+    suspend fun pendingPushReports(): List<String> = rpc("pending_push_reports").asJsonArray.map { it.asString }
+    suspend fun vote(id: String,voted: Boolean) { rpc("vote_report",mapOf("p_report_id" to id,"p_voted" to voted)) }
+    suspend fun voted(id: String): Boolean = backend.json("rest/v1/report_votes?report_id=eq.$id&select=report_id&limit=1").asJsonArray.size()>0
+    suspend fun markRead(id: String) { rpc("mark_notification_read",mapOf("p_id" to id)) }
+    suspend fun registerDevice(deviceId: String,token: String,expectedOwner: String?=null) { rpc("register_device",mapOf("p_installation_id" to deviceId,"p_token" to token),expectedOwner) }
+    suspend fun removeDevice(deviceId: String) { rpc("remove_device",mapOf("p_installation_id" to deviceId)) }
+    private suspend fun rpc(name: String,body: Any = emptyMap<String,String>(),expectedUserId: String?=null): JsonElement = backend.json("rest/v1/rpc/$name","POST",body,expectedUserId=expectedUserId)
+    private fun JsonObject.toReport(): Report {
+        val date=string("created_at").orEmpty()
+        return Report(id=string("id").orEmpty(),ownerId=string("owner_id").orEmpty(),category=string("category").orEmpty(),
+            description=string("description").orEmpty(),location=string("location").orEmpty(),barangay=string("barangay").orEmpty(),
+            status=string("status") ?: "Pending",priority=string("priority") ?: "Low",createdAt=date,
+            photoPath=string("photo_path"),latitude=get("latitude")?.takeUnless{it.isJsonNull}?.asDouble,
+            longitude=get("longitude")?.takeUnless{it.isJsonNull}?.asDouble,voteCount=get("vote_count")?.asInt ?: 0,
+            originalPath=string("original_path"))
     }
-
-    suspend fun removeDevice(deviceId: String) {
-        val uid = auth.currentUser?.uid ?: return
-        backend.database.document("users/$uid/devices/$deviceId").delete().await()
-    }
-
-    private fun DocumentSnapshot.toReport(): Report {
-        val point = getGeoPoint("coordinates")
-        return Report(id, getString("ownerId").orEmpty(), getString("category").orEmpty(),
-            getString("description").orEmpty(), getString("location").orEmpty(), getString("barangay").orEmpty(),
-            getString("status") ?: "Pending", getString("priority") ?: "Low",
-            getTimestamp("createdAt")?.toDate()?.let { DateFormat.getDateTimeInstance().format(it) } ?: "Waiting for sync",
-            getString("photoPath"), point?.latitude, point?.longitude, metadata.hasPendingWrites())
-    }
+    private fun JsonObject.string(key: String): String? = get(key)?.takeUnless { it.isJsonNull }?.asString
+    private fun encode(value: String): String = URLEncoder.encode(value,"UTF-8").replace("+","%20")
 }
+
+data class ReportFilter(val mine: Boolean=false,val barangay: String?=null,val category: String?=null,
+    val status: String?=null,val after: String?=null,val before: String?=null)
+data class ReportCursor(val createdAt: String,val id: String)
+data class ReportPage(val reports: List<Report>,val next: ReportCursor?)

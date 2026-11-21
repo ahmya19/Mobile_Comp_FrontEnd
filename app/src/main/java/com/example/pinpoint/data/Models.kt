@@ -1,6 +1,6 @@
 package com.example.pinpoint.data
 
-data class Citizen(val id: String, val email: String, val displayName: String, val official: Boolean = false)
+data class Citizen(val id: String, val email: String, val displayName: String, val official: Boolean = false,val barangay: String?=null)
 
 data class Report(
     val id: String = "",
@@ -15,7 +15,10 @@ data class Report(
     val photoPath: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
-    val pendingSync: Boolean = false
+    val pendingSync: Boolean = false,
+    val voteCount: Int = 0,
+    val originalPath: String? = null,
+    val originalUploadStatus: String? = null
 ) {
     val title: String get() = description.lineSequence().firstOrNull().orEmpty().take(80)
 }
@@ -41,3 +44,5 @@ data class ReportDraft(
 
 val CATEGORIES = listOf("Road Damage", "Streetlight", "Flooding", "Garbage", "Water Interruption", "Other")
 data class ReportNotification(val id: String, val reportId: String, val message: String, val read: Boolean)
+
+data class StatusChange(val status: String,val previousStatus: String,val createdAt: String)

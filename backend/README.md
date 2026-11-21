@@ -1,214 +1,144 @@
-# PinPoint backend setup and integration
+# PinPoint backend and Android setup
 
-PinPoint uses Firebase Authentication, Cloud Firestore, Cloud Storage, Cloud Functions and Firebase Cloud Messaging. The existing Kotlin and Compose app stays in place. This first backend batch connects its screens to real repositories and adds the backend authorization rules.
+The active backend is **Supabase Free**: Auth, PostgreSQL, private Storage and Edge Functions. Firebase supplies **FCM only**. The user selected this approach because the project has no budget. Do not attach billing, enable Blaze, or deploy Firebase Storage/Functions. The earlier Firebase implementation remains in Git commit 70d84e9 for reference.
 
-For per-task progress, completion criteria and the next work batch, see [project checkpoints](../CHECKPOINTS.md).
+Progress and acceptance conditions: [CHECKPOINTS.md](../CHECKPOINTS.md). The existing Kotlin/Compose frontend is preserved.
 
-## Why this backend
+## How the app communicates
 
-| Approach | Advantages for this project | Tradeoffs |
-| --- | --- | --- |
-| Firebase with Firestore | Native Android SDKs, offline document cache, live listeners, authentication, resumable Storage SDK uploads and FCM; matches the project proposal | No SQL joins; queries need indexes; reads and storage have usage costs; Storage and deployed Functions require Blaze billing |
-| Supabase with PostgreSQL | SQL relationships, constraints, reporting queries, authentication and Storage; no local server required | Durable Android offline sync must be designed separately; mobile push requires an additional delivery service; changes the proposal's chosen stack |
-| Custom Kotlin Ktor or Node API with PostgreSQL | Full control over APIs, SQL schema, hosting and business logic | More deployment, authentication, upload, monitoring and synchronization work for the team |
-| Custom API with MySQL | Familiar relational database and broad hosting support | Still requires an API server and separate authentication, photo storage, offline sync and push delivery |
+~~~mermaid
+flowchart TD
+  Screen[Compose screens] --> VM[ViewModel and repository]
+  VM --> Queue[Private SQLite queue and photo files]
+  Queue --> Worker[WorkManager]
+  VM -->|HTTPS plus user JWT| Auth[Supabase Auth]
+  Worker -->|HTTPS plus user JWT| Storage[Private Storage buckets]
+  Worker -->|submit_report RPC| SQL[PostgreSQL functions and RLS]
+  VM -->|PostgREST queries and RPCs| SQL
+  SQL --> Outbox[Status history, notification and push outbox]
+  VM -->|Assigned official JWT| Edge[deliver-push Edge Function]
+  Edge --> Outbox
+  Edge -->|Restricted server credential| FCM[Firebase Cloud Messaging]
+  FCM --> Screen
+~~~
 
-Firebase is the best fit here because offline reporting, network switching and push delivery are part of the proposal, and the laptop should not need to run a database and application server during normal development. PostgreSQL would be the stronger choice if complex SQL reporting became the main requirement.
+A screen calls the ViewModel, which calls the repository. OkHttp sends HTTPS requests with a public project key and the signed-in user's short-lived access token. The app never receives a database password, service-role key or FCM private key. PostgreSQL functions validate business rules; row-level security controls reads and Storage access. Hiding a button is not authorization.
 
-## How the frontend communicates
+Submission first saves a stable UUID, account/project identity, immutable fields and private photo copies on the phone. The UI says "saved on this device" while pending. A worker uploads the compressed JPEG, then calls submit_report. Only a database acknowledgement marks it Synced. Retrying the same UUID and content creates no duplicate report.
 
-```text
-Compose screen -> PinPointViewModel -> PinPointRepository -> Firebase Android SDK
-                                                              |
-                              HTTPS + signed-in user's ID token
-                                                              |
-                  Authentication / Firestore Rules / Storage Rules
-                                      |               |
-                                report documents    photo bytes
-                                      |
-                             live snapshot listener
-                                      |
-                         repository -> state -> Compose screen
+Feeds use cursor pages of 25 ordered by created_at and id. They poll every 15 seconds; details and notifications poll every 10 seconds. Failed reads retry and keep loaded results. This is polling, not a Realtime socket. Home counts summarize loaded/filtered rows, not the entire database.
 
-Official's status change -> callable Cloud Function -> role + barangay check
-                           -> Firestore transaction:
-                              report + history + notification
-                           -> notification trigger -> FCM -> citizen's phone
-```
+## Projects and cost boundary
 
-The SDK is an HTTP client with Firebase-specific features. It handles authentication tokens and document synchronization. The phone does not connect using a database password. Rules validate each document request on the server. Functions perform privileged operations using the server-only Admin SDK.
+| Component | Project |
+| --- | --- |
+| Supabase project | PinPoint Citizen Group 2 |
+| Organization and plan | DreiwanabeTexh's Org, Free |
+| Project ref | jaysxjjdvaitgrbqjlhe |
+| Region | Singapore, ap-southeast-1 |
+| API URL | https://jaysxjjdvaitgrbqjlhe.supabase.co |
+| Firebase project, FCM only | pinpoint-citizen-group2-2026 |
+| Android package | com.example.pinpoint |
 
-Example: Submit Report validates the form, compresses the chosen photo, uploads it to Storage, then saves the report document to Firestore. The UI navigates to success only after the server acknowledges the document. A live listener updates My Reports without requiring a manual refresh. If a save acknowledgement is uncertain, retry uses the same report ID while that draft remains open.
+[Supabase dashboard](https://supabase.com/dashboard/project/jaysxjjdvaitgrbqjlhe) · [Firebase console](https://console.firebase.google.com/project/pinpoint-citizen-group2-2026/overview)
 
-## What has been implemented
+Free-plan quotas still apply. Supabase currently lists 500 MB database storage, 1 GB file storage, 5 GB egress and 500,000 Edge Function invocations; Free projects can pause after inactivity. Monitor the dashboard and resume a paused project before demonstrations. Originals consume the file quota faster than compressed reports. No billing account was attached by this work. See [Supabase pricing](https://supabase.com/pricing) and [Firebase pricing](https://firebase.google.com/pricing).
 
-- Email/password registration, sign-in, Firebase session restoration and sign-out.
-- Editable display name and private profile documents.
-- Report categories, description, text location, barangay and optional coordinate pair.
-- JPEG compression to at most 256,000 bytes; authenticated photo upload and retrieval without public download-token URLs.
-- Report submission, current user's latest 100 reports, community's latest 100 reports and report details by ID.
-- Home cards backed by the loaded report lists; these are recent-report summaries, not full-database analytics.
-- Notification history with read/unread state.
-- Server-assigned official custom claims; status controls in the same app.
-- Official status function with barangay authorization, transition validation, atomic history and notification records, and idempotent no-op retries.
-- FCM token registration and notification handling. Actual delivery still needs a configured cloud project and a physical device or Google Play emulator.
-- Firestore and Storage rules, report indexes, local emulator configuration, backend authorization tests and input validation tests.
-- Gradle wrapper scripts and JAR, which were missing from the uploaded repository.
+## Build the Android app
 
-## Cloud project created for this team
+Use JDK 17, the Android SDK with platform 36, and the included Gradle 8.13 wrapper. Android Studio is optional if the SDK is already installed.
 
-- Display name: PinPoint Citizen Group 2.
-- Project ID: `pinpoint-citizen-group2-2026`.
-- Android package: `com.example.pinpoint`.
-- Firestore: default Standard database in `asia-southeast1` (Singapore).
-- Functions region in code: `asia-southeast1`.
-- Android configuration: `app/google-services.json`, downloaded locally and ignored by Git.
-- Firestore rules and indexes have been deployed.
-- Authentication initialization, Storage bucket provisioning, deployed Functions and live push still need cloud setup. An API attempt to initialize Identity Platform returned `BILLING_NOT_ENABLED`; this does not mean that ordinary Firebase email/password authentication always requires a paid plan. Initialize Firebase Authentication through the console and enable Email/Password.
+1. In the project root, create the ignored local.properties file. Copy the project's publishable key from Supabase Settings → API Keys. The project URL and publishable key are client configuration; secret/service-role keys must never go here.
+2. Download this Android application's google-services.json from the existing Firebase project and place it in app/google-services.json. This identifies the FCM application; it is ignored by Git.
+3. Build and install on an emulator with Google Play Services or an Android device.
 
-Console: <https://console.firebase.google.com/project/pinpoint-citizen-group2-2026/overview>
+~~~properties
+sdk.dir=C:/Users/USER/AppData/Local/Android/Sdk
+SUPABASE_URL=https://jaysxjjdvaitgrbqjlhe.supabase.co
+SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+~~~
 
-## Tools and dependencies
+~~~powershell
+$env:JAVA_HOME='C:\Program Files\Java\jdk-17.0.17+10'
+$env:ANDROID_HOME='C:\Users\USER\AppData\Local\Android\Sdk'
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+~~~
 
-- IntelliJ IDEA and the existing Android SDK; Android Studio is not required to edit or run Gradle commands.
-- JDK 17 for the Android build. On this machine: `C:\Program Files\Java\jdk-17.0.17+10`.
-- Gradle 8.13 through the included wrapper.
-- Firebase Android BoM 34.7.0: Auth, Firestore, Storage, Functions and Messaging main modules, not discontinued KTX artifacts. This version was selected to work with the existing Kotlin 2.0.21 toolchain and was build-verified.
-- Kotlin coroutines Play Services 1.9.0 for suspending Firebase Tasks; Lifecycle Compose/ViewModel 2.8.7 for lifecycle-aware screen state.
-- Node.js 22 for deployed Cloud Functions; Firebase CLI for rules, indexes, emulators and deployment.
-- Java 21 or newer for the current Firebase emulators. This machine also has JDK 24, which was used for emulator tests.
-- Server packages: firebase-admin 14.5.1 and firebase-functions 7.4.0, with lockfiles.
-- Test packages: Firebase JS 13.4.0 and rules-unit-testing 6.0.0. A grpc-js override keeps the test dependencies on a patched version. Both package audits passed after installation.
+The APK is app/build/outputs/apk/debug/app-debug.apk. A missing Supabase configuration opens a setup screen. A release build requires both cloud configurations. Grant notification permission to test push. Request location only when using the GPS button; map pin selection works without GPS permission.
 
-## Initial setup and cloud activation
+Main dependencies: OkHttp 4.12, Gson 2.11, WorkManager 2.9.1, Lifecycle 2.8.7, coroutines Play Services 1.9, MapLibre Native 11.8, Play Services Location 21.3, and Firebase Messaging through BoM 34.7. Versions are pinned and build-verified with the existing Kotlin toolchain.
 
-Run commands from PowerShell in `C:\Users\USER\project\MobileConputing`.
+## Database and Edge Functions
 
-1. Open the Firebase console in the account used by the Firebase CLI. Initialize Authentication with Get started, then enable Email/Password under sign-in providers. Use test accounts for this prototype.
-2. For photos and deployed Functions, upgrade this project to Blaze yourself and choose budget alerts. This work has not attached a billing account or accepted a billing agreement for you.
-3. Create the default Storage bucket in the console. Prefer the same region as Firestore when available. Start with restricted access; deploy the supplied Storage rules.
-4. Download the Android configuration again after Storage setup if needed, keeping its name exactly `google-services.json` in `app/`. This config contains project identifiers, not an Admin SDK private key.
-5. Install the backend dependencies and deploy from the project directory:
+The deployed SQL is versioned under supabase/migrations. On a new project, apply these files in order through the Supabase migration workflow. Do not reapply creation migrations to an already provisioned database.
 
-```powershell
-npm ci --prefix backend/functions
-npm ci --prefix backend
-firebase deploy --only "firestore:rules,firestore:indexes,storage,functions" --project pinpoint-citizen-group2-2026
-```
+| File | Responsibility |
+| --- | --- |
+| 202611210001_pinpoint.sql | Profiles, reports, roles, votes, history, notices, devices, compressed photo policies |
+| 202611210002_delivery.sql | SMS ingestion and deduplication; leased push outbox |
+| 202611210003_indexes.sql | Foreign-key indexes |
+| 202611210004_originals.sql | Original photo bucket, private reads and owner attachment |
+| 202611210005_push_retries.sql | Assigned officials can find pending deliveries |
+| 202611210006_push_dispatch.sql | Hosted cron dispatcher, Vault configuration and provider retry backoff |
+| 202611210007_dispatch_acl.sql | Initial platform ACL attempt and dispatcher credential rotation |
+| 202611210008_dispatch_nonce.sql | Replaces reusable dispatch credentials with expiring one-use nonces |
+| 202611210009_push_recipient.sql | Binds data-only push payloads to their recipient account |
 
-6. Set IntelliJ's Gradle JVM to JDK 17. For terminal builds on this machine:
+Deploy sms-report and deliver-push from supabase/functions. Their gateway JWT switch is false because both functions authenticate requests in their own bodies: HMAC for SMS, Supabase user JWT plus assigned-official checks for push. Never remove those checks.
 
-```powershell
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-17.0.17+10'
-$env:ANDROID_HOME = 'C:\Users\USER\AppData\Local\Android\Sdk'
-.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest
-```
+FCM_SERVICE_ACCOUNT is configured only in Supabase Edge secrets. Its Google service account has a custom role containing only cloudmessaging.messages.create. The provisioning key file was removed after upload. Never copy it into the APK, local.properties or Git. Device-token registration is retried with connected WorkManager jobs. Data-only push includes the intended user ID; the app checks the current account before posting a notification, preventing a delayed message for a previous account from appearing after logout/switching.
 
-The APK is generated in `app\build\outputs\apk\debug\app-debug.apk`. Install it on the team's Android device using IntelliJ or `adb install -r` with that APK path. No phone was connected during this batch, so on-device behavior and live FCM delivery have not been verified.
+Official status changes atomically commit the report, history, notification and outbox. A WorkManager job calls deliver-push and retries failures. A hosted database cron job also checks due outbox items every ten seconds, calling Edge only when needed. It uses random one-use nonces, valid for 60 seconds, whose hashes stay in a private RLS-enabled table. The server validates and consumes each nonce. There is no reusable job secret in request headers. Provider failures back off and expired leases can be reclaimed. One week of this project's routine cron logs is retained to bound database use. Provider acceptance does not by itself prove phone receipt; both cloud acceptance and Android receipt/tap were tested separately.
 
-7. Register a citizen account in the app, create a report without a photo first, confirm it in Firestore and My Reports, then test a photo report after the Storage rules are deployed.
+For a new deployment, after migration and function deployment, put its API URL and publishable key in Supabase Vault as pinpoint_project_url and pinpoint_publishable_key. These are client configuration values, not server credentials. The existing project is configured. The cron mechanism follows the provider's [scheduled function workflow](https://supabase.com/docs/guides/functions/schedule-functions). Never expose the private, net or vault schemas through PostgREST. Hosted extension grants could not be narrowed by the project postgres role; one-use nonces keep reusable secrets out of pg_net's platform-managed queue.
 
-8. To grant a test official role, use trusted backend Application Default Credentials outside the Android app. The helper accepts an explicit project, UID and barangay:
+## Accounts and roles
 
-```powershell
-npm --prefix backend/functions run grant-official -- pinpoint-citizen-group2-2026 USER_UID "Alangilan"
-```
+Two disposable prototype accounts exist, one citizen and one official assigned to Alangilan. Credentials are kept outside Git in this machine's private test fixtures; they are not included in handoff files. Production citizens use email/password registration and confirm their email. Public signup is subject to the provider's email limits; use a real, reachable address. These test accounts were created with dashboard auto-confirm, so they do not prove public confirmation email delivery.
 
-The helper uses `applicationDefault()` and does not read Firebase CLI login tokens. Configure ADC with your trusted Google Cloud credentials before running it. Never put service account keys in `app/`, source control, or an APK. The official must sign out and sign in again after a claim change. The claim's barangay must exactly match the report's barangay.
+Assign an official only through a trusted administrator using the authenticated user's UUID:
 
-If the Google Cloud CLI is installed, `gcloud auth application-default login` opens the account sign-in you complete yourself. Use a project owner account for this prototype. Firebase CLI login and Application Default Credentials are separate logins.
+~~~sql
+insert into private.officials(user_id, barangay)
+values ('REPLACE_WITH_AUTH_USER_UUID', 'Approved barangay')
+on conflict(user_id) do update set barangay=excluded.barangay;
+~~~
 
-## Local emulator workflow without billing
+The client cannot write this table or grant roles through profile metadata. Status transitions and barangay assignment are enforced in SQL. Voting uses one row per report/account. Current provisional urgency thresholds are 3 votes for Medium and 10 for High; voting cannot reduce an official assessment. Confirm these thresholds with the group before evaluation.
 
-Backend tests use the isolated `demo-pinpoint` project and do not create cloud reports or real user accounts.
+## Photos, offline reports and maps
 
-```powershell
-npm ci --prefix backend/functions
-npm ci --prefix backend
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-24'
-$env:Path = "$env:JAVA_HOME\bin;$env:Path"
-$env:FUNCTIONS_DISCOVERY_TIMEOUT = '60'
-firebase emulators:exec --project demo-pinpoint --only "auth,firestore,storage,functions" "npm --prefix backend test"
-```
+Compressed JPEGs are capped at 256,000 bytes on every connection. An optional original, at most 10 MiB and JPEG/PNG/WebP, is saved privately and transferred only on **unmetered Wi-Fi**. DNS and sockets bind to that Wi-Fi network so a handoff cannot silently move original bytes to cellular. TUS upload URLs persist in SQLite; HEAD retrieves the server's offset after a restart. Chunks are 6 MiB. Local files are deleted only after cloud acknowledgement. "Retry uploads" retries failed queue entries.
 
-For interactive Android testing, start the same emulators with `emulators:start` instead of `emulators:exec`, then build an emulator APK in another terminal:
+Originals can be read by the report owner and its assigned officials. Community users see the compressed report image. "View original over Wi-Fi" also uses the Wi-Fi-only transport. Neither bucket is public; published evidence cannot be overwritten by the app.
 
-```powershell
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-17.0.17+10'
-$env:ANDROID_HOME = 'C:\Users\USER\AppData\Local\Android\Sdk'
-.\gradlew.bat :app:assembleDebug -PfirebaseEmulators=true
-```
+MapLibre renders visible OpenStreetMap raster tiles with attribution, an identifying User-Agent and caching. No bulk/offline tile download is implemented. Follow the [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/) for demonstrations and any later release. Coordinate validation is server-side. Actual 20 m GPS accuracy requires an outdoor phone test.
 
-The Android emulator uses `10.0.2.2` to reach the computer. For a physical phone, use `adb reverse` for ports 9099, 8080, 9199 and 5001, then build with `-PfirebaseEmulatorHost=127.0.0.1`. Emulator mode uses a separately named Firebase app with the demo project, even when the real `google-services.json` is present. Emulators are forbidden in release builds. FCM push is skipped in emulator mode; notification history still works.
+More detail: [offline synchronization contract](contracts/offline-sync.md), [resumable upload protocol](https://supabase.com/docs/guides/storage/uploads/resumable-uploads), [MapLibre HTTP configuration](https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.module.http/-http-request-util/index.html).
 
-To use USB port forwarding on a physical Android phone with USB debugging already enabled:
+## SMS gateway contract
 
-```powershell
-adb reverse tcp:9099 tcp:9099
-adb reverse tcp:8080 tcp:8080
-adb reverse tcp:9199 tcp:9199
-adb reverse tcp:5001 tcp:5001
-```
+No gateway app, phone/SIM or paid provider has been selected. sms-report is deployed but fails closed until SMS_GATEWAY_ID and SMS_GATEWAY_SECRET are configured. The secret must be at least 32 characters and stay only on the gateway and server. Configure approved names/centroids in private.barangays before accepting SMS; it is intentionally empty rather than filled with invented official locations.
 
-## Database collections and access
+Body: {"text":"PIN ROAD;Alangilan;Large pothole near school gate."}
 
-| Path | Main fields | Who can access |
-| --- | --- | --- |
-| `users/{uid}` | displayName, updatedAt | Only that account; role fields are rejected |
-| `users/{uid}/devices/{installationId}` | token, updatedAt | Only that account; backend uses tokens for FCM |
-| `users/{uid}/notifications/{eventId}` | reportId, title, message, read, createdAt | Owner reads and marks read; backend creates |
-| `reports/{reportId}` | ownerId, category, description, location, barangay, coordinates, photoPath, status, priority, source, createdAt, updatedAt | Signed-in prototype accounts can read; citizen creates own report with Pending/Low defaults; direct updates are denied |
-| `reports/{reportId}/history/{version}` | previousStatus, status, priority, changedBy, createdAt | Signed-in accounts read; backend writes |
-| Storage `report-images/{uid}/{reportId}/photo.jpg` | JPEG bytes | Owner uploads before report creation; authenticated users read published report evidence; published evidence cannot be overwritten |
+Category codes: ROAD, LIGHT, FLOOD, GARBAGE, WATER, OTHER. Messages must fit one GSM-7 SMS of at most 160 septets; extension characters count twice. The gateway sends POST with x-gateway-id, x-message-id, x-timestamp (Unix seconds), and x-signature (64-character hex HMAC-SHA256). Sign the exact bytes described by supabase/functions/_shared/sms.mjs; do not reserialize between signing and sending. Timestamp tolerance is five minutes, message IDs are unique per gateway, and different content under an existing ID is rejected.
 
-No report document contains an email, phone number, password or role. Coordinates are a Firestore GeoPoint when supplied, otherwise null. Do not use real residents' personal data during prototype testing. A Firebase client API key identifies the project; Rules and user tokens enforce access. Admin credentials stay on the backend.
+Parser and server tests do not prove carrier delivery. Hardware integration and the 90% / two-minute proposal target remain pending.
 
-Status path: Pending -> Under Review -> In Progress -> Resolved. Rejection and reopening are supported through allowed transitions in `backend/functions/src/index.js`. Citizens cannot set status or priority, including by bypassing the screen and calling Firebase directly.
+## Verification and limitations
 
-## Responsibilities and remaining batches
+~~~powershell
+cd backend
+npm ci
+npm test
+npm run check:edge
+~~~
 
-| Backend and integration owner | Mobile frontend owner | Shared testing and documentation |
-| --- | --- | --- |
-| Rules, indexes, document contracts, official claims, server functions, notification pipeline, SMS validation and gateway endpoint | UI layout, map SDK and pin picker, GPS permissions, durable local report/photo queue, network-aware upload scheduling | Connect UI actions to repositories; confirm barangay names and categories; run acceptance tests; record proposal metrics |
+Backend tests run the actual PostgreSQL migrations in PGlite with simulated Auth/Storage schemas. They test business constraints and access control; they do not replace testing the hosted PostgREST, Storage or Google services. Android checkpoint instrumentation is in BackendCheckpointTest.kt; its phases require explicit test credentials passed privately by the host, not committed passwords.
 
-The minimal UI bindings in this batch make the backend reviewable. Coordinate further map and offline queue changes with the mobile developer before duplicating that work.
+The latest evidence, exact failed checks and next actions live in CHECKPOINTS.md and backend/VERIFICATION.md. Do not equate successful compilation with completion of device, SMS or user-study targets.
 
-Still to implement: a durable offline report/photo queue, process-death recovery, persisted upload session URIs, Wi-Fi versus cellular photo variants, automatic GPS/map pin selection, map filters, community voting and vote-derived urgency, SMS gateway/parser with authenticated and replay-protected ingress, and complete report pagination. The current photo path uses bounded compressed uploads on every connection, not full-resolution Wi-Fi variants. The Storage SDK may resume an active task, but this batch does not claim the proposal's cross-network or process-restart resume target.
+Supabase advisories flag authenticated SECURITY DEFINER functions. These RPCs are intentional and use an empty search_path with explicit owner/role checks and restricted grants. Review every new RPC against these constraints. [Advisor reference](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
 
-Firestore caches documents on Android by default. That helps cached reads and document synchronization; it does not provide a complete offline queue for this app's multi-step photo submission. New report submission currently verifies server availability before uploading and does not show offline submissions as completed.
-
-Next integration batch after cloud activation: run the citizen/official/photo/notification flow on two test accounts, then agree the durable queue contract with the mobile developer before implementing offline sync and SMS.
-
-## Troubleshooting with exact errors
-
-Keep the full exception class, error message, screen/action and whether you used cloud or emulators. The app surfaces the received exception message rather than replacing it with a generic success message. Never paste passwords, service account JSON, ID tokens or FCM registration tokens.
-
-- `CONFIGURATION_NOT_FOUND` or `OPERATION_NOT_ALLOWED`: initialize Firebase Authentication and enable Email/Password for this project.
-- `BILLING_NOT_ENABLED`: the attempted cloud service or initialization path requires billing. Complete the console setup or use local emulators; do not weaken Rules to work around it.
-- `PERMISSION_DENIED`: confirm sign-in, deployed Rules, ownership, required fields and official claims. Do not switch the database to test mode.
-- `FAILED_PRECONDITION` with an index link: deploy the checked-in Firestore indexes and wait until the index is ready.
-- `FirebaseFunctionsException: NOT_FOUND`: deploy `updateReportStatus` in `asia-southeast1` and confirm the app points at the same project.
-- A callable error about another barangay: check the official's server-assigned barangay and the report's barangay spelling.
-- A Storage bucket-not-found error: create the bucket, refresh the Android config if necessary and deploy Storage rules.
-- Missing Java/SDK build errors: use JDK 17 for Android and configure the Android SDK path; JDK 24 is used separately for the emulators here.
-
-## Verification completed in this batch
-
-- Android cloud-mode and emulator-mode debug APKs build successfully.
-- All 4 Android JVM tests pass, including 3 report validation tests.
-- Android lint completes with no errors; version-update, unused-resource and existing icon warnings remain.
-- All 10 backend tests pass against Auth, Firestore, Storage and Functions emulators. Expected permission-denied messages in the test log are assertions that the rules reject malicious requests.
-- Both npm package audits report zero known vulnerabilities with the checked-in lockfiles.
-- Firestore rules and indexes deployed successfully to the new cloud project.
-- Live sign-in, photo submission and FCM delivery on a phone remain unverified; no Android device was connected, and cloud authentication/Storage/Functions setup is incomplete.
-
-## Primary documentation
-
-- [Firebase Android setup and current main-module guidance](https://firebase.google.com/docs/android/setup)
-- [Firestore offline behavior](https://firebase.google.com/docs/firestore/manage-data/enable-offline)
-- [Storage Android setup and Blaze requirement](https://firebase.google.com/docs/storage/android/start)
-- [Android upload tasks and resumable uploads](https://firebase.google.com/docs/storage/android/upload-files)
-- [Custom claims and trusted role assignment](https://firebase.google.com/docs/auth/admin/custom-claims)
-- [Cloud Functions runtimes](https://firebase.google.com/docs/functions/manage-functions)
-- [Security Rules emulator tests](https://firebase.google.com/docs/rules/unit-tests)
-- [Supabase Kotlin alternative](https://supabase.com/docs/guides/getting-started/quickstarts/kotlin)
+The table inventory also warns that four private-schema tables have RLS disabled. Live has_schema_privilege and has_table_privilege checks confirmed anon and authenticated cannot use the private schema or read officials; API probes rejected the private, net and vault schemas. SQL tests deny direct access. All exposed public tables have RLS. The advisor also flags disabled leaked-password protection, which requires Pro or above and remains outside this Free project's budget. See [password security](https://supabase.com/docs/guides/auth/password-security). Review these boundaries before changing schema exposure or grants.

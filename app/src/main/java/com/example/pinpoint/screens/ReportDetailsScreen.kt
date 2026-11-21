@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
 import com.example.pinpoint.ui.theme.VioletTint
 import com.example.pinpoint.data.Report
+import com.example.pinpoint.data.StatusChange
 
 @Composable
 fun ReportDetailsScreen(
@@ -36,7 +37,12 @@ fun ReportDetailsScreen(
     photo: ImageBitmap?,
     official: Boolean,
     busy: Boolean,
-    onUpdateStatus: (String, String) -> Unit
+    onUpdateStatus: (String, String) -> Unit,
+    hasVoted: Boolean,
+    onVote: ()->Unit,
+    canReadOriginal: Boolean,
+    onShowOriginal: (String)->Unit,
+    history: List<StatusChange>
 ) {
 
     Column(
@@ -100,9 +106,21 @@ fun ReportDetailsScreen(
                 Text(
                     text = "Description: ${report.description}"
                 )
+                if(history.isNotEmpty()) {
+                    Text("Status history",style=MaterialTheme.typography.titleSmall)
+                    history.forEach { change -> Text("${change.createdAt}: ${change.previousStatus} → ${change.status}") }
+                }
                 report.latitude?.let { Text("Coordinates: $it, ${report.longitude}") }
+                Text("Community votes: ${report.voteCount}")
+                if(!report.pendingSync && report.status !in listOf("Resolved","Rejected")) {
+                    OutlinedButton(onClick=onVote,enabled=!busy) { Text(if(hasVoted) "Remove my urgency vote" else "Vote for urgency") }
+                }
                 if (photo != null) Image(photo, "Report photo", modifier = Modifier.fillMaxWidth())
-                if (official) {
+                report.originalUploadStatus?.let { Text("Original: $it") }
+                report.originalPath?.takeIf { canReadOriginal }?.let { path ->
+                    OutlinedButton(onClick={onShowOriginal(path)},enabled=!busy) { Text("View original over Wi-Fi") }
+                }
+                if (official && !report.pendingSync) {
                     var status by remember(report.id, report.status) { mutableStateOf(report.status) }
                     var priority by remember(report.id, report.priority) { mutableStateOf(report.priority) }
                     Text("Official controls", style = MaterialTheme.typography.titleMedium)

@@ -18,12 +18,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.pinpoint.ui.theme.VioletTint
+import com.example.pinpoint.data.Report
+import com.example.pinpoint.data.ReportFeedState
+import com.example.pinpoint.data.ReportFilter
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedButton
 
 @Composable
 fun MapScreen(
     onHomeClick: () -> Unit,
     onReportsClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    reports: List<Report>,
+    onReportClick: (String)->Unit,
+    feed: ReportFeedState,
+    onFilter: (ReportFilter)->Unit,
+    onLoadMore: ()->Unit
 ) {
 
     Scaffold(
@@ -43,6 +54,7 @@ fun MapScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(20.dp)
+                .verticalScroll(rememberScrollState())
         ) {
 
             Text(
@@ -55,6 +67,9 @@ fun MapScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(top = 8.dp)
             )
+            ReportFilters(feed.filter,onFilter)
+            feed.error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+            if(feed.next!=null) OutlinedButton(onClick=onLoadMore,enabled=!feed.loading) { Text("Load more reports on map") }
 
             Card(
                 modifier = Modifier
@@ -67,28 +82,10 @@ fun MapScreen(
                 )
             ) {
 
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-
-                        Text(
-                            text = "Community Map",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-
-                        Text(
-                            text = "Reported issues will appear here.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
+                ReportMap(reports=reports,modifier=Modifier.fillMaxSize(),onReportClick=onReportClick)
             }
+            Text("© OpenStreetMap contributors")
+            Text("${reports.count { it.latitude!=null }} loaded reports have map locations. Load more to include older reports. Reports without coordinates stay in the feed.")
         }
     }
 }

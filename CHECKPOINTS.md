@@ -1,122 +1,80 @@
 # PinPoint project checkpoints
 
-Last updated: November 21, 2026 (Asia/Manila).
+Updated November 21, 2026 (Asia/Manila).
 
-## Where we are now
+## Current checkpoint
 
-**The first backend implementation batch is complete locally. Cloud activation and device verification are next.** The existing frontend is preserved. Firebase project `pinpoint-citizen-group2-2026` exists, its Android configuration is installed locally, and Firestore rules and indexes are deployed.
+The free cloud backend is deployed and connected to the existing Kotlin frontend. Offline photo sync, resumable Wi-Fi originals, feeds, filters, votes, GPS/map integration, status history and push delivery are implemented. Device checks use the existing Pixel_8 Google Play emulator, Android API 37. Physical-phone measurements, SMS hardware and the user study are still pending.
 
-**Current checkpoint: CP-04, enable cloud email/password authentication.** Then finish Storage and Functions setup, and verify a real citizen-to-official reporting flow. No new implementation is required before starting CP-04.
+**Budget boundary: Supabase Free and free Firebase FCM only. No Blaze or billing account.** The user approved this provider change and authorized the mobile features as well as backend work. The original Firebase baseline is saved in commit 70d84e9; it is no longer the active architecture.
 
-Local evidence from the implementation batch: both Android debug build modes pass, 4 Android JVM tests pass, 10 backend emulator tests pass, and Android lint completes with no errors. These checks do not prove that the full app works on a physical phone or that live FCM messages arrive.
+Statuses: **Done** = stated setup/implementation condition verified; **Prototype verified** = functional checks passed, with acceptance measurements still separate; **Partial** = listed work remains; **External** = needs a real device, gateway or participant.
 
-## Reading the statuses
+## Per-task checkpoints
 
-| Status | Meaning |
-| --- | --- |
-| Done | The stated checkpoint and its verification are complete. |
-| Local verified | The backend behavior passed local emulator tests; cloud/device verification remains. |
-| Implemented | Code exists and builds; the complete user flow still needs verification. |
-| Needs setup | Account, console, deployment or access setup is outstanding. |
-| Planned | Implementation has not started. |
-
-A feature is not finished merely because its screen exists or its code compiles. Each checkpoint below states what must be observed before it can be closed. Statuses describe the last recorded verification; external console changes must be checked before updating them.
-
-## Batch 1 Repository and backend foundation
-
-| ID | Task | Status | Evidence or remaining completion condition |
+| ID | Task | Status | Evidence / remaining condition |
 | --- | --- | --- | --- |
-| CP-01 | Clone the existing frontend into the requested folder | Done | Repository is at `C:\Users\USER\project\MobileConputing`; remote is `ahmya19/Mobile_Comp_FrontEnd`. Do not repeat frontend creation or its original upload. |
-| CP-02 | Evaluate the backend and database options | Done | Firebase selected against Supabase and custom SQL API alternatives; architecture and tradeoffs recorded in `backend/README.md`. |
-| CP-03 | Create Firebase project, register Android app and prepare Firestore | Done | Cloud project and Android package `com.example.pinpoint` created; default Firestore database in `asia-southeast1`; rules and report index deployed. Android configuration is ignored by Git. |
+| CP-01 | Clone existing frontend | Done | Repository is at C:\Users\USER\project\MobileConputing. Existing Kotlin/Compose screens retained. |
+| CP-02 | Confirm role and repository access | Done | User owns backend and authorized mobile features. GitHub account has push permission; main remains the uploaded baseline. |
+| CP-03 | Choose and provision backend | Done | User selected Supabase Free in DreiwanabeTexh's Org. Project jaysxjjdvaitgrbqjlhe is active in Singapore. Firebase retained for FCM. |
+| CP-04 | Configure authentication | Done | Hosted email/password sign-in works for citizen and official fixtures; app restores an encrypted session after restart. Public signup email delivery remains CP-08. |
+| CP-05 | Provision private photo storage | Done | Compressed and original buckets deployed with limits and owner/official policies. No paid Firebase bucket. Authenticated cloud uploads and reads passed. |
+| CP-06 | Deploy database and server logic | Done | Nine SQL migrations and two Edge Functions deployed. Mutations use protected RPCs; app cannot directly update reports or grant roles. |
+| CP-07 | Citizen and official demo accounts | Done | Two confirmed fixtures; official assigned Alangilan in private.officials. Role and authorization checks passed. Passwords remain outside Git. |
+| CP-08 | Registration, login, restoration, logout | Partial | Android sign-in, offline restoration, logout and citizen/official switching passed. Signup form and confirmation handling implemented; real public email/confirmation flow still needs verification and may require a suitable free SMTP setup. |
+| CP-09 | Private profile and editing | Prototype verified | Live save_profile and my_profile passed; SQL tests deny another user's profile access. Profile editing UI is connected. |
+| CP-10 | Report creation and details | Prototype verified | Live UUID retry produces one immutable report. Android queue ingestion, retrieval and report-opening checks passed. Complete form-entry usability remains in the manual matrix. |
+| CP-11 | Compressed photos | Prototype verified | Live private upload/read and official read passed; anonymous read denied. Android offline photo was retained, synced and removed locally only after acknowledgement. |
+| CP-12 | My Reports, community and home | Prototype verified | Account-scoped reads, 25-row pages, automatic refresh/retry and loaded-data summaries connected. Android feed/filter test passed. |
+| CP-13 | Official status and history | Prototype verified | Citizen/wrong-barangay updates denied. Valid transitions atomically update report/history/notice. History displays in details. |
+| CP-14 | Notification history and read state | Prototype verified | Exactly one notice for repeated status retry; read flag and owner-only access tested in SQL/live API checks. UI opens its report. |
+| CP-15 | FCM push | Prototype verified | Restricted sender credential stored in Edge secrets. Background device notification observed; foreground FCM and notification tap to details passed. Server cron delivered without a mobile send call. Invalid-token/logout recovery tested at appropriate layers; multi-phone latency study remains CP-25. |
+| CP-16 | Complete two-account device rehearsal | Partial | Citizen/official APIs, Android account switching, photo queue, push and report opening pass. A continuous manual citizen-form → official UI → citizen notification rehearsal on phones remains. |
+| CP-17 | Durable queue contract | Done | Versioned contract in backend/contracts/offline-sync.md specifies IDs, account/project binding, states, files, acknowledgements and retries. |
+| CP-18 | Offline report/photo sync | Prototype verified | Network disabled → queue → force-stop → reopen → reconnect passed. Server uses stable IDs and immutable retries. Repeated field trials and loss-rate measurement remain CP-25. |
+| CP-19 | Smart and resumable uploads | Prototype verified | Compressed sync passed on metered Wi-Fi while original waited. Original completed on unmetered Wi-Fi. A >6 MiB upload resumed after an acknowledged chunk and app restart with matching bytes. Emulator cellular network unavailable; real cellular handoff percentage remains CP-25. |
+| CP-20 | GPS capture and map pins | Partial | GPS permission/request with timeout, editable pin, coordinate validation, native map, marker navigation and attribution implemented. Map smoke passed after fixing initialization order. Outdoor 20 m accuracy and on-phone pin placement remain. |
+| CP-21 | Feed/map filters and pagination | Prototype verified | Barangay/category/status/date filters and stable created_at/id cursors implemented for feed/map; load-more controls provided. Live Android cursor/filter checks passed. Large dataset and concurrent-insert field checks remain in validation. |
+| CP-22 | Voting and derived urgency | Prototype verified | One vote per account and idempotent removal enforced by SQL; UI connected. Current thresholds: 3 Medium, 10 High; official urgency is a minimum. Group must confirm these provisional thresholds. |
+| CP-23 | SMS gateway/parser | Partial / External | Signed webhook, GSM-7 parser, replay protection and SQL ingestion deployed/tested. Receiver intentionally fails closed: no gateway selected, no shared gateway secret, and no approved barangay centroids configured. Need gateway phone/app + SIM and actual message format. |
+| CP-24 | Automated baseline | Done | 16 backend tests, 4 JVM tests, Edge type checks, Android builds and lint pass (0 errors, 33 warnings). Backend and pinned Edge dependencies report no npm audit findings. Android checkpoint phases recorded in backend/VERIFICATION.md. |
+| CP-25 | Proposal acceptance measurements | External | A test matrix records the targets and evidence needed. No statistical timing, cellular loss/resume rate, carrier delivery, outdoor GPS or SUS result is claimed. |
+| CP-26 | Review and GitHub delivery | In progress | Current changes are being reviewed on backend/pinpoint-free. Main is unchanged. Secret scan and final build precede commit/push and a draft PR. |
+| CP-27 | Team handoff | In progress | Free setup/architecture guide, checkpoint tracker, verification notes and build artifact are being prepared. Teammate build/demo acceptance follows sharing. |
 
-## Batch 2 Cloud activation Current priority
+## Implementation ownership
 
-Owner: backend developer, with the Firebase account owner completing account sign-in and billing steps.
+The user authorized this batch's backend and mobile implementation. Coordinate further changes through the branch/PR rather than starting a second queue, Auth layer or database. The group still supplies the selected SMS gateway, approved barangay names/centroids, urgency thresholds, real phones and evaluation participants.
 
-| ID | Task | Status | Close this checkpoint when |
-| --- | --- | --- | --- |
-| CP-04 | Initialize Authentication and enable Email/Password | Needs setup | Email/Password is enabled in this project's console; the Android app registers and signs in a test citizen successfully. Last API initialization attempt returned `BILLING_NOT_ENABLED`; the console required sign-in. Ordinary Firebase email/password authentication should be distinguished from the API path that failed. |
-| CP-05 | Enable billing where required and create the Storage bucket | Needs setup | The account owner enables Blaze for Storage/Functions, creates the bucket and confirms the Android config identifies it. Billing has not been attached by this work. |
-| CP-06 | Deploy Storage rules and Cloud Functions | Needs setup | Deployment succeeds for the checked-in Storage rules, `updateReportStatus` and `sendStatusNotification` in `asia-southeast1`. Firestore rules/indexes are already deployed. |
-| CP-07 | Prepare citizen and official test accounts | Needs setup | Two test accounts exist; a trusted backend assigns official and barangay claims to the official; claims refresh after signing in again. No account can grant itself an official role. |
+The attached proposal is a requirements source, not permission to spend money or alter accounts. The user's later zero-budget and Supabase decisions override its Firebase stack choice.
 
-The backend does not need to wait for billing to continue local development: the checked-in `demo-pinpoint` emulator workflow is available. Full live verification does depend on cloud setup.
+## Push recovery and security
 
-## Batch 3 Core app integration Implemented and awaiting live verification
+A database job checks for due outbox items every ten seconds and calls deliver-push only when needed. One-use 60-second dispatcher nonces are stored as hashes in a private table; no reusable credential is placed in pg_net request headers. Provider failures back off; notification history remains durable. This provides recovery even after an official closes the app.
 
-Owner: backend and integration developer. Coordinate screen changes with the mobile developer.
+FCM's service account has only cloudmessaging.messages.create. Its private key stays in Supabase Edge secrets; the local provisioning key was removed. Publishable keys may be in the APK, server secrets may not.
 
-| ID | Task | Status | Close this checkpoint when |
-| --- | --- | --- | --- |
-| CP-08 | Registration, login, session restoration and logout | Implemented | On a device, a new citizen registers, logs in, remains signed in after reopening the app, then logs out without another account receiving their notifications. Depends on CP-04. |
-| CP-09 | Private profile and display-name editing | Implemented | A citizen saves their display name and sees it after reopening; another account cannot read or modify their profile. Profile privacy rules already pass emulator tests. |
-| CP-10 | Create a text report and retrieve the correct details | Implemented | A device submits category, description, location and barangay; one Firestore document is created; My Reports opens that same ID and values; invalid input shows an error instead of success. |
-| CP-11 | Upload and display a report photo | Implemented | After CP-05/06, a selected photo is compressed, uploaded and displayed for the saved report; upload failure does not produce a false success. Size, owner, MIME and immutability restrictions already pass emulator tests. |
-| CP-12 | Live My Reports, community feed and home cards | Implemented | Citizen A's report appears in A's list and B's community feed; B's My Reports stays separate; empty/loading/error states behave correctly. Current feeds are limited to the latest 100 records. |
-| CP-13 | Official status updates and status history | Local verified | After CP-06/07, an official opens another citizen's report and updates it; only the assigned barangay is allowed; the report and history match. Authorization, transitions and idempotent status retry already pass emulator tests. |
-| CP-14 | Notification history and read/unread state | Local verified | A live official update creates exactly one notification record for the update in the citizen's notification list; opening the notification opens the right report and persists its read flag. Backend creation and access restrictions pass emulator tests. |
-| CP-15 | FCM push delivery | Implemented | After CP-06/07, a status update reaches the citizen's phone in foreground and background with permission granted; stale tokens and logout/account switching are checked. Real FCM is not exercised by local emulator tests. |
-| CP-16 | Run the first complete two-account device test | Planned | CP-08 through CP-15 work together: citizen signs in, submits a photo report, official changes status, citizen sees history and push, and the new status persists after reopening. Record device, build, test account roles and actual results. |
+Advisor warnings and their access-control context are documented in backend/VERIFICATION.md. Do not describe the project as having no warnings.
 
-## Batch 4 Remaining proposal features
+## Next implementation and validation batch
 
-| ID | Task | Status | Owner and completion condition |
-| --- | --- | --- | --- |
-| CP-17 | Agree a durable offline report/photo queue contract | Planned | Shared. Confirm queue fields, stable report IDs, account ownership, photo file lifetime, retry behavior and pending/synced/failed states before either teammate duplicates implementation. |
-| CP-18 | Save and synchronize offline reports | Planned | Mobile developer owns durable device storage/background scheduling; backend developer owns idempotent ingestion and validation. Reports survive app/process restarts and synchronize without duplicates after reconnection. Firestore caching alone does not close this checkpoint. |
-| CP-19 | Network-aware smart uploads and recovery | Planned | Shared. Compressed uploads on cellular, full variants on Wi-Fi, persisted upload sessions and network-switch recovery are implemented and measured. Current compression on every connection is only the initial baseline. |
-| CP-20 | GPS pin capture and map display | Planned | Mobile developer owns permissions, GPS/map UI and pin adjustment; backend developer supports coordinate validation and retrieval. A submitted coordinate appears at the correct map pin. Optional coordinate fields already exist. |
-| CP-21 | Feed/map filtering and pagination | Planned | Shared. Add barangay/category/date/status filters, indexes and pagination; records beyond the initial 100 are reachable without duplicates or gaps. |
-| CP-22 | Community voting and derived urgency | Planned | Backend developer owns vote uniqueness, authorization and aggregation; mobile developer owns voting controls. One vote per account is enforced on the server and Low/Medium/High urgency follows agreed thresholds. Current official-set priority is not community voting. |
-| CP-23 | SMS gateway and report parser | Planned | Backend developer owns gateway authentication, input validation, replay protection and report ingestion. A formatted SMS creates one text-only report using the named barangay location; malformed or repeated gateway requests are handled correctly. Confirm gateway device/SIM and message format first. |
+1. Use the debug APK on two Android phones for the continuous CP-16 rehearsal. Verify public registration/confirmation or prepare a free SMTP configuration under CP-08.
+2. Run the CP-25 matrix: actual cellular/Wi-Fi switching, repeated offline sync, GPS and push timing. Record device/network/sample counts and failures.
+3. Confirm vote thresholds and the approved barangay list/centroids.
+4. Select a gateway phone/app and SIM for CP-23; implement its exact webhook adapter, then test carrier SMS.
+5. Review the draft PR and perform the team build/handoff.
 
-## Batch 5 Validation and team delivery
-
-| ID | Task | Status | Close this checkpoint when |
-| --- | --- | --- | --- |
-| CP-24 | Establish automated backend and Android check baseline | Done | Baseline recorded: 10 backend emulator tests, 4 JVM tests, cloud/emulator debug builds, lint with zero errors and clean npm audits. Add tests when new security/business behavior is implemented; rerun relevant checks after changes. This baseline does not close CP-16 or CP-25. |
-| CP-25 | Measure the proposal's acceptance targets | Planned | Record actual submission time, payload size, offline sync time/loss, upload-resume success, SMS delivery, GPS accuracy and push latency. Compare against targets rather than assuming SDK support proves them. Targets should be confirmed with the project lead before evaluation. |
-| CP-26 | Review and share backend changes through GitHub | Planned | GitHub write permission was confirmed on November 21, 2026: the signed-in account has `push: true`. Review the complete local diff, then commit/push or open a PR when requested. This work has not pushed the backend changes. |
-| CP-27 | Final team handoff and documentation | Planned | Setup guide reflects the deployed system; all unresolved issues and test results are recorded; teammates can build/run it; the project lead has the evidence needed for the final report. |
-
-## What we will do next
-
-1. **Activate and verify cloud authentication (CP-04).**
-2. Complete Storage/billing and deploy Functions (CP-05/06).
-3. Prepare citizen/official accounts and run the complete device flow (CP-07 through CP-16).
-4. Agree the offline queue contract, then implement offline sync and upload recovery with the mobile developer (CP-17 through CP-19).
-5. Add map queries/filtering, voting and SMS, then measure the proposal targets (CP-20 through CP-25).
-
-If cloud setup is pending, progress locally on CP-17 and emulator-backed backend work. Preserve the cloud/device verification checkpoints until actual results are recorded.
-
-## How we will keep checkpoints current
-
-After each work batch, update this file in the same set of project changes:
-
-1. Identify the checkpoint IDs worked on.
-2. Record the implemented behavior and verification evidence.
-3. Change the status only when its stated completion condition is satisfied.
-4. Keep unfinished setup, errors and device tests visible.
-5. Name the next checkpoint and its prerequisites.
-
-Use this short update format in chat and in the log below:
-
-```text
-Checkpoint IDs:
-Completed or changed:
-Verified by:
-Still pending:
-Next checkpoint:
-```
-
-This is a working progress tracker, not a Git commit or backup. Application changes still need version control under CP-26.
+Do not enable a paid plan to close any checkpoint. Ask about genuinely missing infrastructure or permissions, while continuing independent work.
 
 ## Checkpoint log
 
-| Date | Checkpoints | Recorded result | Next |
-| --- | --- | --- | --- |
-| 2026-11-21 | CP-01 to CP-03, CP-08 to CP-15, CP-24 | Backend foundation and mobile bindings implemented; Firestore deployed; local checks passed. Cloud auth, Storage, Functions and device/push validation remain incomplete. | CP-04 |
-| 2026-11-21 | Tracker created; CP-26 access verified | Added per-task status, ownership, completion conditions and planned batch order. GitHub API confirms write permission is now available. No application code or cloud settings changed in this tracker update. | CP-04 |
+| Date | Checkpoints | Result |
+| --- | --- | --- |
+| 2026-11-21 | Initial foundation | Cloned frontend, added Firebase baseline and checkpoint tracker; local commit 70d84e9 preserves that work. |
+| 2026-11-21 | Budget/provider change | User declined billing and approved Supabase Free plus free FCM; new project provisioned. |
+| 2026-11-21 | CP-03 through CP-15 | Auth/database/private buckets/Edge Functions integrated; cloud ownership/status/photo tests passed; restricted FCM credential configured. |
+| 2026-11-21 | CP-17 through CP-22 | Durable queue, resumable Wi-Fi originals, native map, filters/pages and votes implemented; prototype Android/SQL checks passed with limits recorded. |
+| 2026-11-21 | CP-15 recovery | Free server dispatcher, leases, backoff and one-use nonce authentication deployed; cron-only push and notification tap passed. |
+| 2026-11-21 | CP-24 through CP-27 | Final verification, code review and team deliverables in progress; acceptance targets remain explicit. |
 
-Detailed setup and architecture: [backend/README.md](backend/README.md).
+Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).

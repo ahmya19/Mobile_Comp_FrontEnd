@@ -1,0 +1,90 @@
+package com.example.pinpoint.data
+
+import android.content.Context
+import android.util.Base64
+import com.example.pinpoint.BuildConfig
+import com.google.gson.FieldNamingPolicy
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonElement
+import com.google.gson.JsonNull
+import com.google.gson.JsonParser
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
+class BackendException(val status: Int, val code: String, message: String) : IOException("$code: $message")
+
+class SupabaseBackend private constructor(context: Context, val url: String, internal val publishableKey: String) {
+    val gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create()
+    private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS).callTimeout(45, TimeUnit.SECONDS).build()
+    val auth = SupabaseAuth(this, SessionStore(context))
+
+    suspend fun json(path: String, method: String = "GET", body: Any? = null, authenticated: Boolean = true, expectedUserId: String? = null): JsonElement {
+        val bytes = body?.let { gson.toJson(it).toByteArray() }
+        val response = request(path, method, bytes, "application/json", authenticated, expectedUserId)
+        return if (response.isEmpty()) JsonNull.INSTANCE else JsonParser.parseString(String(response, Charsets.UTF_8))
+    }
+
+    suspend fun request(path: String, method: String, bytes: ByteArray? = null,
+        contentType: String = "application/json", authenticated: Boolean = true, expectedUserId: String? = null): ByteArray {
+        require(!path.startsWith("/") && !path.contains("://")) { "Expected a relative backend path." }
+        val token = if (authenticated) auth.accessToken(expectedUserId) else null
+        val payload = if (method in listOf("GET", "HEAD")) null else (bytes ?: ByteArray(0)).toRequestBody(contentType.toMediaType())
+        val request = Request.Builder().url("${url.trimEnd('/')}/$path")
+            .header("apikey", publishableKey).apply { if (token != null) header("Authorization", "Bearer $token") }
+            .method(method, payload).build()
+        return suspendCancellableCoroutine { continuation ->
+            val call = http.newCall(request)
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, error: IOException) { if (continuation.isActive) continuation.resumeWithException(error) }
+                override fun onResponse(call: Call, response: Response) {
+                    response.use {
+                        try {
+                            val data = it.body?.bytes() ?: ByteArray(0)
+                            if (!it.isSuccessful) {
+                                val error = runCatching { JsonParser.parseString(String(data, Charsets.UTF_8)).asJsonObject }.getOrNull()
+                                val code = error?.get("code")?.asString ?: error?.get("error_code")?.asString ?: "HTTP_${it.code}"
+                                val message = error?.get("message")?.asString ?: error?.get("msg")?.asString
+                                    ?: error?.get("error_description")?.asString
+                                    ?: error?.get("error")?.takeIf { value -> value.isJsonPrimitive }?.asString ?: it.message
+                                throw BackendException(it.code, code, message)
+                            }
+                            if (continuation.isActive) continuation.resume(data)
+                        } catch (error: Exception) { if (continuation.isActive) continuation.resumeWithException(error) }
+                    }
+                }
+            })
+        }
+    }
+
+    companion object {
+        @Volatile private var instance: SupabaseBackend? = null
+        fun create(context: Context): SupabaseBackend? {
+            if (BuildConfig.SUPABASE_URL.isBlank() || BuildConfig.SUPABASE_PUBLISHABLE_KEY.isBlank()) return null
+            check(BuildConfig.SUPABASE_URL.startsWith("https://") || (BuildConfig.DEBUG &&
+                BuildConfig.SUPABASE_URL.startsWith("http://127.0.0.1"))) { "Supabase must use HTTPS." }
+            val configuredKey=BuildConfig.SUPABASE_PUBLISHABLE_KEY
+            val legacyRole=runCatching {
+                val payload=configuredKey.split('.')[1]
+                JsonParser.parseString(String(Base64.decode(payload,Base64.URL_SAFE or Base64.NO_WRAP),Charsets.UTF_8))
+                    .asJsonObject.get("role")?.asString
+            }.getOrNull()
+            check(configuredKey.startsWith("sb_publishable_") || legacyRole=="anon") { "Use a publishable or legacy anon key, never a server secret." }
+            return instance ?: synchronized(this) {
+                instance ?: SupabaseBackend(context.applicationContext, BuildConfig.SUPABASE_URL,
+                    BuildConfig.SUPABASE_PUBLISHABLE_KEY).also { instance = it }
+            }
+        }
+    }
+}

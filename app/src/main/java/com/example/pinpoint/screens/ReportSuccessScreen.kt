@@ -20,7 +20,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ReportSuccessScreen(
     onViewReportsClick: () -> Unit,
-    onHomeClick: () -> Unit
+    onHomeClick: () -> Unit,
+    pending: Boolean = false
 ) {
 
     Column(
@@ -38,12 +39,12 @@ fun ReportSuccessScreen(
         )
 
         Text(
-            text = "Report Submitted!",
+            text = if(pending) "Report Saved on Device" else "Report Submitted!",
             style = MaterialTheme.typography.headlineMedium
         )
 
         Text(
-            text = "Your report has been submitted successfully.",
+            text = if(pending) "Your report is saved safely on this device and will be sent when your connection is available. Check My Reports for its progress." else "Your report has been submitted successfully.",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(
                 top = 12.dp,
