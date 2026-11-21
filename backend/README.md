@@ -134,6 +134,7 @@ sms-report also understands the webhook of the open-source SMS Gateway for Andro
 - In the app, register a webhook for the sms:received event pointing to the deployed sms-report URL.
 - Verification follows the vendor's documented scheme: lowercase-hex HMAC-SHA256 over the raw body immediately followed by the X-Timestamp value, five-minute tolerance. Only the event type, deviceId and payload.messageId/message are used; the sender's phone number is not stored.
 - A webhook retry reuses payload.messageId, and the idempotency hash covers only messageId and message text, so a retry creates no duplicate report.
+- Install caveat observed November 21: the GitHub APK (v1.79.0, checksum verified) was blocked on a TECNO phone by Google Play Protect ("App blocked to protect your device"; no install-anyway option) because it requests SMS access outside the Play Store. Plan for a spare phone where this is permitted, or a gateway app available from the Play Store.
 - Tested locally against the documented payload shape (backend/tests/sms.test.mjs). It has not been run against the real app or a carrier. The deployed function still has the original code until redeployed, and no secrets have been set. The vendor's signing details came from its public docs and must be confirmed with a real webhook before relying on them.
 
 Parser and server tests do not prove carrier delivery. Hardware integration and the 90% / two-minute proposal target remain pending.
