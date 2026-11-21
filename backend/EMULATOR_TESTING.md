@@ -45,6 +45,16 @@ Use -Phase citizen, -Phase official or -Phase review to diagnose a particular st
 
 ## Scope of the result
 
+CP-08 confirmation checks can also run without sending email. After installing both APKs, target the emulator explicitly:
+
+~~~powershell
+& "$env:ANDROID_HOME/platform-tools/adb.exe" -s emulator-5554 shell am instrument -w -r `
+  -e class com.example.pinpoint.EmailConfirmationTest `
+  com.example.pinpoint.test/androidx.test.runner.AndroidJUnitRunner
+~~~
+
+The six checks use an isolated encrypted test store and fake success/rate-limit responses; one invalid-code request reaches the hosted Auth endpoint. They neither register a user nor prove email delivery. See [email confirmation](EMAIL_CONFIRMATION.md). Existing demo credentials remain outside Git.
+
 This is a sequential two-account emulator rehearsal, not two simultaneously signed-in physical phones. Existing separate push checks cover foreground/background FCM and notification taps. The emulator rehearsal checks notification history after the citizen signs back in. It does not establish actual GPS accuracy, cellular handoff/loss rates, carrier SMS delivery, a native gallery provider's permissions, or user-study scores.
 
 Results and limitations are recorded in [verification](VERIFICATION.md) and [checkpoints](../CHECKPOINTS.md). Physical-phone testing remains deferred until the phones are available.

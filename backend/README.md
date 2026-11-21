@@ -94,6 +94,8 @@ For a new deployment, after migration and function deployment, put its API URL a
 
 ## Accounts and roles
 
+Android confirmation-code and resend screens are implemented and tested. The user chose to continue with demo accounts; provider setup and real email receipt remain pending. [CP-08 email setup and evidence](EMAIL_CONFIRMATION.md) includes the prepared signup template and free SMTP recommendation. Publish that template before real code-based registration testing.
+
 Two disposable prototype accounts exist, one citizen and one official assigned to Alangilan. Credentials are kept outside Git in this machine's private test fixtures; they are not included in handoff files. These accounts were created with dashboard auto-confirm, so they do not prove public confirmation email delivery. Supabase's default email service sends only to organization-team addresses and currently allows two emails per hour. Registration emails for other addresses need custom SMTP; that setup remains CP-08. Existing confirmed accounts work for the emulator rehearsal without it. See [Supabase SMTP requirements](https://supabase.com/docs/guides/auth/auth-smtp).
 
 Assign an official only through a trusted administrator using the authenticated user's UUID:

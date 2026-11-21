@@ -11,8 +11,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** Only encrypted session material is persisted; the AES key stays in Android Keystore. */
-class SessionStore(context: Context) {
-    private val preferences = context.getSharedPreferences("pinpoint_secure_session", Context.MODE_PRIVATE)
+class SessionStore(context: Context, preferencesName: String = "pinpoint_secure_session") {
+    private val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
     private val key: SecretKey get() {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         return (store.getKey("pinpoint_session_v1", null) as? SecretKey) ?: KeyGenerator

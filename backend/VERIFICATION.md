@@ -117,4 +117,12 @@ One later repeat timed out waiting for Home after the official sign-in click; an
 
 ## Shared code
 
+## CP-08 confirmation preparation, November 21
+
+The user selected demo accounts for now. Added a six-digit confirmation screen, resend with a persisted cooldown and numeric Retry-After handling, encrypted pending-email restoration, unconfirmed-login routing and clearing of sensitive form fields. Prepared supabase/templates/confirmation.html; no hosted template, SMTP account or email delivery configuration was changed.
+
+EmailConfirmationTest passed 6 tests on emulator-5554 in 12.14 seconds. Fake public Auth responses exercise the signup/verification session boundary, restoration, resend throttling and unconfirmed login. Compose checks cover input validation, clearing and disabled busy controls. A real invalid verification request returned HTTP 403 with error_code=otp_expired and no session. This exposed a client parser issue: Auth's numeric code was masking its symbolic error_code. The parser now prefers error_code and preserves the exact message, Token has expired or is invalid.
+
+Debug/test APK builds and 4 JVM tests passed. Android lint remains 0 errors and 33 warnings. No new dependency or schema migration was required. Real inbox receipt, successful real-code verification and public signup remain pending under [CP-08](EMAIL_CONFIRMATION.md).
+
 [Draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) contains the backend and mobile integration on backend/pinpoint-free. GitHub confirms DreiwanabeTexh has write collaborator access. No merge was performed. Final review included business/ownership boundaries, current schema/function grants, queue identity, Wi-Fi binding, recipient checks, credentials, whitespace and the documented acceptance gaps.

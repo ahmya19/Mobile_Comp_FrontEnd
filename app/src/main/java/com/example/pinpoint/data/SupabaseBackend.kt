@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class BackendException(val status: Int, val code: String, message: String) : IOException("$code: $message")
+class BackendException(val status: Int, val code: String, message: String, val retryAfterSeconds: Long? = null) : IOException("$code: $message")
 
 class SupabaseBackend private constructor(context: Context, val url: String, internal val publishableKey: String) {
     val gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create()
@@ -54,11 +54,15 @@ class SupabaseBackend private constructor(context: Context, val url: String, int
                             val data = it.body?.bytes() ?: ByteArray(0)
                             if (!it.isSuccessful) {
                                 val error = runCatching { JsonParser.parseString(String(data, Charsets.UTF_8)).asJsonObject }.getOrNull()
-                                val code = error?.get("code")?.asString ?: error?.get("error_code")?.asString ?: "HTTP_${it.code}"
+                                // Auth returns a numeric HTTP `code` beside its symbolic `error_code`.
+                                val code = error?.get("error_code")?.asString
+                                    ?: error?.get("code")?.takeIf { value -> value.isJsonPrimitive && value.asJsonPrimitive.isString }?.asString
+                                    ?: "HTTP_${it.code}"
                                 val message = error?.get("message")?.asString ?: error?.get("msg")?.asString
                                     ?: error?.get("error_description")?.asString
                                     ?: error?.get("error")?.takeIf { value -> value.isJsonPrimitive }?.asString ?: it.message
-                                throw BackendException(it.code, code, message)
+                                throw BackendException(it.code, code, message,
+                                    it.header("Retry-After")?.toLongOrNull()?.coerceIn(1, 3600))
                             }
                             if (continuation.isActive) continuation.resume(data)
                         } catch (error: Exception) { if (continuation.isActive) continuation.resumeWithException(error) }

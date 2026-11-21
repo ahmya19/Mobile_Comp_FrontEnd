@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 data class PinPointState(
     val configured: Boolean = false,
     val user: Citizen? = null,
+    val confirmation: PendingEmailConfirmation? = null,
     val busy: Boolean = false,
     val loading: Boolean = false,
     val error: String? = null,
@@ -45,7 +46,8 @@ data class PinPointState(
 class PinPointViewModel(application: Application) : AndroidViewModel(application) {
     private val backend = SupabaseBackend.create(application)
     private val repository = backend?.let(::PinPointRepository)
-    private val mutableState = MutableStateFlow(PinPointState(configured = backend != null))
+    private val mutableState = MutableStateFlow(PinPointState(configured = backend != null,
+        confirmation = backend?.auth?.confirmation?.value))
     val state = mutableState.asStateFlow()
     private val listeners = mutableListOf<Job>()
     private var detailJob: Job? = null
@@ -71,6 +73,7 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
             mineFeed=null
             communityFeed=null
             mutableState.update { PinPointState(configured=true,busy=it.busy,
+                confirmation=backend?.auth?.confirmation?.value,
                 user=user?.let { cached -> Citizen(cached.id,cached.email,cached.displayName) }) }
             if (uid != null) observeAccount(uid)
         }
@@ -82,6 +85,9 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
             preferences.edit().putString("id", it).apply()
         }
         backend?.let { viewModelScope.launch { it.auth.users.collect(::accountChanged) } }
+        backend?.let { configured -> viewModelScope.launch {
+            configured.auth.confirmation.collect { pending -> mutableState.update { it.copy(confirmation=pending) } }
+        } }
     }
 
     private fun observeAccount(uid: String) {
@@ -142,11 +148,32 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         val repo = requireNotNull(repository)
         if (register) {
             if (!repo.register(name,email,password)) {
-                mutableState.update { it.copy(message="Account created. Confirm your email, then sign in.") }
+                mutableState.update { it.copy(message="Check your inbox and spam folder for a confirmation email. If you already confirmed this account, return to sign in.") }
                 return@action
             }
-        } else repo.signIn(email,password)
+        } else try { repo.signIn(email,password) } catch (error: BackendException) {
+            if (error.code != "email_not_confirmed") throw error
+            mutableState.update { it.copy(message="Confirm your email to continue. You can request a new code below.") }
+            return@action
+        }
         mutableState.update { it.copy(user = repo.citizen()) }
+    }
+
+    fun verifyEmail(code: String) = action {
+        val repo = requireNotNull(repository)
+        repo.auth.verifyEmail(code)
+        repo.saveProfile(requireNotNull(repo.auth.currentUser).displayName)
+        mutableState.update { it.copy(user=repo.citizen(), message="Email confirmed.") }
+    }
+    fun resendConfirmation() = action {
+        requireNotNull(backend).auth.resendConfirmation()
+        mutableState.update { it.copy(message="Confirmation requested. Check your inbox and spam folder. Delivery depends on the email provider.") }
+    }
+    fun enterConfirmation(email: String) = action { requireNotNull(backend).auth.enterConfirmation(email) }
+    fun cancelConfirmation() {
+        if (state.value.busy) return
+        backend?.auth?.cancelConfirmation()
+        clearFeedback()
     }
 
     fun editProfile(name: String) = action {

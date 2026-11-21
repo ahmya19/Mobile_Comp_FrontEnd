@@ -13,7 +13,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun AuthScreen(busy: Boolean, onAuthenticate: (Boolean, String, String, String) -> Unit) {
+fun AuthScreen(busy: Boolean, onAuthenticate: (Boolean, String, String, String) -> Unit,
+    onConfirmEmail: (String) -> Unit) {
     var register by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
@@ -31,12 +32,15 @@ fun AuthScreen(busy: Boolean, onAuthenticate: (Boolean, String, String, String) 
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(), singleLine = true)
-        Button(onClick = { onAuthenticate(register, name, email, password) },
+        Button(onClick = { onAuthenticate(register, name, email, password); password = "" },
             enabled = !busy && email.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
             Text(if (busy) "Please wait..." else if (register) "Create account" else "Sign in")
         }
         TextButton(onClick = { register = !register; password = "" }, enabled = !busy) {
             Text(if (register) "Already have an account? Sign in" else "New here? Create account")
+        }
+        if (!register) TextButton(onClick = { password=""; onConfirmEmail(email) }, enabled = !busy && email.isNotBlank()) {
+            Text("Confirm an existing account")
         }
     }
 }

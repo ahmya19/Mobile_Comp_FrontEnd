@@ -51,7 +51,10 @@ fun AppNavigation(model: PinPointViewModel = viewModel(),notificationReportId: S
                     Text("Backend setup required", style = MaterialTheme.typography.headlineMedium)
                     Text("Connect the team's Supabase Free project, then rebuild the app.")
                 }
-                state.user == null -> AuthScreen(state.busy, model::authenticate)
+                state.user == null && state.confirmation != null -> EmailConfirmationScreen(
+                    requireNotNull(state.confirmation),state.busy,model::verifyEmail,
+                    model::resendConfirmation,model::cancelConfirmation)
+                state.user == null -> AuthScreen(state.busy, model::authenticate, model::enterConfirmation)
                 else -> key(state.user?.id) {
                     val nav = rememberNavController()
                     fun go(route: String) { nav.navigate(route) { launchSingleTop = true } }
