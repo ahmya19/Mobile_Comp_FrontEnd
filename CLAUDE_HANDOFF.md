@@ -52,6 +52,8 @@ For email setup consult [backend/EMAIL_CONFIRMATION.md](backend/EMAIL_CONFIRMATI
 
 ## 5. Deliver evidence and coordinate fixes
 
+Codex's initial read-only investigation and external observer are in [backend/BACKGROUND_SYNC_INVESTIGATION.md](backend/BACKGROUND_SYNC_INVESTIGATION.md). Its 11 focused tests and emulator connectivity-only smoke check pass; ordinary-app phone reproduction remains pending. This does not close the background issue or establish an automatic-sync latency pass. Coordinate the approved comparison with Codex.
+
 Maintain one test matrix with: screen/flow; reference frame; expected result; actual result; device/build/network; local/mock/live scope; UI screenshot plus backend evidence; Pass/Fail/Blocked; exact redacted error and reproduction. Compare cloud ownership, IDs, counts, read flags and photo integrity, not only visible success messages.
 
 Record every backend failure for Codex in BACKEND_DEFECTS.md, with role/barangay, sanitized request/response, timestamp, expected/actual IDs/state and relevant code path. Summarize those records in the handoff. Record authorization denial tests as expected passes when they match the policy. Keep phone serials, private credential-file contents, tokens and raw precise location outside Git/screenshots/logs shared with the group.

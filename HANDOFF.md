@@ -24,7 +24,7 @@ Android app (Kotlin/Compose) on a Supabase Free backend: sign-in with email conf
 2. Create `local.properties` in the project root (it is git-ignored): `sdk.dir=...`, `SUPABASE_URL=https://jaysxjjdvaitgrbqjlhe.supabase.co`, `SUPABASE_PUBLISHABLE_KEY=` (Supabase dashboard, Settings, API Keys). Never put secret or service-role keys here.
 3. Put the app's `google-services.json` (from the existing Firebase project) in `app/`. It is git-ignored.
 4. Build: `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`. The APK is `app/build/outputs/apk/debug/app-debug.apk`.
-5. Backend tests: `cd backend; npm install; npm test` (17 tests) and `npm run check:edge`.
+5. Backend tests: `cd backend; npm install; npm test` (28 tests, including 11 background-observer diagnostics) and `npm run check:edge`.
 
 ## Test accounts
 

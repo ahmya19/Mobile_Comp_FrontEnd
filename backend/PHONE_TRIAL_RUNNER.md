@@ -40,6 +40,8 @@ The first three historical phone runs used a different timing method and photo s
 
 ## Failed observations and external deadline
 
+For the next background investigation, use the ordinary-app external observer in [BACKGROUND_SYNC_INVESTIGATION.md](BACKGROUND_SYNC_INVESTIGATION.md). It avoids instrumentation and changes no app/radio state. Its host polling endpoints and uncertainty differ from this runner's app-callback/local-acknowledgement measurements; do not pool them.
+
 A suspended device process cannot enforce its own timeout. After the run-8 stall, the host runner gained an independent 330-second deadline for observe and a 90-second deadline for other phases. It captures stdout/stderr without echoing credentials, ends only its own waiting adb client and force-stops only PinPoint on timeout. Queue/evidence files are not cleared. The host process/output/deadline logic was checked locally, including a deliberately delayed child process; this new watchdog was not deliberately triggered on the real phone.
 
 Reopen PinPoint, wait for the existing UUID to recover, then use verify-recovery to check that exact report/photo. It accepts a failed observation, or an unfinished observation past the host deadline, and records complete_with_observation_failure with timing_valid=false. It does not turn the failed timer into a pass. For a wrong-network observation, verify-deviation preserves the original error and records complete_with_transport_deviation after checking the same report/photo. Neither creates a report. New enqueue requests refuse to overwrite an archived run number or bypass an unresolved prior trial.

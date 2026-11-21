@@ -2,11 +2,18 @@
 
 Updated November 22, 2026. These are prototype results, not a claim that the proposal's field-study targets have been met.
 
+## Background investigation, November 22
+
+Read-only run-8 SQL/gateway checks found the successful photo upload after foregrounding and about 0.153 s between Storage creation and report creation. No matching photo/submit POST appeared in the filtered pre-foreground gateway window; device-side failures and incomplete logs remain possible. Root cause is unresolved.
+
+A host observer now samples system connectivity and citizen-scoped server reads without instrumentation or app/radio changes. Eleven focused tests pass; the complete local backend suite is 28/28. A three-second system-only emulator smoke check identified validated Wi-Fi without cloud login; a synthetic physical target was rejected before ADB access. No physical-phone operation, hosted business-data mutation, deployment, secret or APK change was performed in this batch. The ordinary-app comparison needs new approval. Protocol and limits: [BACKGROUND_SYNC_INVESTIGATION.md](BACKGROUND_SYNC_INVESTIGATION.md).
+
 ## Automated and cloud checks
 
 | Check | Result |
 | --- | --- |
 | PostgreSQL business/security tests plus GSM-7/HMAC tests | 17 passed; actual application migrations run in PGlite with Auth/Storage test schemas |
+| Background observer diagnostics | 11 passed; total backend suite 28/28; synthetic client/network fixtures, not a reproduced phone defect |
 | Android JVM validation | 10 passed, including 6 notification paging/read-state regressions |
 | Edge Functions | Deno type check passed for sms-report and deliver-push |
 | Android build | Debug APK and instrumentation APK built; lint has zero errors, warnings retained |
