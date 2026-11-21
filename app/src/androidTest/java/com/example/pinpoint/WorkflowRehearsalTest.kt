@@ -103,7 +103,8 @@ class WorkflowRehearsalTest {
         intending(hasAction(Intent.ACTION_GET_CONTENT)).respondWith(ActivityResult(Activity.RESULT_OK,
             Intent().setData(Uri.fromFile(image))))
 
-        compose.onNodeWithText("Quick Report").performClick()
+        compose.onNodeWithText("Quick Report").performScrollTo().performClick()
+        waitText("Select a Category",15000)
         compose.onNodeWithText("Select a Category").performClick()
         compose.onNodeWithText("Water Interruption").performClick()
         enter("Description",description)

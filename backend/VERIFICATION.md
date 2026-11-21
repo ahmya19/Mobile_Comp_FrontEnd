@@ -126,3 +126,9 @@ EmailConfirmationTest passed 6 tests on emulator-5554 in 12.14 seconds. Fake pub
 Debug/test APK builds and 4 JVM tests passed. Android lint remains 0 errors and 33 warnings. No new dependency or schema migration was required. Real inbox receipt, successful real-code verification and public signup remain pending under [CP-08](EMAIL_CONFIRMATION.md).
 
 [Draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) contains the backend and mobile integration on backend/pinpoint-free. GitHub confirms DreiwanabeTexh has write collaborator access. No merge was performed. Final review included business/ownership boundaries, current schema/function grants, queue identity, Wi-Fi binding, recipient checks, credentials, whitespace and the documented acceptance gaps.
+
+## CP-16 rerun after email confirmation and notification pagination, November 21
+
+On emulator-5554, the three-phase workflow passed again against the live backend (citizen 13.81 s, official 18.48 s, review 7.37 s). An earlier failure was a harness issue: reports from previous runs lengthened Home, pushing Quick Report below the visible area, so the click missed. The test now scrolls to it and waits for the category field. No application logic changed for this fix.
+
+On the physical TECNO phone, EmailConfirmationTest passed 6/6. The workflow run there was blocked by Google Password Manager's "Save password?" popup covering the app after sign-in; the same harness failure was the actual cause on the emulator, so the phone workflow should be retried with autofill saving declined. Notification pagination compiles and lints but has no live test: the demo accounts have fewer than 50 notices, so "Load older notifications" is not exercised.
