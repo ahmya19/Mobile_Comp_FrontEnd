@@ -141,6 +141,8 @@ Parser and server tests do not prove carrier delivery. Hardware integration and 
 
 ## Verification and limitations
 
+Ten phone offline-recovery samples are now recorded, including seven approved trials using generated photos and the existing queue. Every new report/photo was ultimately recovered once. One planned mobile run used Wi-Fi; another background observer stalled and recovered only after reopening, so automatic-latency acceptance remains open. [Phone results](CP25_PHONE_TESTS.md) and the [PowerShell 7 measurement runner](PHONE_TRIAL_RUNNER.md) retain these exceptions. Further phone/settings changes require approval.
+
 For the sequential citizen/official UI rehearsal on one emulator, see [emulator testing](EMULATOR_TESTING.md). Physical-phone testing can remain deferred while this workflow runs.
 
 ~~~powershell

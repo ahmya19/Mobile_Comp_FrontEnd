@@ -1,6 +1,6 @@
 # Verification and remaining acceptance work
 
-Recorded November 21, 2026. These are prototype results, not a claim that the proposal's field-study targets have been met.
+Updated November 22, 2026. These are prototype results, not a claim that the proposal's field-study targets have been met.
 
 ## Automated and cloud checks
 
@@ -76,7 +76,7 @@ Hosted pg_net tables have platform-managed grants that the project postgres role
 | --- | --- | --- |
 | Mobile report payload at most 300 KB | Compressed JPEG capped at 256,000 bytes; originals excluded from metered uploads by policy | Measure complete request bytes including metadata on a phone |
 | Average submission at most 10 s | Prototype calls and queue tests pass | Record repeated timed submissions under stated network conditions |
-| 100% offline reports synced within 60 s, no loss | One forced-restart queue scenario passed | Multiple reports, prolonged offline periods, process/device restarts, counts before/after |
+| 100% offline reports synced within 60 s, no loss | Ten phone reports recovered; seven new reports/photos independently verified once. One background observation stalled and recovered after reopen with no valid timer | Diagnose background recovery with an external observer; no blanket latency pass from these samples |
 | At least 95% network-switch resume, no full images over cellular | Acknowledged-chunk restart/resume and metered deferral passed | Repeated real Wi-Fi/cellular switches with byte counters and stable upload IDs |
 | At least 90% SMS parsed within 2 min, one 160-character SMS | GSM-7 parser/HMAC/dedup tests pass | Selected gateway/SIM, approved centroids, real carrier sample set |
 | GPS accuracy within 20 m | Permission, timeout and pin controls implemented | Outdoor device measurements against known reference points |
@@ -166,3 +166,15 @@ NotificationAndMapUiTest passed 2/2 together in 9.60 seconds on emulator-5554:
 The first map test timed out because Compose's synthetic gesture did not trigger MapLibre's native long-press detector. Replacing only that test gesture with Espresso's native longClick passed the isolated check in 4.72 seconds, then the combined run. No production map-gesture handler changed. The map now also exposes an accessible description and readiness state.
 
 Debug and test APKs, 10 JVM tests and lint pass (0 errors, 33 warnings). Backend tests remain 17/17 and Edge checks pass. These local fixtures do not certify hosted pagination with 50+ notifications, outdoor GPS accuracy or physical-phone behavior. No new carrier, cellular or timing acceptance measurement is claimed.
+
+## Approved phone batch, November 21; documented November 22
+
+The user approved installing build 5efb41b on the connected TECNO CL8 (Android 15) and creating seven labeled hosted report/photo fixtures. The user controlled all radio changes. No schema, Edge deployment, secret, billing or persistent phone-setting change was performed. Phone testing has ended; the app was reopened normally and temporary test-window/debugger state cleared.
+
+PhoneOfflineTrialTest and run-phone-offline-trial.ps1 exercised real compression, queue persistence, force-stop/restart, automatic worker recovery and authenticated cloud photo verification. All seven UUID/photo-hash records survived the restart and were ultimately verified as one hosted report with a matching photo. A final independent SQL read returned recovered_reports=7, attached_photos=7, duplicate_labels=0. The raw records remain outside Git, with no passwords, tokens or real GPS coordinates in the published evidence.
+
+Run 7 used Wi-Fi despite planned cellular and retains its original mismatch error. Run 8's background observer stalled, returned No validated reconnect was observed after 500.616 s total instrumentation time, and recovered after PinPoint was reopened. Its timing is invalid; the full runtime is not upload latency. System diagnostics showed cellular validation, Wi-Fi off, background restriction disabled and no AOSP frozen flag. The cause is unresolved. Foreground cellular runs 9 and 10 then completed in 12.579/12.333 s from network availability, or 4.387/11.171 s from validation. These do not explain the earlier 48.5 s sample or prove the background target.
+
+Including the earlier three samples gives ten recovery records, not ten unconditional automatic-latency passes. Detailed times, photo sizes, conditions and remaining measurement work are in [CP25_PHONE_TESTS.md](CP25_PHONE_TESTS.md). No handoff/GPS/push-timing/SUS target was closed by these offline trials.
+
+The runner now rejects physical targets without an explicit switch, redacts credentials, preserves archived trial numbers and supports read-only re-verification of deviations. An independent host deadline was added after the stall: 330 s for observation, 90 s for other phases, stopping only PinPoint on timeout without clearing its queue. Local tests checked stdout/stderr/exit capture, malformed credentials, physical-target rejection and a 527 ms timeout of a deliberately delayed child. That host-timeout branch was not deliberately exercised on the real phone. Protocol: [PHONE_TRIAL_RUNNER.md](PHONE_TRIAL_RUNNER.md).
