@@ -17,43 +17,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.pinpoint.ui.theme.VioletTint
-
-data class Report(
-    val title: String,
-    val location: String,
-    val status: String
-)
+import com.example.pinpoint.data.Report
 
 @Composable
 fun MyReportsScreen(
-    onReportClick: () -> Unit,
+    reports: List<Report>,
+    loading: Boolean,
+    onReportClick: (String) -> Unit,
     onHomeClick: () -> Unit,
     onMapClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    communityFeed: Boolean = false
 ) {
-
-    val reports = listOf(
-        Report(
-            "Pothole near the main road",
-            "Main Road",
-            "Under Review"
-        ),
-        Report(
-            "Broken streetlight",
-            "Barangay Hall",
-            "Resolved"
-        ),
-        Report(
-            "Flooded pathway",
-            "Zone 2",
-            "Pending"
-        )
-    )
 
     Scaffold(
         bottomBar = {
             PinPointBottomBar(
-                selectedRoute = "reports",
+                selectedRoute = if (communityFeed) "home" else "reports",
                 onHomeClick = onHomeClick,
                 onReportsClick = {},
                 onMapClick = onMapClick,
@@ -70,12 +50,12 @@ fun MyReportsScreen(
         ) {
 
             Text(
-                text = "My Reports",
+                text = if (communityFeed) "Community Reports" else "My Reports",
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Text(
-                text = "Track the reports you have submitted.",
+                text = if (communityFeed) "Recent issues reported by your community." else "Track the reports you have submitted.",
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -87,10 +67,12 @@ fun MyReportsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
-                items(reports) { report ->
+                if (loading) item { Text("Loading reports...") }
+                else if (reports.isEmpty()) item { Text(if (communityFeed) "No community reports yet." else "You have not submitted any reports yet.") }
+                items(reports, key = { it.id }) { report ->
 
                     Card(
-                        onClick = onReportClick,
+                        onClick = { onReportClick(report.id) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(

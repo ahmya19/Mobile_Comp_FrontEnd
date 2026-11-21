@@ -1,0 +1,12 @@
+{
+  "name": "pinpoint-backend-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/*.test.js"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "13.4.0"
+  },
+  "overrides": { "@grpc/grpc-js": "^1.13.6" }
+}

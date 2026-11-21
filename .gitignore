@@ -8,3 +8,11 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+app/google-services.json
+**/node_modules/
+.firebase/
+*-debug.log
+**/.env*
+**/*service-account*.json
+**/*serviceAccount*.json
+**/firebase-adminsdk*.json

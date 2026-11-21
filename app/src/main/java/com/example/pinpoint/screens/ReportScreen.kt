@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -23,17 +25,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.pinpoint.data.ReportDraft
 
 @Composable
 fun ReportScreen(
     onBackClick: () -> Unit,
-    onSubmitClick: () -> Unit
+    busy: Boolean,
+    onSubmitClick: (ReportDraft, Uri?) -> Unit
 ) {
 
-    var category by remember {
+    var category by rememberSaveable {
         mutableStateOf("")
     }
 
@@ -41,17 +46,22 @@ fun ReportScreen(
         mutableStateOf(false)
     }
 
-    var description by remember {
+    var description by rememberSaveable {
         mutableStateOf("")
     }
 
-    var location by remember {
+    var location by rememberSaveable {
         mutableStateOf("")
     }
 
-    var selectedImage by remember {
+    var selectedImage by rememberSaveable {
         mutableStateOf<Uri?>(null)
     }
+
+    var barangay by rememberSaveable { mutableStateOf("") }
+    var latitude by rememberSaveable { mutableStateOf("") }
+    var longitude by rememberSaveable { mutableStateOf("") }
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -62,13 +72,15 @@ fun ReportScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
 
         // Back button
         IconButton(
-            onClick = onBackClick
+            onClick = onBackClick,
+            enabled = !busy
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -194,6 +206,13 @@ fun ReportScreen(
         )
 
         // Add Photo
+        OutlinedTextField(value = barangay, onValueChange = { barangay = it },
+            label = { Text("Barangay") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+        OutlinedTextField(value = latitude, onValueChange = { latitude = it },
+            label = { Text("Latitude (optional)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+        OutlinedTextField(value = longitude, onValueChange = { longitude = it },
+            label = { Text("Longitude (optional)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+        Text("Enter both coordinates if known. A map pin picker will be added by the mobile team.")
         OutlinedButton(
             onClick = {
                 imagePickerLauncher.launch("image/*")
@@ -218,11 +237,23 @@ fun ReportScreen(
         }
 
         // Submit Report
+        validationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
-            onClick = onSubmitClick,
+            onClick = {
+                try {
+                    require(latitude.isBlank() || latitude.toDoubleOrNull() != null) { "Latitude must be a number." }
+                    require(longitude.isBlank() || longitude.toDoubleOrNull() != null) { "Longitude must be a number." }
+                    val draft = ReportDraft(category, description, location, barangay,
+                        latitude.toDoubleOrNull(), longitude.toDoubleOrNull())
+                    draft.validate()
+                    validationError = null
+                    onSubmitClick(draft, selectedImage)
+                } catch (error: IllegalArgumentException) { validationError = error.message }
+            },
+            enabled = !busy,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Submit Report")
+            Text(if (busy) "Saving report..." else "Submit Report")
         }
     }
 }

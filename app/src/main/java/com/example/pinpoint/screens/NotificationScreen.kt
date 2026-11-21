@@ -20,17 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.pinpoint.ui.theme.VioletTint
+import com.example.pinpoint.data.ReportNotification
 
 @Composable
 fun NotificationsScreen(
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    notifications: List<ReportNotification>,
+    onNotificationClick: (ReportNotification) -> Unit
 ) {
-
-    val notifications = listOf(
-        "Your pothole report is now under review.",
-        "Your streetlight report has been resolved.",
-        "A new high-priority issue was reported near your area."
-    )
 
     Column(
         modifier = Modifier
@@ -59,9 +56,11 @@ fun NotificationsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
-            items(notifications) { notification ->
+            if (notifications.isEmpty()) item { Text("No notifications yet.") }
+            items(notifications, key = { it.id }) { notification ->
 
                 Card(
+                    onClick = { onNotificationClick(notification) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
@@ -70,7 +69,7 @@ fun NotificationsScreen(
                 ) {
 
                     Text(
-                        text = notification,
+                        text = (if (notification.read) "" else "New: ") + notification.message,
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(18.dp)
                     )

@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,6 +28,7 @@ import com.example.pinpoint.ui.theme.AlertRed
 import com.example.pinpoint.ui.theme.ResolvedGreen
 import com.example.pinpoint.ui.theme.Violet
 import com.example.pinpoint.ui.theme.VioletTint
+import com.example.pinpoint.data.Report
 
 @Composable
 fun HomeScreen(
@@ -34,8 +36,15 @@ fun HomeScreen(
     onReportsClick: () -> Unit,
     onMapClick: () -> Unit,
     onProfileClick: () -> Unit,
-    onNotificationsClick: () -> Unit
+    onNotificationsClick: () -> Unit,
+    reports: List<Report>,
+    community: List<Report>,
+    loading: Boolean,
+    onCommunityReportsClick: () -> Unit
 ) {
+    val active = reports.firstOrNull { it.status !in listOf("Resolved", "Rejected") }
+    val recent = community.firstOrNull()
+    val urgent = community.firstOrNull { it.priority == "High" && it.status !in listOf("Resolved", "Rejected") }
 
     Scaffold(
         bottomBar = {
@@ -117,7 +126,7 @@ fun HomeScreen(
                     )
 
                     Text(
-                        text = "Pothole near the main road",
+                        text = if (loading) "Loading reports..." else active?.title ?: "No recent active reports",
                         style = MaterialTheme.typography.bodyLarge
                     )
 
@@ -126,7 +135,7 @@ fun HomeScreen(
                     )
 
                     Text(
-                        text = "Under Review",
+                        text = active?.status.orEmpty(),
                         style = MaterialTheme.typography.labelLarge,
                         color = Violet
                     )
@@ -141,6 +150,7 @@ fun HomeScreen(
                 text = "Recent Community Reports",
                 style = MaterialTheme.typography.titleLarge
             )
+            TextButton(onClick = onCommunityReportsClick) { Text("View community reports") }
 
             Spacer(
                 modifier = Modifier.height(12.dp)
@@ -159,7 +169,7 @@ fun HomeScreen(
                 ) {
 
                     Text(
-                        text = "Streetlight not working",
+                        text = recent?.title ?: "No community reports yet",
                         style = MaterialTheme.typography.titleMedium
                     )
 
@@ -168,7 +178,7 @@ fun HomeScreen(
                     )
 
                     Text(
-                        text = "Reported near Barangay Hall",
+                        text = recent?.let { "${it.location}, ${it.barangay}" }.orEmpty(),
                         style = MaterialTheme.typography.bodyMedium
                     )
 
@@ -177,7 +187,7 @@ fun HomeScreen(
                     )
 
                     Text(
-                        text = "Resolved",
+                        text = recent?.status.orEmpty(),
                         style = MaterialTheme.typography.labelLarge,
                         color = ResolvedGreen
                     )
@@ -210,7 +220,7 @@ fun HomeScreen(
                 ) {
 
                     Text(
-                        text = "Flooded Road",
+                        text = urgent?.title ?: "No recent high-priority issues",
                         style = MaterialTheme.typography.titleMedium
                     )
 
@@ -219,7 +229,7 @@ fun HomeScreen(
                     )
 
                     Text(
-                        text = "Heavy flooding reported in the area",
+                        text = urgent?.location.orEmpty(),
                         style = MaterialTheme.typography.bodyMedium
                     )
 
@@ -228,7 +238,7 @@ fun HomeScreen(
                     )
 
                     Text(
-                        text = "High Priority",
+                        text = if (urgent == null) "" else "High Priority",
                         style = MaterialTheme.typography.labelLarge,
                         color = AlertRed
                     )
