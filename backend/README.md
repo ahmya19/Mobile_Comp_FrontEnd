@@ -26,7 +26,7 @@ A screen calls the ViewModel, which calls the repository. OkHttp sends HTTPS req
 
 Submission first saves a stable UUID, account/project identity, immutable fields and private photo copies on the phone. The UI says "saved on this device" while pending. A worker uploads the compressed JPEG, then calls submit_report. Only a database acknowledgement marks it Synced. Retrying the same UUID and content creates no duplicate report.
 
-Feeds use cursor pages of 25 ordered by created_at and id. They poll every 15 seconds; details and notifications poll every 10 seconds. Failed reads retry and keep loaded results. This is polling, not a Realtime socket. Home counts summarize loaded/filtered rows, not the entire database.
+Report feeds use cursor pages of 25; notifications use 50. Both order by created_at and id. Reports poll every 15 seconds; details and notifications every 10 seconds. Notification refresh walks all loaded pages again to keep a continuous window after new inserts; loading three pages means up to three reads per refresh. Failed requests retain loaded items and the retry cursor. Failed read acknowledgements restore the unread marker. This is polling, not a Realtime socket. Home counts summarize loaded/filtered rows, not the entire database.
 
 ## Projects and cost boundary
 
@@ -120,13 +120,13 @@ More detail: [offline synchronization contract](contracts/offline-sync.md), [res
 
 ## SMS gateway contract
 
-No gateway app, phone/SIM or paid provider has been selected. sms-report is deployed but fails closed until SMS_GATEWAY_ID and SMS_GATEWAY_SECRET are configured. The secret must be at least 32 characters and stay only on the gateway and server. Configure approved names/centroids in private.barangays before accepting SMS; it is intentionally empty rather than filled with invented official locations.
+No working gateway phone/SIM is available. sms-report is deployed but fails closed until SMS_GATEWAY_ID and SMS_GATEWAY_SECRET are configured. The secret must be at least 32 characters and stay only on the gateway and server. Three rounded Test Barangay centroids remain as simulation placeholders; replace them with the group's approved list before a real SMS test.
 
 Body: {"text":"PIN ROAD;Alangilan;Large pothole near school gate."}
 
 Category codes: ROAD, LIGHT, FLOOD, GARBAGE, WATER, OTHER. Messages must fit one GSM-7 SMS of at most 160 septets; extension characters count twice. The gateway sends POST with x-gateway-id, x-message-id, x-timestamp (Unix seconds), and x-signature (64-character hex HMAC-SHA256). Sign the exact bytes described by supabase/functions/_shared/sms.mjs; do not reserialize between signing and sending. Timestamp tolerance is five minutes, message IDs are unique per gateway, and different content under an existing ID is rejected.
 
-### Candidate gateway: SMS Gateway for Android (not yet selected or deployed)
+### Candidate gateway: SMS Gateway for Android (adapter deployed; real gateway pending)
 
 sms-report also understands the webhook of the open-source SMS Gateway for Android (docs.sms-gate.app), documented as free in its Local, Cloud and Private modes. A spare Android phone with a SIM runs the app. Selecting it is still the group's decision.
 
@@ -135,7 +135,7 @@ sms-report also understands the webhook of the open-source SMS Gateway for Andro
 - Verification follows the vendor's documented scheme: lowercase-hex HMAC-SHA256 over the raw body immediately followed by the X-Timestamp value, five-minute tolerance. Only the event type, deviceId and payload.messageId/message are used; the sender's phone number is not stored.
 - A webhook retry reuses payload.messageId, and the idempotency hash covers only messageId and message text, so a retry creates no duplicate report.
 - Install caveat observed November 21: the GitHub APK (v1.79.0, checksum verified) was blocked on a TECNO phone by Google Play Protect ("App blocked to protect your device"; no install-anyway option) because it requests SMS access outside the Play Store. Plan for a spare phone where this is permitted, or a gateway app available from the Play Store.
-- Tested locally against the documented payload shape (backend/tests/sms.test.mjs). It has not been run against the real app or a carrier. The deployed function still has the original code until redeployed, and no secrets have been set. The vendor's signing details came from its public docs and must be confirmed with a real webhook before relying on them.
+- Local payload tests and the recorded eight-case hosted simulation passed; temporary secrets and test report were removed afterwards (see VERIFICATION.md). The adapter is deployed, but has not been run against the real gateway app or a carrier. Its documented signing details still need confirmation with a real webhook.
 
 Parser and server tests do not prove carrier delivery. Hardware integration and the 90% / two-minute proposal target remain pending.
 
@@ -154,7 +154,7 @@ Backend tests run the actual PostgreSQL migrations in PGlite with simulated Auth
 
 The latest evidence, exact failed checks and next actions live in CHECKPOINTS.md and backend/VERIFICATION.md. Do not equate successful compilation with completion of device, SMS or user-study targets.
 
-For the citizen-form → official status UI → citizen notification workflow on one emulator, see [emulator rehearsal](EMULATOR_TESTING.md). The runner requires an explicit emulator serial and never targets a physical phone.
+For the citizen-form → official status UI → citizen notification workflow, see [emulator rehearsal](EMULATOR_TESTING.md). The runner defaults to emulators; phone use needs the user's approval and the explicit AllowPhysicalDevice switch.
 
 Supabase advisories flag authenticated SECURITY DEFINER functions. These RPCs are intentional and use an empty search_path with explicit owner/role checks and restricted grants. Review every new RPC against these constraints. [Advisor reference](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
 

@@ -1,6 +1,6 @@
 # CP-16 emulator rehearsal
 
-Use one Google Play emulator to exercise the citizen and official accounts sequentially. This avoids using a connected physical phone and keeps memory requirements below a two-emulator setup. The runner requires an explicit emulator serial and rejects physical-device serials.
+Use one Google Play emulator to exercise the citizen and official accounts sequentially. This avoids using a connected physical phone and keeps memory requirements below a two-emulator setup. The runner defaults to emulators; physical-device serials require the explicit AllowPhysicalDevice switch and the user's approval.
 
 ## Prerequisites
 
@@ -44,6 +44,16 @@ The default full run uses three instrumentation sessions, retaining the saved re
 Use -Phase citizen, -Phase official or -Phase review to diagnose a particular step. Later steps require the earlier step's saved report fixture. Re-running full creates a new clearly labeled prototype report; it does not delete earlier reports.
 
 ## Scope of the result
+
+Notification paging and form-map placement can be tested with local fixtures, without signing in or writing hosted data:
+
+~~~powershell
+& "$env:ANDROID_HOME/platform-tools/adb.exe" -s emulator-5554 shell am instrument -w -r `
+  -e class com.example.pinpoint.NotificationAndMapUiTest `
+  com.example.pinpoint.test/androidx.test.runner.AndroidJUnitRunner
+~~~
+
+This runs the existing notification screen with 123 local records and the report form with a native map long-press. It verifies older-page controls, the selected report/read indicator and both coordinate fields. It does not request GPS or submit a report. MapLibre may fetch visible OpenStreetMap tiles. Additional JVM paging regressions run with testDebugUnitTest.
 
 CP-08 confirmation checks can also run without sending email. After installing both APKs, target the emulator explicitly:
 

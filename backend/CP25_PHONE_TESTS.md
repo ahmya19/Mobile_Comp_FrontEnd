@@ -2,7 +2,7 @@
 
 Run on the TECNO phone with the debug build from commit 225bfd5 or later. Record only what you measure. Leave a row blank rather than guess. Use a demo citizen account; never write passwords or tokens in this file.
 
-Before starting: battery above 50%, Wi-Fi and mobile data both on, location on, notifications allowed for PinPoint. If the phone shows a "Save password?" popup, choose Not now or Never.
+Before starting, obtain the user's approval for phone tests and any required setting changes. Check battery above 50%, Wi-Fi/mobile data, location and notification permissions. If the phone shows a "Save password?" popup, choose Not now. Do not select Never or change account/autofill settings without permission. The seven remaining offline runs and all handoff/GPS/push/SUS measurements are still pending.
 
 ## A. Offline sync (target: 0 lost reports)
 
@@ -27,7 +27,7 @@ Outdoors, clear sky. Stand at a landmark whose true coordinates you can read fro
 | Spot | True lat,lon | App lat,lon | Error in metres | Seconds to fix | Notes |
 | --- | --- | --- | --- | --- | --- |
 
-Error can be computed from the two coordinates; ask Claude to compute it from the table.
+Compute the coordinate distance and record the reference method and its uncertainty. Keep precise real-world coordinates in a private local measurement file, outside Git; publish only rounded locations and aggregate errors. A consumer map pin is an approximate reference, so report that limitation when assessing the 20 m target.
 
 ## D. Push timing (two phones)
 

@@ -6,8 +6,8 @@ Recorded November 21, 2026. These are prototype results, not a claim that the pr
 
 | Check | Result |
 | --- | --- |
-| PostgreSQL business/security tests plus GSM-7/HMAC tests | 14 passed; actual application migrations run in PGlite with Auth/Storage test schemas |
-| Android JVM validation | 4 passed |
+| PostgreSQL business/security tests plus GSM-7/HMAC tests | 17 passed; actual application migrations run in PGlite with Auth/Storage test schemas |
+| Android JVM validation | 10 passed, including 6 notification paging/read-state regressions |
 | Edge Functions | Deno type check passed for sms-report and deliver-push |
 | Android build | Debug APK and instrumentation APK built; lint has zero errors, warnings retained |
 | Backend package audit | Zero reported vulnerabilities in the npm test tooling dependency tree; this is not a complete security audit of the application or all Deno transitive dependencies |
@@ -91,7 +91,7 @@ Record device/OS, build commit, connection type, sample count, timestamps, expec
 - Actual GPS accuracy, cellular handoffs, statistical acceptance targets and user study.
 - Select SMS gateway, configure its credentials and approved barangay centroids, then adapt the exact payload format.
 - Confirm the provisional 3/10 vote thresholds with the group.
-- Notification history now loads 50 at a time with a stable created_at/id cursor and a "Load older notifications" button. It builds, lints and passes JVM tests; a live check with the demo accounts is still pending.
+- Notification history loads 50 at a time. Six paging/read-state JVM regressions and an emulator UI check with 123 local notices pass. Hosted pagination with 50+ notices remains pending.
 - Map markers were migrated from MapLibre's deprecated marker annotations to a GeoJSON source and circle layer (core SDK, no new dependency). On emulator-5554 the pins render, the view frames the loaded reports on first load, tapping a pin opens that report's details, and the map smoke test, lint (0 errors, 33 warnings) and unit tests pass. Long-press pin placement on the report form uses the unchanged long-click path and was not re-exercised by hand.
 - Team build, review and acceptance of the shared branch/PR.
 
@@ -115,8 +115,6 @@ The initial harness used the full description to match a card whose title is cap
 
 One later repeat timed out waiting for Home after the official sign-in click; an isolated official retry passed without changing Auth or application code. The harness now replaces credential fields, closes the keyboard, waits for the enabled sign-in control and includes redacted UI diagnostics on failure. Two complete consecutive repeats then passed: citizen/official/review took 24.02/22.64/11.03 seconds and 18.73/21.67/11.54 seconds. These are functional repeat checks, not statistical acceptance results. Runner checks also verified literal Android-shell handling of special characters, rejection of a physical-device target, and rejection of malformed credential JSON without echoing its contents.
 
-## Shared code
-
 ## CP-08 confirmation preparation, November 21
 
 The user selected demo accounts for now. Added a six-digit confirmation screen, resend with a persisted cooldown and numeric Retry-After handling, encrypted pending-email restoration, unconfirmed-login routing and clearing of sensitive form fields. Prepared supabase/templates/confirmation.html; no hosted template, SMTP account or email delivery configuration was changed.
@@ -124,6 +122,8 @@ The user selected demo accounts for now. Added a six-digit confirmation screen, 
 EmailConfirmationTest passed 6 tests on emulator-5554 in 12.14 seconds. Fake public Auth responses exercise the signup/verification session boundary, restoration, resend throttling and unconfirmed login. Compose checks cover input validation, clearing and disabled busy controls. A real invalid verification request returned HTTP 403 with error_code=otp_expired and no session. This exposed a client parser issue: Auth's numeric code was masking its symbolic error_code. The parser now prefers error_code and preserves the exact message, Token has expired or is invalid.
 
 Debug/test APK builds and 4 JVM tests passed. Android lint remains 0 errors and 33 warnings. No new dependency or schema migration was required. Real inbox receipt, successful real-code verification and public signup remain pending under [CP-08](EMAIL_CONFIRMATION.md).
+
+## Shared code
 
 [Draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) contains the backend and mobile integration on backend/pinpoint-free. GitHub confirms DreiwanabeTexh has write collaborator access. No merge was performed. Final review included business/ownership boundaries, current schema/function grants, queue identity, Wi-Fi binding, recipient checks, credentials, whitespace and the documented acceptance gaps.
 
@@ -149,3 +149,20 @@ Against the hosted sms-report function with SMS_GATEWAY_FORMAT=sms-gate and temp
 | sms:sent event | 400 unsupported event |
 
 The test report and receipt were deleted and the secrets unset; the function again answers "SMS gateway is not configured". Three Test Barangay rows (coordinates rounded to about 1 km) remain in private.barangays as placeholders; replace them with the group's approved list. Real receipt of a carrier SMS and the 90% / two-minute target are unmeasured.
+
+## Resumed emulator batch after 3b66064, November 21
+
+Baseline rechecked: clean branch at 3b66064, 17 backend tests, 4 existing JVM tests, Edge type checks and debug build/lint passed. No hosted mutation or phone operation was performed in this batch.
+
+Notification refresh previously replaced the newest 50 rows while retaining an older cached page. Ten new notifications could therefore remove ten previously visible rows between those pages. NotificationFeed now serializes refresh, load-more and read acknowledgement, refetching the number of loaded pages with a continuous cursor. Failures preserve the last complete window and retry cursor; a rejected read acknowledgement restores its unread marker. Notification work is scoped to the current account and cancelled on account changes.
+
+Six new JVM regressions cover equal-timestamp ordering across 123 notices, 10 new inserts, a 60-insert burst, request failure/retry, failed/successful read acknowledgement and overlapping refresh/load-more requests. All pass; the JVM total is 10. Refresh now performs up to one read per loaded page every ten seconds, rather than refreshing just the first page.
+
+NotificationAndMapUiTest passed 2/2 together in 9.60 seconds on emulator-5554:
+
+- The existing notification screen loaded 123 local notices through its older-page button, opened report-2 from the correct older row and updated that row's read indicator.
+- Native long-press on the existing report-form map filled both coordinate fields with finite coordinates near the initial map view, without submitting a report or requesting GPS.
+
+The first map test timed out because Compose's synthetic gesture did not trigger MapLibre's native long-press detector. Replacing only that test gesture with Espresso's native longClick passed the isolated check in 4.72 seconds, then the combined run. No production map-gesture handler changed. The map now also exposes an accessible description and readiness state.
+
+Debug and test APKs, 10 JVM tests and lint pass (0 errors, 33 warnings). Backend tests remain 17/17 and Edge checks pass. These local fixtures do not certify hosted pagination with 50+ notifications, outdoor GPS accuracy or physical-phone behavior. No new carrier, cellular or timing acceptance measurement is claimed.
