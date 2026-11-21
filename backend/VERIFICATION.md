@@ -132,3 +132,20 @@ Debug/test APK builds and 4 JVM tests passed. Android lint remains 0 errors and 
 On emulator-5554, the three-phase workflow passed again against the live backend (citizen 13.81 s, official 18.48 s, review 7.37 s). An earlier failure was a harness issue: reports from previous runs lengthened Home, pushing Quick Report below the visible area, so the click missed. The test now scrolls to it and waits for the category field. No application logic changed for this fix.
 
 On the physical TECNO phone, EmailConfirmationTest passed 6/6. The workflow run there was blocked by Google Password Manager's "Save password?" popup covering the app after sign-in; the same harness failure was the actual cause on the emulator, so the phone workflow should be retried with autofill saving declined. Notification pagination compiles and lints but has no live test: the demo accounts have fewer than 50 notices, so "Load older notifications" is not exercised.
+
+## CP-23 simulated SMS test, November 21
+
+Against the hosted sms-report function with SMS_GATEWAY_FORMAT=sms-gate and temporary random secrets (since removed), signed requests were sent from a script; no carrier or gateway app was involved.
+
+| Case | Result |
+| --- | --- |
+| Valid sms:received, PIN WATER to Test Barangay A | HTTP 200, one report (source sms, no owner, barangay centroid) |
+| Retry, new delivery id, same message | HTTP 200, same report id, no duplicate |
+| Tampered body | 400 invalid or expired signature |
+| Timestamp 15 minutes old | 400 invalid or expired signature |
+| Wrong deviceId | 400 unsupported event |
+| Text without the PIN format | 400 format guidance |
+| Barangay not in the approved table | 400 configure an approved centroid |
+| sms:sent event | 400 unsupported event |
+
+The test report and receipt were deleted and the secrets unset; the function again answers "SMS gateway is not configured". Three Test Barangay rows (coordinates rounded to about 1 km) remain in private.barangays as placeholders; replace them with the group's approved list. Real receipt of a carrier SMS and the 90% / two-minute target are unmeasured.
