@@ -6,6 +6,8 @@ Updated November 21, 2026 (Asia/Manila).
 
 The free cloud backend is deployed and connected to the existing Kotlin frontend. Offline photo sync, resumable Wi-Fi originals, feeds, filters, votes, GPS/map integration, status history and push delivery are implemented. Device checks use the existing Pixel_8 Google Play emulator, Android API 37. Physical-phone measurements, SMS hardware and the user study are still pending.
 
+Code is shared in [draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) on backend/pinpoint-free. The draft is ready for team testing and review.
+
 **Budget boundary: Supabase Free and free Firebase FCM only. No Blaze or billing account.** The user approved this provider change and authorized the mobile features as well as backend work. The original Firebase baseline is saved in commit 70d84e9; it is no longer the active architecture.
 
 Statuses: **Done** = stated setup/implementation condition verified; **Prototype verified** = functional checks passed, with acceptance measurements still separate; **Partial** = listed work remains; **External** = needs a real device, gateway or participant.
@@ -39,8 +41,8 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-23 | SMS gateway/parser | Partial / External | Signed webhook, GSM-7 parser, replay protection and SQL ingestion deployed/tested. Receiver intentionally fails closed: no gateway selected, no shared gateway secret, and no approved barangay centroids configured. Need gateway phone/app + SIM and actual message format. |
 | CP-24 | Automated baseline | Done | 16 backend tests, 4 JVM tests, Edge type checks, Android builds and lint pass (0 errors, 33 warnings). Backend and pinned Edge dependencies report no npm audit findings. Android checkpoint phases recorded in backend/VERIFICATION.md. |
 | CP-25 | Proposal acceptance measurements | External | A test matrix records the targets and evidence needed. No statistical timing, cellular loss/resume rate, carrier delivery, outdoor GPS or SUS result is claimed. |
-| CP-26 | Review and GitHub delivery | In progress | Current changes are being reviewed on backend/pinpoint-free. Main is unchanged. Secret scan and final build precede commit/push and a draft PR. |
-| CP-27 | Team handoff | In progress | Free setup/architecture guide, checkpoint tracker, verification notes and build artifact are being prepared. Teammate build/demo acceptance follows sharing. |
+| CP-26 | Review and GitHub delivery | Done | Changes reviewed, secret/whitespace checks passed, committed and pushed to backend/pinpoint-free. Draft PR #1 is open for the group: https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1. |
+| CP-27 | Team handoff | Partial | Free setup/architecture guide, checkpoint tracker, verification matrix and debug APK delivered. The group still needs to build/rehearse on its own phones and accept the handoff. |
 
 ## Implementation ownership
 
@@ -75,6 +77,6 @@ Do not enable a paid plan to close any checkpoint. Ask about genuinely missing i
 | 2026-11-21 | CP-03 through CP-15 | Auth/database/private buckets/Edge Functions integrated; cloud ownership/status/photo tests passed; restricted FCM credential configured. |
 | 2026-11-21 | CP-17 through CP-22 | Durable queue, resumable Wi-Fi originals, native map, filters/pages and votes implemented; prototype Android/SQL checks passed with limits recorded. |
 | 2026-11-21 | CP-15 recovery | Free server dispatcher, leases, backoff and one-use nonce authentication deployed; cron-only push and notification tap passed. |
-| 2026-11-21 | CP-24 through CP-27 | Final verification, code review and team deliverables in progress; acceptance targets remain explicit. |
+| 2026-11-21 | CP-24 through CP-27 | Final checks passed; branch pushed and draft PR #1 opened. Setup guide, tracker, verification matrix and APK delivered; external acceptance targets remain explicit. |
 
 Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).

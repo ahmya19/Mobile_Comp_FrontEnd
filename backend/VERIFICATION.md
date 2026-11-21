@@ -94,3 +94,7 @@ Record device/OS, build commit, connection type, sample count, timestamps, expec
 - The notification list currently displays the latest 100 items. Full older-notification pagination is not implemented.
 - Map marker APIs in the pinned SDK are deprecated but functional; a later SDK/annotation migration remains maintenance work.
 - Team build, review and acceptance of the shared branch/PR.
+
+## Shared code
+
+[Draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) contains the backend and mobile integration on backend/pinpoint-free. GitHub confirms DreiwanabeTexh has write collaborator access. No merge was performed. Final review included business/ownership boundaries, current schema/function grants, queue identity, Wi-Fi binding, recipient checks, credentials, whitespace and the documented acceptance gaps.
