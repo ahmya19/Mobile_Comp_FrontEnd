@@ -43,3 +43,17 @@ Needs real participants. Use the standard 10-item System Usability Scale; target
 ## Environment record
 
 Phone model and Android version, build commit, SIM carrier, date, who ran each section.
+
+## Results log
+
+### A/B. Offline sync on the TECNO phone, November 21 (3 of 10 planned runs; stopped early by the user)
+
+Measured from server timestamps and the phone's network log. Wi-Fi/mobile-data times come from adb connectivity records.
+
+| Run | Reconnected via | Delay to report on server | Copies | Photo |
+| --- | --- | --- | --- | --- |
+| 1 | Wi-Fi | 2.6 s | 1 | Yes |
+| 2 | Wi-Fi | 5.0 s | 1 | Yes |
+| 3 | Mobile data only (Wi-Fi off) | 48.5 s | 1 | Yes |
+
+All three synced exactly once with the photo after a forced stop while offline. Run 3 is the first real mobile-data upload; its delay is one sample and may reflect retry timing, so no rate is claimed. The run 3 description differed from the planned label, so it was matched as the only new report. The target of 10 runs was not met: sections A and B remain incomplete, and C (GPS), D (push timing) and E (SUS) have no data.
