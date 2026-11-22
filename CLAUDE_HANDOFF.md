@@ -10,6 +10,8 @@ Latest independent backend follow-up: user is using the phone; proceed without p
 
 Latest backend verification: backend/official-map-validation builds on draft PR #7 and verifies the official hosted map with existing data (1/1, 12.58 s), including assigned/other-barangay controls. Report/notice/history fingerprints and local session/device cleanup were verified. Test/doc changes only; no phone operations. See [backend/OFFICIAL_MAP_VALIDATION.md](backend/OFFICIAL_MAP_VALIDATION.md). The independent backend continuation remains separate from this UI design assignment; use the current handover scope.
 
+Latest backend continuation: backend/storage-access-validation builds on draft PR #8. Four existing objects passed 16 API access checks with matching authorized hashes, independent preservation and local session cleanup. See [backend/PRIVATE_STORAGE_VALIDATION.md](backend/PRIVATE_STORAGE_VALIDATION.md). No phone, uploads/deletes or runtime/schema changes. Review the dependent backend PR stack next; the receiving tool follows the current backend handover scope, separate from this UI assignment.
+
 ## 1. Establish the design reference and baseline
 
 Read HANDOFF.md and CHECKPOINTS.md first. Before wiring or testing data, read [backend/README.md](backend/README.md) and [backend/VERIFICATION.md](backend/VERIFICATION.md). Use their current build/test commands and evidence rather than treating this handoff as a fresh test pass.
