@@ -18,7 +18,9 @@ Latest backend work: the queue correction in 2c94c80 remains in the delivered ru
 
 The user subsequently authorized unattended project-specific phone/PC investigation, test builds, radio/per-app setting changes and synthetic hosted fixtures. Those steps did not require repeated permission during this batch. The zero-budget, no-secrets and project-only boundaries remain; do not treat this as authority over unrelated apps/accounts or new paid services. Radios and temporary USB stay-awake are restored; PinPoint retains Android Unrestricted and OEM No Restrictions.
 
-Latest task 2: [hosted notification pagination](backend/NOTIFICATION_PAGING_VALIDATION.md) passed with the real Kotlin feed and 149 rows, plus ordinary-phone report navigation/read persistence after restart. Temporary fixtures were removed and the original 15 notices preserved. Work is on backend/notification-pagination-validation after PR #1 merged into main. The latest user instruction keeps the phone powered on/awake while they sleep; USB stay-awake 2 is intentionally left enabled for this batch.
+Completed task 2: [hosted notification pagination](backend/NOTIFICATION_PAGING_VALIDATION.md) passed with the real Kotlin feed and 149 rows, plus ordinary-phone report navigation/read persistence after restart. Temporary fixtures were removed and the original 15 notices preserved. PR #2 is merged into main at 066e6ae. The latest user instruction keeps the phone powered on/awake while they sleep; USB stay-awake 2 is intentionally left enabled for this batch.
+
+Latest task 3: [hosted report feed/filter validation](backend/REPORT_FEED_VALIDATION.md) passed 17 SQL cases, an insert burst and phone combined filters/details. All 97 temporary reports were removed; original 36 unchanged. Current branch: backend/report-feed-validation from merged PR #2. Phone map rendering and whole-app acceptance remain open. The phone stays awake on USB.
 
 ## What exists
 
@@ -52,7 +54,7 @@ Two confirmed demo accounts (citizen and official) exist. Their passwords are no
 | Barangay list | Replace the three Test Barangay rows in `private.barangays` with the approved names and coordinates |
 | Vote thresholds | Confirm 3 for Medium and 10 for High, or change them |
 | Measurements (CP-25) | Real phones, outdoor GPS, mobile data and a user study (SUS 70 or higher) |
-| PR review | Review and merge [draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) |
+| PR review | PRs #1 and #2 are merged. Review backend/report-feed-validation; whole-app acceptance remains separate. |
 | UI/UX and whole-app acceptance | Claude must mirror the supplied design and verify every user flow against the backend; use CLAUDE_HANDOFF.md and retain failed/blocked cases |
 
 ## Rules that keep this safe

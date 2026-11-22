@@ -2,7 +2,7 @@
 
 User assignment, November 22, 2026: implement the UI structure to mirror the provided UI/UX and test the entire PinPoint Citizen App, including its backend. Codex remains the backend implementation/fix owner; current responsibilities are in [HANDOFF.md](HANDOFF.md).
 
-Repository: `C:\Users\USER\project\MobileConputing`. Work on `backend/pinpoint-free`; [draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) is open. The preceding implementation/evidence baseline is e8a473d; inspect the current HEAD and working tree before editing. Continue the existing Kotlin/Compose app and integrated backend.
+Repository: `C:\Users\USER\project\MobileConputing`. PRs #1 and #2 are merged; main baseline is 066e6ae. Current validation branch: `backend/report-feed-validation`. Inspect HEAD, remote PR state and working tree before editing, then coordinate the UI branch from the latest reviewed baseline. Continue the existing Kotlin/Compose app and integrated backend.
 
 ## 1. Establish the design reference and baseline
 
@@ -52,6 +52,8 @@ For email setup consult [backend/EMAIL_CONFIRMATION.md](backend/EMAIL_CONFIRMATI
 
 CP-14 follow-up: read [backend/NOTIFICATION_PAGING_VALIDATION.md](backend/NOTIFICATION_PAGING_VALIDATION.md). Hosted ordering, insert-burst refresh, owner/read rules and ordinary-phone navigation/read state after restart passed; scoped fixtures are removed. Retain these scenarios during UI restructuring. Review the observed stale global network-error banner in the new UI. The latest user request keeps the phone on/awake, with USB stay-awake 2; do not run screen-off/reboot tests while that preference applies.
 
+CP-21 follow-up: read [backend/REPORT_FEED_VALIDATION.md](backend/REPORT_FEED_VALIDATION.md) before changing feed/filter UI. Hosted 17-case ordering/filter checks and insert refresh passed; phone combined filters, all 20 Beta rows and correct details passed. All 97 fixtures are removed. Preserve those regressions; map marker rendering and whole-app acceptance remain open.
+
 ## 5. Deliver evidence and coordinate fixes
 
 Codex retains the 2c94c80 empty-job fix (BG-002). The established WorkManager path now passes configured-TECNO background Wi-Fi checks: 1.310 s from observed availability / 0.096 s from validation awake, and 1.337 / 1.337 s with the screen off. All sampled app-state reads stayed off screen and kernel-unfrozen in those positives. Battery Lab > Power Saving Management for Apps > Pinpoint > No Restrictions is separate from Android Unrestricted; App Launch was already Allowed. Reverting just the OEM policy to Intelligent Management reproduced freezing and no row for 82.831 s after validation; restoring No Restrictions recovered that same report without reopening PinPoint. The additional native-transfer experiment also stalled under the restriction and was removed.
@@ -62,4 +64,4 @@ Maintain one test matrix with: screen/flow; reference frame; expected result; ac
 
 Record every backend failure for Codex in BACKEND_DEFECTS.md, with role/barangay, sanitized request/response, timestamp, expected/actual IDs/state and relevant code path. Summarize those records in the handoff. Record authorization denial tests as expected passes when they match the policy. Keep phone serials, private credential-file contents, tokens and raw precise location outside Git/screenshots/logs shared with the group.
 
-Update CHECKPOINTS.md and backend/VERIFICATION.md with observed evidence and remaining blockers. Commit reviewable UI/test batches and push to the existing PR branch; preserve others' uncommitted work. Completion requires reference-based UI comparisons, complete flow coverage, fresh relevant build/test results and explicit unresolved cases. Mark each external dependency Blocked with its required input instead of claiming the whole app or backend is fully verified.
+Update CHECKPOINTS.md and backend/VERIFICATION.md with observed evidence and remaining blockers. Commit reviewable UI/test batches on a coordinated branch and open a PR against the latest main; preserve others' uncommitted work. Completion requires reference-based UI comparisons, complete flow coverage, fresh relevant build/test results and explicit unresolved cases. Mark each external dependency Blocked with its required input instead of claiming the whole app or backend is fully verified.
