@@ -59,10 +59,14 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
         }
         val file=image?.let {
             val directory=File(context.filesDir,"queued_photos").apply { check(exists() || mkdirs()) }
+            // Compress before touching the disk: a corrupt or vanished source must not leave a partial temp file.
+            val jpeg=PhotoCompressor.jpeg(context,it)
             File(directory,"$id.jpg").also { target ->
                 val temporary=File(directory,"$id.tmp")
-                temporary.outputStream().use { output -> output.write(PhotoCompressor.jpeg(context,it)) }
-                check(temporary.renameTo(target)) { "Could not save the selected photo." }
+                try {
+                    temporary.outputStream().use { output -> output.write(jpeg) }
+                    check(temporary.renameTo(target)) { "Could not save the selected photo." }
+                } finally { temporary.delete() }
             }.absolutePath
         }
         var original: File?=null

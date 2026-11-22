@@ -97,6 +97,7 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.test.espresso:espresso-intents:3.7.0")
     androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
     androidTestImplementation("androidx.work:work-testing:2.9.1")
     // Match WorkManager 2.9.1's runtime dependency for test-database inspection.
     androidTestImplementation("androidx.room:room-runtime:2.5.0")
