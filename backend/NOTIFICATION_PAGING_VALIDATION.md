@@ -1,6 +1,6 @@
 # CP-14 hosted notification pagination
 
-Status: **verified on hosted Supabase, the isolated emulator and the ordinary TECNO app**, November 22, 2026. Base main is 708b466 (PR #1 merged). Branch: backend/notification-pagination-validation. The app runtime, schema and server functions were unchanged in this batch.
+Status: **verified on hosted Supabase, the isolated emulator and the ordinary TECNO app**, November 22, 2026. Base main is 708b466 (PR #1 merged). Branch: backend/notification-pagination-validation; [draft PR #2](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/2) is pushed for review. The app runtime, schema and server functions were unchanged in this batch.
 
 ## Hosted fixture and ordering checks
 

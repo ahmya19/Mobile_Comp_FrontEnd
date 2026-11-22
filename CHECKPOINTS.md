@@ -6,7 +6,7 @@ Updated November 22, 2026 (Asia/Manila).
 
 The free cloud backend is deployed and connected to the existing Kotlin frontend. Task 2 / CP-14 hosted notification pagination is verified: the real Kotlin feed matched all 149 rows through an insert-burst refresh, and ordinary-phone navigation/read state after restart passed. Temporary fixtures were removed; the original 15 notices were preserved. Task 1's TECNO No Restrictions mitigation remains in place. The latest user request keeps the phone powered on/awake while they sleep, so USB stay-awake 2 is intentionally enabled. Wider CP-25 measurements and Claude's whole-app/UI acceptance remain open.
 
-[PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) is merged into main at 708b466. Current task branch: backend/notification-pagination-validation; CP-14 hosted paging and ordinary-phone read-state validation passed, with scoped fixtures cleaned up.
+[PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) is merged into main at 708b466. CP-14 hosted paging and ordinary-phone read-state validation passed, with scoped fixtures cleaned up. The task branch backend/notification-pagination-validation is pushed for review in [draft PR #2](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/2).
 
 Latest work assignment: Codex owns all backend implementation/fixes. Claude owns UI structuring to mirror the provided UI/UX and whole-app testing, including the backend. Authoritative ownership is in HANDOFF.md; Claude's work package is CLAUDE_HANDOFF.md.
 
