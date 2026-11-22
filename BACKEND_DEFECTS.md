@@ -31,4 +31,3 @@ Detailed evidence, timestamps, endpoint limits and source links: [backend/BACKGR
 Owner: Claude (backend-continuation session). Status: **Fixed** in this batch, verified locally and on hosted data on the emulator.
 
 Hosted data has 11 reports at exactly 13.78, 121.07. Tapping that point opened only the first rendered feature, so the other ten were unreachable from the map. SMS reports will stack the same way, since each barangay has a single centroid. Reproduction before the fix: `MapIntegrationTest#stackedMarkersOfferAChooserSoEveryReportIsReachable` failed with `ComposeTimeoutException: Condition still not satisfied after 10000 ms` waiting for a chooser. `ReportMap` now opens one report directly and shows a chooser (up to 25 entries) when several markers are hit. Evidence and limits: [backend/MAP_HOSTED_NAVIGATION_VALIDATION.md](backend/MAP_HOSTED_NAVIGATION_VALIDATION.md). Not yet checked on the physical phone; larger stacks than 25 are truncated.
-
