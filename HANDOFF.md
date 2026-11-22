@@ -4,11 +4,19 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
 
+## Current delivery — November 23
+
+PRs #1–#9 are merged; main is dbb2568. The reviewed combined tree passed 33 backend tests (including 11 Python cases and two PGlite cleanup cases), Edge checks, Android app/test builds, JVM tests and lint (zero errors, 34 warnings). The hosted-map runner now preserves private evidence, protects partial-setup cleanup and revokes its own local sessions. No phone or hosted fixture changes were made in this merge batch.
+
+CP-30 is implemented in PR #10: GitHub run 45046214351 passed 33 backend tests and both Edge checks on standard Ubuntu in 21 s. Read [CI operation](backend/CONTINUOUS_INTEGRATION.md) and inspect the PR's current merge state before choosing a branch. Next independent backend task: audit all nine migrations and fresh-project replay instructions, identify isolated-test gaps and add meaningful coverage where platform services are unnecessary. Completion means every migration is accounted for, local replay limits are explicit and added checks pass; do not replay creation migrations on the existing hosted database.
+
+The phone remains unavailable; make no phone calls or changes until the user says otherwise. A backend continuation by Claude is separate from the UI assignment; supply a return handoff with commits/PRs, exact checks, blockers and one next task. Older branch/next-task paragraphs below are historical.
+
 ## Latest private-Storage validation — November 23
 
 Current branch backend/storage-access-validation builds on backend/official-map-validation (draft PR #8). Four existing test-labelled objects passed 16/16 API access checks: seven allowed reads, nine expected denials; authorized official bytes matched owner SHA-256 values. Compressed community access and restricted originals matched deployed RLS. Full fingerprints of 36 reports/45 object rows/bucket settings were preserved; both test sessions returned local logout 204. No phone/fixtures/uploads/deletes or runtime/backend policy change. See [private Storage evidence](backend/PRIVATE_STORAGE_VALIDATION.md).
 
-Next independent delivery task is to review the dependent backend PR stack, inspect each intended diff/check result and prepare the merge sequence. Keep the phone unavailable until the user says otherwise. Older task/branch pointers below are historical.
+That Storage follow-up and its dependent PR stack are now merged; follow the current delivery section above.
 
 ## Latest backend validation — November 23
 
@@ -82,7 +90,7 @@ Two confirmed demo accounts (citizen and official) exist. Their passwords are no
 | Barangay list | Replace the three Test Barangay rows in `private.barangays` with the approved names and coordinates |
 | Vote thresholds | Confirm 3 for Medium and 10 for High, or change them |
 | Measurements (CP-25) | Real phones, outdoor GPS, mobile data and a user study (SUS 70 or higher) |
-| PR review | PRs #1 and #2 are merged. Review backend/report-feed-validation; whole-app acceptance remains separate. |
+| PR review | PRs #1–#9 are merged; CP-30 is verified in PR #10. Inspect its current merge state. Whole-app acceptance remains separate. |
 | UI/UX and whole-app acceptance | Claude must mirror the supplied design and verify every user flow against the backend; use CLAUDE_HANDOFF.md and retain failed/blocked cases |
 
 ## Rules that keep this safe

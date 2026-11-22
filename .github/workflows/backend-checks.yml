@@ -1,0 +1,45 @@
+name: Backend checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'supabase/**'
+      - '.github/workflows/backend-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests and Edge types
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check Python availability
+        run: python3 --version
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run isolated backend regressions
+        run: npm test
+      - name: Type-check Edge Functions
+        run: npm run check:edge

@@ -2,7 +2,7 @@
 
 User assignment, November 22, 2026: implement the UI structure to mirror the provided UI/UX and test the entire PinPoint Citizen App, including its backend. Codex remains the backend implementation/fix owner; current responsibilities are in [HANDOFF.md](HANDOFF.md).
 
-Repository: `C:\Users\USER\project\MobileConputing`. PRs #1 and #2 are merged; main baseline is 066e6ae. CP-21 branch: `backend/report-feed-validation` (draft PR #3). Latest validation branch: `backend/voting-validation`, based on CP-21; inspect PR dependencies before merging. Inspect HEAD, remote PR state and working tree before editing, then coordinate the UI branch from the latest reviewed baseline. Continue the existing Kotlin/Compose app and integrated backend.
+Repository: `C:\Users\USER\project\MobileConputing`. PRs #1–#9 are merged; backend baseline is dbb2568. CP-30 automated CI passed on GitHub in PR #10; inspect its merge state and HANDOFF.md for the next independent backend task (migration replay/coverage audit). The phone is unavailable; leave it untouched until the user says otherwise. Continue the existing Kotlin/Compose app and integrated backend. Earlier branch/next-task notes below are historical.
 
 Latest backend continuation update: Claude implemented hosted map navigation plus BG-003, and Codex verified the ordinary TECNO chooser/details/back route using existing data/session. The backend continuation handover is separate from this UI/UX work package. Current branch backend/map-hosted-navigation, draft PR #6 depending on #5/#4/#3; inspect actual state before editing. Read [backend/MAP_HOSTED_NAVIGATION_VALIDATION.md](backend/MAP_HOSTED_NAVIGATION_VALIDATION.md) for the latest evidence; older native-test limitations below are historical. Wider filter/official/outdoor and full-app acceptance remain open.
 
@@ -10,7 +10,7 @@ Latest independent backend follow-up: user is using the phone; proceed without p
 
 Latest backend verification: backend/official-map-validation builds on draft PR #7 and verifies the official hosted map with existing data (1/1, 12.58 s), including assigned/other-barangay controls. Report/notice/history fingerprints and local session/device cleanup were verified. Test/doc changes only; no phone operations. See [backend/OFFICIAL_MAP_VALIDATION.md](backend/OFFICIAL_MAP_VALIDATION.md). The independent backend continuation remains separate from this UI design assignment; use the current handover scope.
 
-Latest backend continuation: backend/storage-access-validation builds on draft PR #8. Four existing objects passed 16 API access checks with matching authorized hashes, independent preservation and local session cleanup. See [backend/PRIVATE_STORAGE_VALIDATION.md](backend/PRIVATE_STORAGE_VALIDATION.md). No phone, uploads/deletes or runtime/schema changes. Review the dependent backend PR stack next; the receiving tool follows the current backend handover scope, separate from this UI assignment.
+The Storage follow-up and dependent PR stack are merged. Follow the current delivery/CI task in HANDOFF.md. The receiving tool follows the current backend handover scope, separate from this UI assignment, and supplies a return handoff with the exact next task.
 
 ## 1. Establish the design reference and baseline
 
