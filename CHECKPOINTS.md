@@ -1,12 +1,12 @@
 # PinPoint project checkpoints
 
-Updated November 22, 2026 (Asia/Manila).
+Updated November 23, 2026 (Asia/Manila).
 
 ## Current checkpoint
 
-The free cloud backend is deployed and connected to the existing Kotlin frontend. Task 2 / CP-14 hosted notification pagination is verified: the real Kotlin feed matched all 149 rows through an insert-burst refresh, and ordinary-phone navigation/read state after restart passed. Temporary fixtures were removed; the original 15 notices were preserved. Task 1's TECNO No Restrictions mitigation remains in place. The latest user request keeps the phone powered on/awake while they sleep, so USB stay-awake 2 is intentionally enabled. Wider CP-25 measurements and Claude's whole-app/UI acceptance remain open.
+The free cloud backend is deployed and connected to the existing Kotlin frontend. Feed, voting, citizen/official map and private Storage validations are recorded below. The user is using the phone for other work: leave it untouched until it is available. Wider CP-25 measurements and Claude's whole-app/UI acceptance remain open.
 
-[PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) is merged into main at 708b466. CP-14 hosted paging and ordinary-phone read-state validation passed, with scoped fixtures cleaned up. The task branch backend/notification-pagination-validation is pushed for review in [draft PR #2](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/2).
+PRs #1–#9 are merged; main is dbb2568. The dependent follow-ups were reviewed, retargeted and merged in order. Merge-review fixes preserve map-run evidence, clean partial fixtures transactionally and locally sign out test sessions. The combined candidate passed 33 backend tests (including 11 Python cases and two PGlite cleanup cases), Edge checks, Android builds/JVM tests and lint (zero errors, 34 warnings). No phone or new hosted-data operations were used in this merge batch. Next task: CP-30 backend CI.
 
 Latest work assignment: Codex owns all backend implementation/fixes. Claude owns UI structuring to mirror the provided UI/UX and whole-app testing, including the backend. Authoritative ownership is in HANDOFF.md; Claude's work package is CLAUDE_HANDOFF.md.
 
@@ -41,12 +41,13 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-21 | Feed/map filters and pagination | Hosted feed and phone filters verified; map acceptance partial | Real Kotlin feed matched 17 SQL cases and all 67 Alpha rows after an insert burst without gaps/duplicates. Phone combined filters, all 20 Beta rows and details passed. Removed 97 fixtures; original 36 unchanged. Coordinate-ID inclusion and ordinary-phone map pagination/stacked-marker details passed; official hosted read/navigation and role-control visibility also pass; wider filters, permission/error and outdoor GPS acceptance remain. See backend/REPORT_FEED_VALIDATION.md. |
 | CP-22 | Voting and derived urgency | Hosted API verified; policy decision pending | 32 API checks passed: concurrent/idempotent voting, owner-only reads, direct-write/role denials, closed reports and official Medium/High floors. Local 3/10 crossings in both directions passed. Six fixtures/two history rows removed; original data unchanged. Group must confirm provisional thresholds. See backend/VOTING_VALIDATION.md. |
 | CP-23 | SMS gateway/parser | Tested up to the gateway; carrier test External | Signed webhook (original format and SMS Gateway for Android format), GSM-7 parser, replay protection and SQL ingestion are deployed. A simulated signed SMS against the hosted function created one report at a test barangay; retry created no duplicate; tampered, stale, wrong-device, wrong-event, malformed and unknown-barangay messages were rejected. Test data and temporary secrets were then removed, so the receiver fails closed. Remaining: a spare phone with a SIM that can run the gateway app (Play Protect blocked the sideloaded APK on the primary phone), the real gateway secret, and the group's approved barangay names/centroids (3 rounded Test Barangay rows are in the database for now). |
-| CP-24 | Automated baseline | Done | 30 backend tests (19 business/webhook plus 11 diagnostic), 10 JVM tests, Edge checks and Android builds pass; latest lint 0 errors, 34 warnings; five local scheduler checks pass. Earlier emulator notification/map checks pass 2/2 using local fixtures. Earlier Auth and full-workflow evidence remains in backend/VERIFICATION.md. |
+| CP-24 | Automated baseline | Done | 33 backend tests pass, including 11 Python failure-path cases and two PGlite cleanup cases; JVM tests, Edge checks and Android builds pass. Latest lint: zero errors, 34 warnings. Earlier device/hosted evidence remains in backend/VERIFICATION.md. |
 | CP-25 | Proposal acceptance measurements | Partial / External | Configured-TECNO background Wi-Fi checks now meet the observed 60 s timing check awake and screen off; reverse control and earlier failures are retained. These are single-phone USB-powered observations, not statistical acceptance or new carrier/overnight tests. Historical ten samples retain their transport/timing exceptions. Five handoffs, outdoor GPS, push timing and SUS remain. |
-| CP-26 | Review and GitHub delivery | Partial: foundation merged; follow-ups await review | PRs #1/#2 are merged into main. The subsequent feed/voting/map/Storage validation and stacked-marker fixes are pushed as dependent draft PRs. Review the stack, inspect retargeted diffs and deliver the approved follow-ups; source/evidence is recorded in each checkpoint. |
+| CP-26 | Review and GitHub delivery | Done for PRs #1–#9 | Feed/voting/map/Storage follow-ups reviewed, corrected, retargeted and merged in order; main dbb2568 matches the tested combined tree. Wider acceptance remains separate. |
 | CP-27 | Team handoff | Partial | Setup/evidence/APK delivered; ownership and Claude's UI/whole-app test package documented. Design comparison, complete regression evidence and team acceptance remain pending. |
 | CP-28 | Mirror supplied UI/UX | Assigned to Claude | Inventory the supplied reference and existing screens, restructure Compose UI/navigation and compare screenshots for every screen/state. Reference location must be established; visual parity is not yet verified. |
 | CP-29 | Whole-app regression including backend | Assigned to Claude | Execute the complete matrix in CLAUDE_HANDOFF.md, including API/security and full citizen/official flows. Record Pass/Fail/Blocked with evidence and backend defects for Codex. Historical prototype checks do not close this checkpoint. |
+| CP-30 | Backend CI | In progress | Workflow implemented on backend/automated-checks; awaiting its first GitHub-hosted run. See backend/CONTINUOUS_INTEGRATION.md. No hosted secrets, device or deployment required. |
 
 ## Implementation ownership
 
@@ -70,7 +71,7 @@ Advisor warnings and their access-control context are documented in backend/VERI
 2. CP-14 is complete and PR #2 merged at 066e6ae. CP-21 feed/filter validation is complete on backend/report-feed-validation; see backend/REPORT_FEED_VALIDATION.md. Review CP-21 and CP-22 validation branches; hosted voting/derived urgency checks now pass. Hosted emulator and ordinary-phone citizen map navigation now pass; wider map/whole-app acceptance remains separate. Keep demo accounts until free SMTP setup under CP-08.
 3. Confirm vote thresholds and the approved barangay list/centroids.
 4. Select a gateway phone/app and SIM for CP-23; implement its exact webhook adapter, then test carrier SMS.
-5. PR #1 is merged; complete the team UI/whole-app handoff and review subsequent task branches.
+5. PRs #1–#9 are merged; finish CP-30 backend CI and retain the separate team UI/whole-app acceptance work.
 
 Do not enable a paid plan to close any checkpoint. Ask about genuinely missing infrastructure or permissions, while continuing independent work.
 
