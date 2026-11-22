@@ -1,6 +1,6 @@
 # Hosted whole-app map validation — November 22, 2026
 
-Closes the gap left by [MAP_INTEGRATION_VALIDATION.md](MAP_INTEGRATION_VALIDATION.md): real authenticated hosted data → pagination and filter → rendered native marker → correct full report details through the actual AppNavigation route. **Emulator only; no physical phone, outdoor GPS or carrier measurement.**
+Closes the gap left by [MAP_INTEGRATION_VALIDATION.md](MAP_INTEGRATION_VALIDATION.md): real authenticated hosted data → pagination and filter → rendered native marker → correct full report details through the actual AppNavigation route. Emulator scenarios below are complemented by the ordinary-phone follow-up. Outdoor GPS and carrier measurements remain separate.
 
 ## Result
 
@@ -33,6 +33,18 @@ python backend/scripts/map_nav_hosted.py full --credentials <accounts.json> --wo
 
 `prepare`, `run` and `cleanup` can be run separately. The driver never prints credentials, guards the serial to `emulator-N`, and cleanup runs even when the test fails.
 
+## Ordinary TECNO follow-up — November 22
+
+Codex resumed from Claude's backend handoff and verified BG-003 on the ordinary TECNO CL8, Android 15 / API 35, using validated Wi-Fi and the pre-existing citizen session. The initial ADB check showed no device; testing began only after the user reconnected it.
+
+The app/test builds passed (Gradle tasks up-to-date). Only the app APK was installed with install -r, retaining data/session; no test instrumentation was installed on the phone. Installed APK SHA-256: 659bebd4b9736529b14abc706cefddf46bd36b3be317fa56dd6b36c07b0e1752. The previous phone build was d008315e7a25bf8800a684e8143b5bc82b2eb2c8494127d3d56965761073fdcf.
+
+Ordinary UI actions opened Map, then Load more reports on map. The loaded-location summary increased from 6 to 13 and the page button disappeared. Basemap/markers were visible. Tapping the existing coincident marker opened "11 reports at this location". Scrolling the chooser exposed all 11 expected labels in the order independently queried from SQL; unique category/description-prefix/status labels mapped them to the expected IDs. Selecting the oldest entry opened details with that report's full description, category and coordinates. Back returned to Map. This checks the real application route, not a test callback.
+
+No report fixtures or new sign-ins were needed. Citizen identity was verified privately before/after navigation; no logout, clear-data or uninstall was performed. The phone returned to PinPoint Home, awake on USB, with stay-awake 2, airplane off and Wi-Fi on. Radios and per-app exemptions were unchanged. Initial foreground activity was not captured reliably, so restoration of an unrelated prior foreground app is not claimed.
+
+Before/after read-only SQL matched all 36 report rows and 15 notification rows by full-row fingerprints. Counts also remained 13 coordinate reports, 15 history rows, 15 outbox rows and zero votes. No hosted cleanup was necessary. Private evidence outside Git: work/phone-map-before-oracle.json, phone-map-result.json, phone-map-after-verification.json, phone-map-network.json, phone-map-chooser-*.xml and phone-map-details-*.xml, plus map/chooser/details screenshots. One private evidence writer failed on a Unicode arrow under Windows cp1252; UTF-8 capture resumed on the already-open details. This was a host capture error, not an application failure; no phone navigation or upload latency target is inferred.
+
 ## Limits
 
-Basemap tiles come from the public OpenStreetMap server. The test does not compare basemap pixels, does not use device GPS, and was not run on the TECNO phone. Other filter combinations through the map UI, the official account, permission/error states, and outdoor accuracy remain separate acceptance work. The chooser lists at most 25 reports per tap point; a larger stack would need paging.
+Basemap tiles come from the public OpenStreetMap server. Pixel equivalence and device GPS were not measured. The ordinary phone pass covers citizen pagination, the 11-report chooser and selected details/back navigation; category filtering remains covered by the hosted emulator test above. Other filter combinations through the map UI, the official account, permission/error states and outdoor accuracy remain separate acceptance work. The chooser lists at most 25 reports per tap point; a larger stack would need paging.

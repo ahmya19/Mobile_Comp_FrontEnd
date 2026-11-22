@@ -4,6 +4,12 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
 
+## Current backend continuation
+
+The user separately authorized Claude to continue Codex backend implementation/integration during the handover. Claude completed hosted map navigation and BG-003; Codex has resumed backend ownership and verified the ordinary phone. This backend continuation is separate from the UI/UX work package below. Latest branch backend/map-hosted-navigation; draft PR #6 stacks on #5, #4 and #3, all currently unmerged.
+
+Latest phone build SHA-256: 659bebd4b9736529b14abc706cefddf46bd36b3be317fa56dd6b36c07b0e1752. On the TECNO, all 11 chooser rows matched SQL, selected details and Back passed, and the existing citizen session/hosted report and notice state were preserved. Phone is left on PinPoint Home, awake with USB stay-awake 2, airplane off/Wi-Fi on. See [hosted map and phone evidence](backend/MAP_HOSTED_NAVIGATION_VALIDATION.md). Historical branch/build notes below describe earlier batches.
+
 ## Current ownership — user assignment, November 22
 
 | Owner | Responsibility |

@@ -4,6 +4,8 @@ User assignment, November 22, 2026: implement the UI structure to mirror the pro
 
 Repository: `C:\Users\USER\project\MobileConputing`. PRs #1 and #2 are merged; main baseline is 066e6ae. CP-21 branch: `backend/report-feed-validation` (draft PR #3). Latest validation branch: `backend/voting-validation`, based on CP-21; inspect PR dependencies before merging. Inspect HEAD, remote PR state and working tree before editing, then coordinate the UI branch from the latest reviewed baseline. Continue the existing Kotlin/Compose app and integrated backend.
 
+Latest backend continuation update: Claude implemented hosted map navigation plus BG-003, and Codex verified the ordinary TECNO chooser/details/back route using existing data/session. The backend continuation handover is separate from this UI/UX work package. Current branch backend/map-hosted-navigation, draft PR #6 depending on #5/#4/#3; inspect actual state before editing. Read [backend/MAP_HOSTED_NAVIGATION_VALIDATION.md](backend/MAP_HOSTED_NAVIGATION_VALIDATION.md) for the latest evidence; older native-test limitations below are historical. Wider filter/official/outdoor and full-app acceptance remain open.
+
 ## 1. Establish the design reference and baseline
 
 Read HANDOFF.md and CHECKPOINTS.md first. Before wiring or testing data, read [backend/README.md](backend/README.md) and [backend/VERIFICATION.md](backend/VERIFICATION.md). Use their current build/test commands and evidence rather than treating this handoff as a fresh test pass.
