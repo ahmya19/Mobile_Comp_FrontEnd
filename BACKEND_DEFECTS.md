@@ -74,3 +74,14 @@ Owner: backend tooling. Status: **Fixed** (November 23). Found when its post-che
 
 `npx.cmd` (cmd.exe) truncates an argument at its first newline, so the multi-line cleanup transaction ran only `begin;` and left the two labelled fixtures on the hosted project (restored to baseline by a single-line rerun of the same guarded SQL, verified). `map_nav_hosted.py` now sends one line and refuses comments; `SqlTransportTest` (Python) fails without the fix, and the node PGlite tests execute the exact single-line form. The newline hazard guards were also added to `hosted_authz_probe.py`.
 
+## BG-011 — photo orientation was discarded on save
+
+Owner: backend/Kotlin data. Status: **Fixed** (November 23). `PhotoCompressor` re-encoded the decoded bitmap without applying the EXIF orientation tag, so a portrait phone photo was stored and uploaded sideways (EXIF is dropped on re-encode). It now applies all eight orientations before compression; GPS and other metadata stay out of the upload. `PhotoCompressorTest` failed 2 of 8 before the fix (expected 200x400, was 400x200) and passes 8/8.
+
+## BG-012 — a failed photo save left a temp file
+
+Owner: backend/Kotlin data. Status: **Fixed** (November 23). `ReportQueue.enqueue` opened `<id>.tmp` before compressing, and its failure cleanup only covered the final files, so a corrupt or vanished source left an orphaned file. It now compresses first and always deletes the temp file. `NativePickerTest.sourceDeletedBeforeSubmit...` failed on the leftover file before the fix.
+
+## BG-013 — feed errors had no retry, and a failed empty list read "No reports match"
+
+Owner: Kotlin UI state. Status: **Fixed** (November 23). The Map and report-list screens showed a feed error but no way to retry it, and a failed first load displayed "No reports match these filters." A **Retry loading reports** control (reusing the current filter and pages) was added and the empty message is hidden while an error is shown. Remaining polish: the error text still uses the app-wide `ExceptionClass: message` form.

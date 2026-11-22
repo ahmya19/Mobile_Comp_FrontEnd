@@ -39,6 +39,18 @@ import okhttp3.Cache
 import okhttp3.OkHttpClient
 import java.io.File
 
+/** Debug-only seam so emulator tests can point the basemap at a loopback server. Release builds always use OpenStreetMap. */
+object MapTiles {
+    private const val DEFAULT="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    @Volatile var template=DEFAULT
+        private set
+    fun overrideForTesting(url: String?) {
+        check(com.example.pinpoint.BuildConfig.DEBUG) { "Tile override is available in debug builds only." }
+        require(url==null || url.startsWith("http://127.0.0.1")) { "Test tiles must be a loopback URL." }
+        template=url ?: DEFAULT
+    }
+}
+
 private object MapNetwork {
     private var initialized=false
     @Synchronized fun initialize(context: android.content.Context) {
@@ -90,7 +102,7 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
         } }
         lifecycle.addObserver(listener)
         view.getMapAsync { map ->
-            map.setStyle(Style.Builder().fromJson("""{"version":8,"sources":{"osm":{"type":"raster","tiles":["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],"tileSize":256,"attribution":"© OpenStreetMap contributors"}},"layers":[{"id":"osm","type":"raster","source":"osm"}]}""")) {
+            map.setStyle(Style.Builder().fromJson("""{"version":8,"sources":{"osm":{"type":"raster","tiles":["${MapTiles.template}"],"tileSize":256,"attribution":"© OpenStreetMap contributors"}},"layers":[{"id":"osm","type":"raster","source":"osm"}]}""")) {
                 // Core style APIs (source + layer) replace the deprecated marker annotations.
                 it.addSource(GeoJsonSource(REPORT_SOURCE,latestReports.toFeatures()))
                 it.addLayer(CircleLayer(REPORT_LAYER,REPORT_SOURCE).withProperties(

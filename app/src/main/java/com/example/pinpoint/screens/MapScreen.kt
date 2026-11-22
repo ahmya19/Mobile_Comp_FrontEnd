@@ -68,7 +68,11 @@ fun MapScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
             ReportFilters(feed.filter,onFilter)
-            feed.error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+            feed.error?.let {
+                Text(it,color=MaterialTheme.colorScheme.error)
+                // Loaded reports stay on the map; retry reloads the same filter and pages.
+                OutlinedButton(onClick={ onFilter(feed.filter) },enabled=!feed.loading) { Text("Retry loading reports") }
+            }
             if(feed.next!=null) OutlinedButton(onClick=onLoadMore,enabled=!feed.loading) { Text("Load more reports on map") }
 
             Card(

@@ -39,6 +39,14 @@ class FakeSupabaseServer : Closeable {
     @Volatile var nextExpiresIn = 3600
     /** Bearers that answer 401 "JWT expired" exactly once, to model a token the client still believes valid. */
     val rejectOnce: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Report rows served by GET /rest/v1/reports (newest first, same filters and keyset cursor as PostgREST). */
+    class Row(val id: String, val owner: String, val category: String, val status: String, val createdAt: String,
+              val description: String, val lat: Double? = null, val lon: Double? = null)
+    val reportRows = CopyOnWriteArrayList<Row>()
+    /** One entry is consumed per reports read: OK, DROP_BEFORE_COMMIT (connection dropped), HTML_200, SERVER_500, HOLD_THEN_OK. */
+    val readBehaviors = ConcurrentLinkedQueue<Rpc>()
+    val readEntered = CountDownLatch(1)
+    val releaseRead = CountDownLatch(1)
     val rpcEntered = CountDownLatch(1)
     val releaseHold = CountDownLatch(1)
 
@@ -67,12 +75,35 @@ class FakeSupabaseServer : Closeable {
         val reply = try { handle(seen) } catch (_: Exception) { null }
         if (reply == null) return                                    // connection dropped without a response
         val (status, type, payload) = reply
-        val out = c.getOutputStream()
-        out.write("HTTP/1.1 $status X\r\nContent-Type: $type\r\nContent-Length: ${payload.size}\r\nConnection: close\r\n\r\n".toByteArray())
-        out.write(payload); out.flush()
+        // A client that cancelled or timed out has closed its socket; that must not crash the test process.
+        runCatching {
+            val out = c.getOutputStream()
+            out.write("HTTP/1.1 $status X\r\nContent-Type: $type\r\nContent-Length: ${payload.size}\r\nConnection: close\r\n\r\n".toByteArray())
+            out.write(payload); out.flush()
+        }.let { }
     }
 
     private fun json(status: Int, value: JSONObject) = Triple(status, "application/json", value.toString().toByteArray())
+
+    private fun json2(status: Int, value: org.json.JSONArray) = Triple(status, "application/json", value.toString().toByteArray())
+
+    private fun reportsJson(query: String, uid: String): org.json.JSONArray {
+        val params = query.split('&').filter { it.contains('=') }.associate { java.net.URLDecoder.decode(it.substringBefore('='), "UTF-8") to java.net.URLDecoder.decode(it.substringAfter('='), "UTF-8") }
+        var rows = reportRows.toList()
+        params["status"]?.removePrefix("eq.")?.let { v -> rows = rows.filter { it.status == v } }
+        params["category"]?.removePrefix("eq.")?.let { v -> rows = rows.filter { it.category == v } }
+        params["owner_id"]?.removePrefix("eq.")?.let { v -> rows = rows.filter { it.owner == v } }
+        params["or"]?.let { cursor ->
+            val m = Regex("""created_at\.lt\.([^,]+),and\(created_at\.eq\.([^,]+),id\.lt\.([^)]+)\)""").find(cursor)
+            if (m != null) { val (t, _, id) = m.destructured; rows = rows.filter { it.createdAt < t || (it.createdAt == t && it.id < id) } }
+        }
+        rows = rows.sortedWith(compareByDescending<Row> { it.createdAt }.thenByDescending { it.id })
+        val limit = params["limit"]?.toInt() ?: 1000
+        return org.json.JSONArray().also { out -> rows.take(limit).forEach { out.put(JSONObject().put("id", it.id).put("owner_id", it.owner)
+            .put("category", it.category).put("description", it.description).put("location", "Test").put("barangay", "Alangilan")
+            .put("status", it.status).put("priority", "Low").put("created_at", it.createdAt).put("vote_count", 0)
+            .put("latitude", it.lat ?: JSONObject.NULL).put("longitude", it.lon ?: JSONObject.NULL).put("photo_path", JSONObject.NULL)) } }
+    }
 
     private fun session(uid: String, email: String): JSONObject {
         sequence++
@@ -112,6 +143,19 @@ class FakeSupabaseServer : Closeable {
             val bytes = photos[r.path.removePrefix("/storage/v1/object/authenticated/report-images/")] ?: return json(404, JSONObject().put("statusCode", "404").put("message", "Object not found"))
             return Triple(200, "image/jpeg", bytes)
         }
+        if (r.method == "GET" && r.path == "/rest/v1/reports") {
+            return when (readBehaviors.poll() ?: Rpc.OK) {
+                Rpc.OK -> json2(200, reportsJson(r.query, uid))
+                Rpc.DROP_BEFORE_COMMIT, Rpc.DROP_AFTER_COMMIT -> null
+                Rpc.HTML_200 -> Triple(200, "text/html", "<html><body>Sign in to the Wi-Fi network</body></html>".toByteArray())
+                Rpc.SERVER_500 -> json(500, JSONObject().put("message", "internal"))
+                Rpc.VALIDATION_400 -> json(400, JSONObject().put("code", "22023").put("message", "bad"))
+                Rpc.HOLD_THEN_OK -> { readEntered.countDown(); releaseRead.await(30, TimeUnit.SECONDS); json2(200, reportsJson(r.query, uid)) }
+            }
+        }
+        if (r.method == "POST" && r.path == "/rest/v1/rpc/my_profile") return json(200, JSONObject().put("id", uid).put("display_name", "Test User").put("official", false))
+        if (r.method == "POST" && r.path == "/rest/v1/rpc/pending_push_reports") return json2(200, org.json.JSONArray())
+        if (r.method == "GET" && r.path == "/rest/v1/notifications") return json2(200, org.json.JSONArray())
         if (r.method == "POST" && r.path == "/rest/v1/rpc/submit_report") {
             val id = JSONObject(String(r.body)).getString("p_id")
             val behavior = rpcBehaviors.poll() ?: Rpc.OK
