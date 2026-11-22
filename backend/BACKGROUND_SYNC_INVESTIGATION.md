@@ -1,6 +1,6 @@
 # CP-25 background sync investigation
 
-November 22, 2026. Owner: Codex. Status: ordinary-app background delay reproduced; scheduling candidate prepared for validation. CP-25 remains open.
+November 22, 2026. Owner: Codex. Status: empty-job ordering corrected; physical background delivery still blocked, with kernel UID freezing observed. CP-25 remains open.
 
 ## What the existing evidence establishes
 
@@ -59,9 +59,37 @@ The five-minute phone observation ended with no server row. Network samples incl
 
 The original three local tests missed the restoration-then-offline-submit sequence. A new test reproduced it against 8691cbd with `Restoration must not add an empty predecessor expected:<1> but was:<2>`. Three of five expanded checks failed before correction. The correction creates no report work when the active account/project has no Queued/Sending rows; waiting originals are scheduled directly under their existing unmetered rule. Genuine pending report work retains expedited priority, fallback, network constraint and APPEND_OR_REPLACE.
 
-The corrected candidate passes **5/5 local scheduler checks (0.407 s), 10 JVM tests, debug/test APK builds and lint (0 errors, 35 warnings)**. The added checks exercise the actual restoration/submit sequence and preserve original-only scheduling. APK SHA-256: 6970b799c3f07a9953ae8e38c3ba0fb5f973bd89e323679c0651f15e7ebe91f0. It is not installed on the phone yet. One of the two approved fixtures/rechecks remains unused. A proposed remaining recheck uses stable Wi-Fi to isolate background scheduling; installing the changed APK and revising that connection plan need approval. No additional fixture beyond the remaining approved one is proposed.
+The corrected candidate passes **5/5 local scheduler checks (0.407 s), 10 JVM tests, debug/test APK builds and lint (0 errors, 35 warnings)**. The added checks exercise the actual restoration/submit sequence and preserve original-only scheduling. APK SHA-256: 6970b799c3f07a9953ae8e38c3ba0fb5f973bd89e323679c0651f15e7ebe91f0. Before the subsequent approval, it was not installed and one approved fixture remained unused. The owner then approved the corrected installation and that remaining trial over stable Wi-Fi; results follow below.
 
 Local setup exposed an unrelated emulator issue: avdmanager wrote target=android-0 for the newly created minor-version image, followed by SurfaceFlinger crashes with Assertion failed: !rcEnc->featureInfo()->hasReadColorBufferDma. Only the isolated AVD target was corrected to android-36.1 and the supported swiftshader renderer selected. Its crash buffer stayed clear during successful checks. The user's Pixel_8 AVD and global SDK tools were not changed.
+
+## Physical follow-up
+
+### Corrected phone recheck and kernel freezer finding
+
+After explicit approval, corrected build 2c94c80 was installed and its hash verified. Offline account restoration created no pending report work; prior queue/session data remained available. The remaining approved fixture CP25-EJBG2-20261122-A01 was saved through the ordinary form and native picker, with no GPS/original. Its actual expedited request was ENQUEUED with zero attempts and only a completed prerequisite, rather than BLOCKED behind an empty ordinary job. The platform job was initially present and waiting offline.
+
+With airplane mode retained and Wi-Fi enabled, the five-minute external observation still ended without a server row, including **263.945 seconds after observed validation**. Sixty readable visibility samples showed the phone awake and PinPoint neither resumed nor focused. Only Wi-Fi was observed; no transport deviation or host read error. A worker snapshot remained ENQUEUED/expedited with zero attempts; the system job query returned unknown at that later snapshot. The corrected code does not close the background delivery defect.
+
+Targeted read-only kernel checks found the app UID's cgroup.freeze=1 and cgroup.events frozen=1. The process subgroup requested freeze=0 but inherited frozen=1 from its UID parent. Android's process diagnostic simultaneously said isFrozen=false; the main process was sleeping, untraced and not SIGSTOP-stopped. The kernel's frozen event means its processes cannot run until thawed, including through ancestor freezing. [Linux cgroup v2 freezer documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html). This establishes a process-execution blocker in this recheck; it does not identify which device controller initiated the freeze or retroactively prove historical run 8's cause.
+
+Normal foreground recovery at 12:59:24 Asia/Manila changed both UID/process frozen events to 0 and UID freeze request to 0. The same report was created at 12:59:26, then independently verified once with its matching 165,343-byte decoded 512x512 JPEG. No kernel control was written and no Retry uploads used. Treat this as recovery after intervention, not automatic latency.
+
+Read-only inspection found Allow Background Usage on and **Optimized** selected. The app-specific Unrestricted option states it may use more battery. At that point no policy had been changed and both approved recheck fixtures were used/recovered. The subsequent extra comparison below received separate approval.
+
+## Approved Unrestricted comparison — automatic recovery, timing target unmet
+
+The user approved changing only PinPoint to Unrestricted and creating one additional synthetic report/photo. The setting was applied and verified selected; the device-idle allowlist included PinPoint and its standby bucket was EXEMPTED. The user also explicitly delegated Wi-Fi off/on for this one trial while retaining airplane mode. The first offline acknowledgement still had a live Wi-Fi connection; no report was created until the host verified actual offline state. The new fixture CP25-UNRBG-20261122-A01 used the same code/APK, synthetic photo and no GPS/original. No further kernel/global setting or APK change was made.
+
+This report uploaded automatically without reopening PinPoint. Host observations measured **128.577 s from first observed Wi-Fi availability**, or **127.422 s from validation**, to the first server-row observation. Timing is valid for these polling endpoints, with no read gap/error or transport deviation, but **the under-60-second target failed**. These endpoints differ from the historical app-acknowledgement trials and must not be pooled.
+
+All 35 readable app-state samples showed the phone awake and PinPoint neither top-resumed nor focused. The UID kernel group was frozen in 33 samples; it was thawed in the initial transition and again at 13:19:14 Asia/Manila near upload execution, then frozen in the final sample. Thus Unrestricted did not eliminate freezing. One successful background recovery does not prove the setting alone caused it, establish a usual latency or identify the freezer controller.
+
+Independent client verification found one report and a matching, decoded 512x512 JPEG of 165,343 bytes; the queue reached Synced and removed its local compressed file after acknowledgement. A final SQL read over all **five separately approved diagnostic UUIDs** found five reports, five unique IDs, five attached photos, zero coordinates and zero originals. All five downloaded photos match their saved compressed hashes. They remain hosted; cleanup needs approval. Keep this cohort separate from the ten historical persistence/recovery samples.
+
+Current state: code fix 2c94c80 is installed; five scheduler tests and ten JVM tests pass, build/lint pass (0 errors, 35 warnings). Empty-predecessor correction is verified locally and at the actual phone restoration/queue boundary. BG-001 and CP-25's background latency acceptance remain open: further investigation must distinguish the UID-freezer controller and system job dispatch, then evaluate a supported user-initiated transfer path if required. Historical run 8 did not capture kernel cgroups, so this new finding is consistent with its stalled callback/timer but does not retrospectively prove its cause.
+
+PinPoint is left Unrestricted as approved. Wi-Fi is on; airplane mode remains on from the user-controlled setup. Phone testing is finished and the temporary Wi-Fi-control authorization has been consumed. Further settings/APK/fixture changes need a new concrete scope. No provider/billing/schema/Edge Function/secret change was made.
 
 ## Prepared external observer
 

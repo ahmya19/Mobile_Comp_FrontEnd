@@ -14,7 +14,7 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 Before UI restructuring or whole-app verification, Claude must read [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md). That work package defines design matching, the complete functional/backend test matrix and the evidence required for completion. Backend defects go to Codex with a reproducible case and exact redacted error; coordinate changes to shared data/ViewModel files through the branch/PR.
 
-Latest backend work: BG-001 now reproduces without instrumentation. The expedited/empty-predecessor correction passes five local scheduler checks but is not phone-verified. Two approved diagnostic fixtures recovered once with matching photos; the delayed background result is not a timing pass. See [background investigation](backend/BACKGROUND_SYNC_INVESTIGATION.md). Codex owns the next approved physical recheck; Claude retains this case in full-app regression.
+Latest backend work: 2c94c80 fixes empty restoration jobs blocking urgent reports and is installed on the TECNO. Five local scheduler checks and ten JVM tests pass. A kernel UID freezer still delays background execution; the approved Unrestricted comparison delivered automatically after 127.422 s from Wi-Fi validation, missing the 60 s target. Five diagnostic fixtures recovered once with matching photos. BG-002 is fixed; BG-001 remains open. See [background investigation](backend/BACKGROUND_SYNC_INVESTIGATION.md). Codex owns further backend/transfer work; Claude retains restricted/unrestricted cases and measured outcomes in full-app regression.
 
 ## What exists
 
