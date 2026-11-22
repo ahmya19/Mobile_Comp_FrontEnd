@@ -14,16 +14,25 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.pinpoint.ui.theme.VioletTint
+import com.example.pinpoint.data.Citizen
 
 @Composable
 fun ProfileScreen(
     onHomeClick: () -> Unit,
     onReportsClick: () -> Unit,
-    onMapClick: () -> Unit
+    onMapClick: () -> Unit,
+    user: Citizen,
+    busy: Boolean,
+    onSaveProfile: (String) -> Unit,
+    onSignOut: () -> Unit
 ) {
+    var editing by remember { mutableStateOf(false) }
+    var name by remember(user.displayName) { mutableStateOf(user.displayName) }
 
     Scaffold(
         bottomBar = {
@@ -63,30 +72,33 @@ fun ProfileScreen(
                 ) {
 
                     Text(
-                        text = "Citizen User",
+                        text = user.displayName.ifBlank { "Citizen" },
                         style = MaterialTheme.typography.titleLarge
                     )
 
                     Text(
-                        text = "citizen@example.com",
+                        text = user.email,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 6.dp)
                     )
                 }
             }
 
+            if (editing) OutlinedTextField(name, { name = it }, label = { Text("Display name") }, enabled = !busy)
             Button(
-                onClick = {},
+                onClick = { if (editing) onSaveProfile(name) else editing = true },
+                enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Edit Profile")
+                Text(if (editing) "Save Profile" else "Edit Profile")
             }
 
             OutlinedButton(
-                onClick = {},
+                onClick = onSignOut,
+                enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Settings")
+                Text("Sign out")
             }
         }
     }

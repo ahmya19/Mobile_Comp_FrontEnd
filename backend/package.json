@@ -1,0 +1,12 @@
+{
+  "name": "pinpoint-backend-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "check:edge": "deno check --node-modules-dir=none ../supabase/functions/sms-report/index.ts ../supabase/functions/deliver-push/index.ts"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.17",
+    "deno": "^2.9.6"
+  }
+}

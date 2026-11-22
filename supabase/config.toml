@@ -1,0 +1,7 @@
+project_id = "pinpoint-citizen-free"
+
+[functions.sms-report]
+verify_jwt = false
+
+[functions.deliver-push]
+verify_jwt = false

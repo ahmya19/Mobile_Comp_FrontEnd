@@ -13,47 +13,36 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.pinpoint.data.ReportFeedState
+import com.example.pinpoint.data.ReportFilter
 import com.example.pinpoint.ui.theme.VioletTint
-
-data class Report(
-    val title: String,
-    val location: String,
-    val status: String
-)
+import com.example.pinpoint.data.Report
 
 @Composable
 fun MyReportsScreen(
-    onReportClick: () -> Unit,
+    reports: List<Report>,
+    loading: Boolean,
+    onReportClick: (String) -> Unit,
     onHomeClick: () -> Unit,
     onMapClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    communityFeed: Boolean = false,
+    feed: ReportFeedState,
+    onFilter: (ReportFilter)->Unit,
+    onLoadMore: ()->Unit,
+    pendingUploads: Int=0,
+    onRetryUploads: ()->Unit={}
 ) {
-
-    val reports = listOf(
-        Report(
-            "Pothole near the main road",
-            "Main Road",
-            "Under Review"
-        ),
-        Report(
-            "Broken streetlight",
-            "Barangay Hall",
-            "Resolved"
-        ),
-        Report(
-            "Flooded pathway",
-            "Zone 2",
-            "Pending"
-        )
-    )
 
     Scaffold(
         bottomBar = {
             PinPointBottomBar(
-                selectedRoute = "reports",
+                selectedRoute = if (communityFeed) "home" else "reports",
                 onHomeClick = onHomeClick,
                 onReportsClick = {},
                 onMapClick = onMapClick,
@@ -70,12 +59,12 @@ fun MyReportsScreen(
         ) {
 
             Text(
-                text = "My Reports",
+                text = if (communityFeed) "Community Reports" else "My Reports",
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Text(
-                text = "Track the reports you have submitted.",
+                text = if (communityFeed) "Recent issues reported by your community." else "Track the reports you have submitted.",
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -87,10 +76,18 @@ fun MyReportsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
-                items(reports) { report ->
+                item { ReportFilters(feed.filter,onFilter) }
+                if(pendingUploads>0) item {
+                    Text("$pendingUploads report(s) have uploads pending. Originals wait for unmetered Wi-Fi.")
+                    TextButton(onClick=onRetryUploads) { Text("Retry uploads") }
+                }
+                feed.error?.let { message -> item { Text(message,color=MaterialTheme.colorScheme.error) } }
+                if (feed.loading) item { Text("Loading reports...") }
+                else if (reports.isEmpty()) item { Text("No reports match these filters.") }
+                items(reports, key = { it.id }) { report ->
 
                     Card(
-                        onClick = onReportClick,
+                        onClick = { onReportClick(report.id) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
@@ -118,8 +115,12 @@ fun MyReportsScreen(
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
+                            report.originalUploadStatus?.let { Text("Original: $it",style=MaterialTheme.typography.labelSmall) }
                         }
                     }
+                }
+                if(feed.next!=null) item {
+                    OutlinedButton(onClick=onLoadMore,enabled=!feed.loading,modifier=Modifier.fillMaxWidth()) { Text("Load more reports") }
                 }
             }
         }
