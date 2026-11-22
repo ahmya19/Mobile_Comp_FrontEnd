@@ -43,6 +43,8 @@ The workflow's new rows were removed by exact ID (notification, history, report)
 
 ## Remaining emulator or phone work
 
+Final-build follow-up: Codex reran both previously omitted large paging scenarios on candidate 1a38747. HostedReportFeedTest passed 17 independent SQL-oracle cases (67.646 s); HostedNotificationPagingTest passed all 149 rows/read persistence (25.845 s). Both returned `OK (1 test)`; guarded cleanup restored all 12 saved table fingerprints. See [report feed](REPORT_FEED_VALIDATION.md) and [notification paging](NOTIFICATION_PAGING_VALIDATION.md) for current evidence. No phone use or new runtime change.
+
 Native photo gallery with real permission flows (only the picker result is stubbed), map tile errors and retry, notification delivery through real FCM to an emulator, and everything that needs a phone (outdoor GPS accuracy, cellular handoff, OEM battery behavior, overnight, two-device push timing). These were not performed.
 
 ## Reproduce

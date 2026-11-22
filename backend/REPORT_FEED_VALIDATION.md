@@ -1,5 +1,17 @@
 # CP-21 hosted report feed validation
 
+## Final-build rerun — November 23, 2026
+
+After Claude's shared Auth/request changes in PR #12, Codex reran `HostedReportFeedTest` against hosted Supabase using candidate `1a387476bd0b7892f480781d41468e4e22384376`. App SHA-256: `7c43e7794a2e9a7b094da18a6b3aeafd71eb333459223644b5add9c52f98c149`; test APK: `6956221dbf62cfe1eb1b8bdd47bfbe205e8f6681d74bd1f980805d5b01506fad`. Both builds were up to date; both APKs were installed only on the owned API 36 emulator, `emulator-5556`.
+
+The existing guarded PowerShell runner passed **1/1 in 67.646 s**, including 17 independent SQL-oracle filter cases, the first 50 rows, seven higher-ID inserts at the same timestamp, a contiguous refresh and all 67 Alpha rows without gaps/duplicates. Coordinate-ID inclusion and overlapping filter responses also passed. A fresh synthetic batch contained 90 initial reports plus seven burst reports. The historical 17 filter definitions were reused with the new namespace, while every expected ID array came from fresh hosted SQL. Privileged setup is not ordinary-client write evidence.
+
+The host's first oracle query used an unquoted `filter` alias and received SQL `42601: syntax error at or near "filter"`. Quoting the alias corrected the read-only host query before the test's oracle deadline; no app change or failed instrumentation run was needed. The reported runtime includes that host wait and is not app request latency.
+
+The combined paging batch also created one CP-14 report and 134 notices. A private ledger recorded all intended identities and the baseline before writes; transactional cleanup validated fixture fields, original-row fingerprints and absence of unexpected references, then removed only the 98 recorded reports and 134 notices. Independent post-cleanup counts and full-row fingerprints matched all 12 saved tables: 36 reports, 15 notices/history/outbox rows, zero votes/SMS receipts, two devices, 45 Storage objects, two buckets, two profiles, one official and three barangays. No attachment/upload, secret, migration, deployment or phone change. Tests locally signed out their own sessions; the emulator was stopped.
+
+Private evidence: `work/paging-final-20261123-b01/ledger.json`, `feed-oracle.json`, `feed-test.log`, `cleanup.sql` and `result-and-cleanup.json` in the Codex task workspace. Phone checks below remain historical; no current phone pass is claimed.
+
 Verified November 22, 2026 against Supabase Free, the isolated API 36.1 emulator and the existing TECNO app. Base main is 066e6ae following merged PR #2. Branch: backend/report-feed-validation. This batch changes tests and documentation; app runtime, dependencies, schema and server functions are unchanged.
 
 ## Hosted ordering and filters

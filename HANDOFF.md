@@ -8,6 +8,8 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Git:** PRs #1–#10 are merged; `main` is bc97b76. Three backend PRs are open and stacked in this order, so review and merge them in order and retarget each to `main` after its parent merges: **#11** `backend/migration-replay-validation` (base `main`), **#12** `backend/auth-queue-failure-validation` (base #11's branch), **#13** `backend/whole-app-regression` (base #12's branch). CI (`.github/workflows/backend-checks.yml`) runs on every PR.
 
+**Codex final-build follow-up:** branch `backend/hosted-paging-final-validation` builds on #13 at 1a38747 and changes evidence/docs only. CP-21 hosted feed passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 hosted paging passed all 149 rows and persisted read state (1/1, 25.845 s). The private batch was cleaned: 98 reports/134 notices removed; all 12 original-table fingerprints restored (36 reports, 15 notices, two devices, 45 objects). Emulator stopped; phone untouched. Review this evidence follow-up after #13; no PR was merged or retargeted during the rerun. Next task is stack review/delivery, then the independent pending decisions below.
+
 **Done this round (Claude continuing backend work; evidence in the linked documents):**
 - CP-31 [migration replay](backend/MIGRATION_REPLAY_VALIDATION.md): all nine migrations replay from an empty PostgreSQL in CI; the live project's catalog is identical to the replayed final state (read-only check); fresh-project steps are written but **no fresh project was created**.
 - CP-32 [security and failure paths](backend/SECURITY_FAILURE_PATH_VALIDATION.md): local policy/grant tests plus a hosted ordinary-client probe (49/49); open decision BG-005.
