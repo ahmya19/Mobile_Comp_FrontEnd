@@ -90,6 +90,9 @@ class NativePickerTest {
         checkNotNull(photo) { "System picker showed no photo" }
         val pkg = photo.applicationPackage
         photo.click()
+        // Some pickers (e.g. OEM builds) keep the sheet open and need an explicit confirm button after a tap.
+        val confirm = device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.pkg(pkg).text(java.util.regex.Pattern.compile("(?i)add|done|select|ok|confirm.*"))), 3000)
+        if (confirm != null && device.currentPackageName == pkg) confirm.click()
         return pkg
     }
     private fun queue() = com.example.pinpoint.data.ReportQueue.get(context)
