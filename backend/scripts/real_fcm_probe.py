@@ -231,10 +231,14 @@ class Probe:
             def deny():
                 adb(self.s, 'shell', f'pm revoke {PKG} android.permission.POST_NOTIFICATIONS'); time.sleep(3)
             nid, seen = self.deliver_and_tap('3a notification permission denied', 'Resolved', setup=deny, expect_tray=False)
-            self.launch(); time.sleep(3)
+            self.launch(); time.sleep(4)
             adb(self.s, 'shell', 'cmd statusbar collapse')
+            # The app re-asks for the permission on launch; answer the real system dialog with a genuine denial.
+            dialog_denied = self.tap_text("Don't allow", 6) or self.tap_text("Don\u2019t allow", 4)
             in_app = self.tap_text('Notifications', 10) and self.screen_has('is resolved', 15)
-            self.record('3a in-app history while denied', in_app_notification_visible=bool(in_app))
+            extra = {} if in_app else {'visible_text': [f'{pk}: {t or d}' for t, d, _, pk in self.ui() if (t or d) and 'systemui' not in pk][:25]}
+            self.record('3a in-app history while denied', system_permission_dialog_denied=bool(dialog_denied),
+                        in_app_notification_visible=bool(in_app), tray_empty_while_denied=nid not in self.tray(), **extra)
             adb(self.s, 'shell', f'pm grant {PKG} android.permission.POST_NOTIFICATIONS'); time.sleep(3)
             self.home()
             self.deliver_and_tap('3b permission granted', 'Under Review')
