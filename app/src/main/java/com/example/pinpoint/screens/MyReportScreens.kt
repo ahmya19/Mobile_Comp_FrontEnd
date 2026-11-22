@@ -81,9 +81,12 @@ fun MyReportsScreen(
                     Text("$pendingUploads report(s) have uploads pending. Originals wait for unmetered Wi-Fi.")
                     TextButton(onClick=onRetryUploads) { Text("Retry uploads") }
                 }
-                feed.error?.let { message -> item { Text(message,color=MaterialTheme.colorScheme.error) } }
+                feed.error?.let { message -> item {
+                    Text(message,color=MaterialTheme.colorScheme.error)
+                    TextButton(onClick={ onFilter(feed.filter) },enabled=!feed.loading) { Text("Retry loading reports") }
+                } }
                 if (feed.loading) item { Text("Loading reports...") }
-                else if (reports.isEmpty()) item { Text("No reports match these filters.") }
+                else if (reports.isEmpty() && feed.error==null) item { Text("No reports match these filters.") }
                 items(reports, key = { it.id }) { report ->
 
                     Card(
