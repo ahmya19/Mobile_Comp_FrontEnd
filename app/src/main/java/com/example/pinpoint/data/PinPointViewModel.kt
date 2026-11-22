@@ -205,6 +205,7 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         backend?.auth?.currentUser?.id?.let { WorkManager.getInstance(getApplication()).cancelUniqueWork("pinpoint-originals-$it") }
         backend?.auth?.currentUser?.id?.let { WorkManager.getInstance(getApplication()).cancelUniqueWork("pinpoint-device-$it") }
         backend?.auth?.signOut()
+        cancelReportNotifications(getApplication())
         draftId = null
     }
 

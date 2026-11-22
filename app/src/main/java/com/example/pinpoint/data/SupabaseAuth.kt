@@ -76,10 +76,11 @@ class SupabaseAuth(private val backend: SupabaseBackend, private val store: Sess
         if (pending == null) store.clear(pendingKey) else store.write(pendingKey, backend.gson.toJson(pending))
         mutableConfirmation.value = pending
     }
-    suspend fun accessToken(expectedUserId: String? = null): String = mutex.withLock {
+    /** [rejectedToken]: a token the server just refused; refresh once even though it looks unexpired locally. */
+    suspend fun accessToken(expectedUserId: String? = null, rejectedToken: String? = null): String = mutex.withLock {
         val current = session ?: error("Sign in first.")
         check(expectedUserId == null || current.user.id == expectedUserId) { "The queued report belongs to another signed-in account." }
-        if (current.expiresAt <= System.currentTimeMillis() / 1000 + 60) {
+        if (current.expiresAt <= System.currentTimeMillis() / 1000 + 60 || rejectedToken == current.accessToken) {
             try {
                 save(backend.json("auth/v1/token?grant_type=refresh_token", "POST",
                     mapOf("refresh_token" to current.refreshToken), false).asJsonObject)

@@ -34,7 +34,7 @@ class PinPointMessagingService : FirebaseMessagingService() {
         val reportId=message.data["reportId"]
         val intent = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .putExtra("reportId",reportId)
+            .putExtra("reportId",reportId).putExtra("userId",message.data["userId"])
         val pending = PendingIntent.getActivity(this, (reportId ?: "pinpoint").hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(this, "report_updates")

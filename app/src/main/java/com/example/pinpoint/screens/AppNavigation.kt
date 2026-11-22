@@ -19,10 +19,11 @@ import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.pinpoint.data.notificationTargetAllowed
 import com.example.pinpoint.data.PinPointViewModel
 
 @Composable
-fun AppNavigation(model: PinPointViewModel = viewModel(),notificationReportId: String?=null,onNotificationConsumed: ()->Unit={}) {
+fun AppNavigation(model: PinPointViewModel = viewModel(),notificationReportId: String?=null,notificationUserId: String?=null,onNotificationConsumed: ()->Unit={}) {
     val state by model.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -59,8 +60,9 @@ fun AppNavigation(model: PinPointViewModel = viewModel(),notificationReportId: S
                     val nav = rememberNavController()
                     fun go(route: String) { nav.navigate(route) { launchSingleTop = true } }
                     fun details(id: String) { go("reportDetails/$id") }
-                    LaunchedEffect(notificationReportId) {
-                        notificationReportId?.let { details(it);onNotificationConsumed() }
+                    LaunchedEffect(notificationReportId,state.user?.id) {
+                        // A notification belongs to the account that received it; another signed-in account ignores it.
+                        notificationReportId?.let { if(notificationTargetAllowed(notificationUserId,state.user?.id)) details(it);onNotificationConsumed() }
                     }
                     NavHost(navController = nav, startDestination = "home") {
                         composable("home") {

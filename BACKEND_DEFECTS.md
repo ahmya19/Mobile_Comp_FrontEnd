@@ -44,3 +44,21 @@ Owner: backend. Status: **Open, product decision needed** (found November 23 by 
 
 When an assigned official calls `update_report_status` with the report's current status and a different priority, the function writes a history row `Under Review -> Under Review` and inserts a second notification and push-outbox row ("Your ... report is under review."), although nothing about the status changed. Reproduction: `backend/tests/security-failure-paths.test.mjs`, test "characterization: a priority-only change...". An exact repeat changes nothing. Proposed fix, for review as a new forward migration (not an edit of an applied one and not deployed): when only the priority changes, update priority and `updated_at` without history, notification or outbox rows. The group should confirm whether priority changes should notify. See backend/SECURITY_FAILURE_PATH_VALIDATION.md.
 
+## BG-006 — a captive-portal page marked a queued report Failed
+
+Owner: backend/Kotlin. Status: **Fixed** (November 23), verified on the emulator against a local fake server.
+
+A 200 response whose body was a web page threw `JsonSyntaxException`, which is not an `IOException`; `ReportSyncWorker` therefore treated it as permanent and set the report to `Failed` until the user tapped retry. `SupabaseBackend.json` now throws an `IOException`, so the worker retries. Reproduction and proof: `AuthQueueFailureTest#captivePortalPageIsRetriedNotMarkedFailed` (fails when the conversion is reverted). Details: [backend/AUTH_QUEUE_FAILURE_VALIDATION.md](backend/AUTH_QUEUE_FAILURE_VALIDATION.md).
+
+## BG-007 — a server-rejected token that looked valid locally could not recover
+
+Owner: backend/Kotlin. Status: **Fixed** (November 23), emulator fault injection only.
+
+If a device clock hid a token's expiry, the server's 401 became a permanent failure. `SupabaseBackend.request` now refreshes once and repeats the request (a 401 is rejected before execution, so repeating a POST is safe). Proof: `AuthQueueFailureTest#tokenTheServerRejectsIsRefreshedOnceAndTheRequestRepeated`. Real hosted token-expiry behavior is not exercised.
+
+## BG-008 — notifications were not bound to the receiving account
+
+Owner: backend/Kotlin. Status: **Fixed** (November 23), emulator verified; physical-phone tray behavior unchecked.
+
+A tapped notification opened its report in whichever account was signed in, and a signed-out account's report notifications stayed in the tray. The notification intent now carries the recipient id, `AppNavigation` honors it only for that account, and sign-out clears the report notifications. Proof: `NotificationRoutingTest` (JVM) and `AuthQueueFailureTest#notificationsAreRecipientBoundAndSignOutClearsThem`.
+

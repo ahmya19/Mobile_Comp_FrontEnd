@@ -2,11 +2,13 @@ package com.example.pinpoint.data
 
 import android.content.Context
 import android.util.Base64
+import androidx.core.content.edit
 import com.example.pinpoint.BuildConfig
 import com.google.gson.FieldNamingPolicy
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.google.gson.JsonNull
+import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
@@ -23,22 +25,42 @@ import kotlin.coroutines.resumeWithException
 
 class BackendException(val status: Int, val code: String, message: String, val retryAfterSeconds: Long? = null) : IOException("$code: $message")
 
-class SupabaseBackend private constructor(context: Context, val url: String, internal val publishableKey: String) {
+class SupabaseBackend private constructor(context: Context, val url: String, internal val publishableKey: String,
+    sessionPreferences: String = "pinpoint_secure_session") {
     val gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create()
     private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS).callTimeout(45, TimeUnit.SECONDS).build()
-    val auth = SupabaseAuth(this, SessionStore(context))
+    val auth = SupabaseAuth(this, SessionStore(context, sessionPreferences))
 
     suspend fun json(path: String, method: String = "GET", body: Any? = null, authenticated: Boolean = true, expectedUserId: String? = null): JsonElement {
         val bytes = body?.let { gson.toJson(it).toByteArray() }
         val response = request(path, method, bytes, "application/json", authenticated, expectedUserId)
-        return if (response.isEmpty()) JsonNull.INSTANCE else JsonParser.parseString(String(response, Charsets.UTF_8))
+        if (response.isEmpty()) return JsonNull.INSTANCE
+        return try { JsonParser.parseString(String(response, Charsets.UTF_8)) }
+        catch (error: JsonParseException) {
+            // A captive portal or proxy can answer 200 with a web page. Treat it like a dropped connection so queued
+            // work is retried instead of being marked permanently failed.
+            throw IOException("The server returned something other than data. Check the connection and try again.", error)
+        }
     }
 
     suspend fun request(path: String, method: String, bytes: ByteArray? = null,
         contentType: String = "application/json", authenticated: Boolean = true, expectedUserId: String? = null): ByteArray {
         require(!path.startsWith("/") && !path.contains("://")) { "Expected a relative backend path." }
-        val token = if (authenticated) auth.accessToken(expectedUserId) else null
+        var rejected: String? = null
+        for (attempt in 0..1) {
+            val token = if (authenticated) auth.accessToken(expectedUserId, rejected) else null
+            try { return send(path, method, bytes, contentType, token) }
+            catch (error: BackendException) {
+                // 401 = rejected before execution, so one retry with a freshly refreshed token is safe even for POST.
+                // It covers a device clock that makes an expired token look valid.
+                if (attempt == 0 && token != null && error.status == 401) rejected = token else throw error
+            }
+        }
+        error("unreachable")
+    }
+
+    private suspend fun send(path: String, method: String, bytes: ByteArray?, contentType: String, token: String?): ByteArray {
         val payload = if (method in listOf("GET", "HEAD")) null else (bytes ?: ByteArray(0)).toRequestBody(contentType.toMediaType())
         val request = Request.Builder().url("${url.trimEnd('/')}/$path")
             .header("apikey", publishableKey).apply { if (token != null) header("Authorization", "Bearer $token") }
@@ -74,7 +96,19 @@ class SupabaseBackend private constructor(context: Context, val url: String, int
 
     companion object {
         @Volatile private var instance: SupabaseBackend? = null
+        @Volatile private var testInstance: SupabaseBackend? = null
+
+        /** Debug builds only: route the whole app (workers, services) to a local fake server with isolated session storage. */
+        fun installForTesting(context: Context, url: String, key: String, sessionPreferences: String = "pinpoint_test_session"): SupabaseBackend {
+            check(BuildConfig.DEBUG) { "Test backend is available in debug builds only." }
+            require(url.startsWith("http://127.0.0.1")) { "Test backend must be a loopback URL." }
+            context.applicationContext.getSharedPreferences(sessionPreferences, Context.MODE_PRIVATE).edit(commit = true) { clear() }
+            return SupabaseBackend(context.applicationContext, url, key, sessionPreferences).also { testInstance = it }
+        }
+        fun resetForTesting() { testInstance = null }
+
         fun create(context: Context): SupabaseBackend? {
+            testInstance?.let { return it }
             if (BuildConfig.SUPABASE_URL.isBlank() || BuildConfig.SUPABASE_PUBLISHABLE_KEY.isBlank()) return null
             check(BuildConfig.SUPABASE_URL.startsWith("https://") || (BuildConfig.DEBUG &&
                 BuildConfig.SUPABASE_URL.startsWith("http://127.0.0.1"))) { "Supabase must use HTTPS." }
