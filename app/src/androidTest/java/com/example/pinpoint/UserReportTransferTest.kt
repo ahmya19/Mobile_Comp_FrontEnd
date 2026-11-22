@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.core.app.ActivityScenario
 import com.example.pinpoint.data.QueuedReport
 import com.example.pinpoint.data.ReportDraft
 import com.example.pinpoint.data.UserReportTransfer
@@ -67,5 +68,20 @@ class UserReportTransferTest {
         val before=scheduler.allPendingJobs.map { it.id }.toSet()
         assertFalse(UserReportTransfer.schedule(context,UUID.randomUUID().toString()))
         assertEquals(before,scheduler.allPendingJobs.map { it.id }.toSet())
+    }
+
+    @Test fun visibleRequestIsRetainedByPlatformWhileOffline() {
+        val network=context.getSystemService(android.net.ConnectivityManager::class.java)
+        check(network.activeNetwork==null) { "Run this isolated platform check offline" }
+        val item=QueuedReport(UUID.randomUUID().toString(),UUID.randomUUID().toString(),BuildConfig.SUPABASE_URL,
+            ReportDraft("Other","Local fixture","Local fixture","Local fixture"),null,"Queued",null,0L)
+        val scheduler=context.getSystemService(JobScheduler::class.java).forNamespace(UserReportTransfer.NAMESPACE)
+        val id=UserReportTransfer.build(context,item).id
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { assertTrue("Visible explicit transfer must be accepted",UserReportTransfer.schedule(it,item)) }
+                assertNotNull("Offline request must remain scheduled",scheduler.getPendingJob(id))
+            }
+        } finally { scheduler.cancel(id) }
     }
 }

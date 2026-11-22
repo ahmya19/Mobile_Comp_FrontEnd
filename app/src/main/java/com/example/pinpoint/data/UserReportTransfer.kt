@@ -51,7 +51,7 @@ object UserReportTransfer {
         }).build()
 
     @RequiresApi(34)
-    private fun schedule(context: Context, item: QueuedReport): Boolean {
+    internal fun schedule(context: Context, item: QueuedReport): Boolean {
         val scheduler = context.getSystemService(JobScheduler::class.java).forNamespace(NAMESPACE)
         val request = build(context, item)
         // A rare UUID hash collision must not cancel another citizen-requested transfer.
