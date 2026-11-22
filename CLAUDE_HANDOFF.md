@@ -8,6 +8,8 @@ Latest backend continuation update: Claude implemented hosted map navigation plu
 
 Latest independent backend follow-up: user is using the phone; proceed without phone operations until it is available. Branch backend/map-stack-pagination builds on draft PR #6 and removes the chooser cap. Native 26/75-report selection and Cancel/reopen pass with related regressions (6/6); no phone/hosted changes. Read [backend/MAP_STACK_VALIDATION.md](backend/MAP_STACK_VALIDATION.md) before changing the chooser. Earlier phone-build/branch notes are historical.
 
+Latest backend verification: backend/official-map-validation builds on draft PR #7 and verifies the official hosted map with existing data (1/1, 12.58 s), including assigned/other-barangay controls. Report/notice/history fingerprints and local session/device cleanup were verified. Test/doc changes only; no phone operations. See [backend/OFFICIAL_MAP_VALIDATION.md](backend/OFFICIAL_MAP_VALIDATION.md). The independent backend continuation remains separate from this UI design assignment; use the current handover scope.
+
 ## 1. Establish the design reference and baseline
 
 Read HANDOFF.md and CHECKPOINTS.md first. Before wiring or testing data, read [backend/README.md](backend/README.md) and [backend/VERIFICATION.md](backend/VERIFICATION.md). Use their current build/test commands and evidence rather than treating this handoff as a fresh test pass.

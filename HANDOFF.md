@@ -4,6 +4,12 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
 
+## Latest backend validation — November 23
+
+Current branch backend/official-map-validation builds on backend/map-stack-pagination (draft PR #7). The official-account hosted map passed 1/1 in 12.58 s with independent SQL ID/role expectations: six first-page markers, 13 after load-more, one Garbage marker, assigned stack/details with edit controls and other-barangay details without them. No business mutation control was activated. All 36 reports/15 notices/15 history rows retained full-row fingerprints; session/owned emulator registration cleanup verified. Test APK build and lint passed (0 errors/34 warnings). Runtime remains the prior 40f96668 candidate. No phone operations. See [official map evidence](backend/OFFICIAL_MAP_VALIDATION.md).
+
+The next independent backend gap is hosted private-photo authorization/integrity using existing labeled synthetic assets. Phone remains unavailable until the user says otherwise. Prior branch/build paragraphs below are historical.
+
 ## Latest backend integration follow-up
 
 The user is using the phone for other work and asked us to proceed without it. Leave the phone alone until it is available again; use an isolated emulator and independent backend tasks. No phone commands/settings/build changes were made in the BG-004 batch.
