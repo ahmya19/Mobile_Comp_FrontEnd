@@ -1,0 +1,705 @@
+{
+ "tables": [
+  {
+   "rls": false,
+   "name": "private.barangays",
+   "columns": [
+    "name text not null",
+    "latitude double precision not null",
+    "longitude double precision not null"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [],
+    "authenticated": []
+   },
+   "constraints": [
+    "barangays_latitude_check CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))",
+    "barangays_longitude_check CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))",
+    "barangays_pkey PRIMARY KEY (name)"
+   ]
+  },
+  {
+   "rls": false,
+   "name": "private.officials",
+   "columns": [
+    "user_id uuid not null",
+    "barangay text not null"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [],
+    "authenticated": []
+   },
+   "constraints": [
+    "officials_barangay_check CHECK (((char_length(btrim(barangay)) >= 2) AND (char_length(btrim(barangay)) <= 100)))",
+    "officials_pkey PRIMARY KEY (user_id)",
+    "officials_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+   ]
+  },
+  {
+   "rls": true,
+   "name": "private.push_dispatch_tokens",
+   "columns": [
+    "token_hash bytea not null",
+    "expires_at timestamp with time zone not null"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [],
+    "authenticated": []
+   },
+   "constraints": [
+    "push_dispatch_tokens_pkey PRIMARY KEY (token_hash)"
+   ]
+  },
+  {
+   "rls": false,
+   "name": "private.push_outbox",
+   "columns": [
+    "notification_id uuid not null",
+    "delivered_at timestamp with time zone",
+    "attempts integer not null default 0",
+    "last_error text",
+    "lease_until timestamp with time zone",
+    "lease_token uuid"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [],
+    "authenticated": []
+   },
+   "constraints": [
+    "push_outbox_notification_id_fkey FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE",
+    "push_outbox_pkey PRIMARY KEY (notification_id)"
+   ]
+  },
+  {
+   "rls": false,
+   "name": "private.sms_receipts",
+   "columns": [
+    "gateway_id text not null",
+    "message_id text not null",
+    "report_id uuid not null",
+    "payload_hash text not null"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [],
+    "authenticated": []
+   },
+   "constraints": [
+    "sms_receipts_pkey PRIMARY KEY (gateway_id, message_id)",
+    "sms_receipts_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id)"
+   ]
+  },
+  {
+   "rls": true,
+   "name": "public.devices",
+   "columns": [
+    "user_id uuid not null",
+    "installation_id uuid not null",
+    "token text not null",
+    "updated_at timestamp with time zone not null default now()"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [
+     "delete",
+     "insert",
+     "references",
+     "select",
+     "trigger",
+     "truncate",
+     "update"
+    ],
+    "authenticated": [
+     "select"
+    ]
+   },
+   "constraints": [
+    "devices_installation_id_key UNIQUE (installation_id)",
+    "devices_pkey PRIMARY KEY (user_id, installation_id)",
+    "devices_token_check CHECK (((char_length(token) >= 1) AND (char_length(token) <= 4096)))",
+    "devices_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+   ]
+  },
+  {
+   "rls": true,
+   "name": "public.notifications",
+   "columns": [
+    "id uuid not null default gen_random_uuid()",
+    "user_id uuid not null",
+    "report_id uuid not null",
+    "message text not null",
+    "read boolean not null default false",
+    "created_at timestamp with time zone not null default now()"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [
+     "delete",
+     "insert",
+     "references",
+     "select",
+     "trigger",
+     "truncate",
+     "update"
+    ],
+    "authenticated": [
+     "select"
+    ]
+   },
+   "constraints": [
+    "notifications_pkey PRIMARY KEY (id)",
+    "notifications_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id)",
+    "notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+   ]
+  },
+  {
+   "rls": true,
+   "name": "public.profiles",
+   "columns": [
+    "id uuid not null",
+    "display_name text not null",
+    "updated_at timestamp with time zone not null default now()"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [
+     "delete",
+     "insert",
+     "references",
+     "select",
+     "trigger",
+     "truncate",
+     "update"
+    ],
+    "authenticated": [
+     "select"
+    ]
+   },
+   "constraints": [
+    "profiles_display_name_check CHECK (((char_length(btrim(display_name)) >= 2) AND (char_length(btrim(display_name)) <= 80)))",
+    "profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "profiles_pkey PRIMARY KEY (id)"
+   ]
+  },
+  {
+   "rls": true,
+   "name": "public.report_history",
+   "columns": [
+    "id uuid not null default gen_random_uuid()",
+    "report_id uuid not null",
+    "previous_status text not null",
+    "status text not null",
+    "changed_by uuid",
+    "created_at timestamp with time zone not null default now()"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [
+     "delete",
+     "insert",
+     "references",
+     "select",
+     "trigger",
+     "truncate",
+     "update"
+    ],
+    "authenticated": [
+     "select"
+    ]
+   },
+   "constraints": [
+    "report_history_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "report_history_pkey PRIMARY KEY (id)",
+    "report_history_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id)"
+   ]
+  },
+  {
+   "rls": true,
+   "name": "public.report_votes",
+   "columns": [
+    "report_id uuid not null",
+    "user_id uuid not null",
+    "created_at timestamp with time zone not null default now()"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [
+     "delete",
+     "insert",
+     "references",
+     "select",
+     "trigger",
+     "truncate",
+     "update"
+    ],
+    "authenticated": [
+     "select"
+    ]
+   },
+   "constraints": [
+    "report_votes_pkey PRIMARY KEY (report_id, user_id)",
+    "report_votes_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id)",
+    "report_votes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+   ]
+  },
+  {
+   "rls": true,
+   "name": "public.reports",
+   "columns": [
+    "id uuid not null",
+    "owner_id uuid",
+    "category text not null",
+    "description text not null",
+    "location text not null",
+    "barangay text not null",
+    "latitude double precision",
+    "longitude double precision",
+    "photo_path text",
+    "status text not null default 'Pending'::text",
+    "priority text not null default 'Low'::text",
+    "official_priority text not null default 'Low'::text",
+    "vote_count integer not null default 0",
+    "source text not null default 'app'::text",
+    "created_at timestamp with time zone not null default now()",
+    "updated_at timestamp with time zone not null default now()",
+    "original_path text"
+   ],
+   "privileges": {
+    "anon": [],
+    "service_role": [
+     "delete",
+     "insert",
+     "references",
+     "select",
+     "trigger",
+     "truncate",
+     "update"
+    ],
+    "authenticated": [
+     "select"
+    ]
+   },
+   "constraints": [
+    "reports_barangay_check CHECK (((char_length(btrim(barangay)) >= 2) AND (char_length(btrim(barangay)) <= 100)))",
+    "reports_category_check CHECK ((category = ANY (ARRAY['Road Damage'::text, 'Streetlight'::text, 'Flooding'::text, 'Garbage'::text, 'Water Interruption'::text, 'Other'::text])))",
+    "reports_check CHECK (((latitude IS NULL) = (longitude IS NULL)))",
+    "reports_description_check CHECK (((char_length(btrim(description)) >= 10) AND (char_length(btrim(description)) <= 2000)))",
+    "reports_latitude_check CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))",
+    "reports_latitude_check1 CHECK (((latitude IS NULL) OR ((latitude > '-Infinity'::double precision) AND (latitude < 'Infinity'::double precision))))",
+    "reports_location_check CHECK (((char_length(btrim(location)) >= 3) AND (char_length(btrim(location)) <= 200)))",
+    "reports_longitude_check CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))",
+    "reports_longitude_check1 CHECK (((longitude IS NULL) OR ((longitude > '-Infinity'::double precision) AND (longitude < 'Infinity'::double precision))))",
+    "reports_official_priority_check CHECK ((official_priority = ANY (ARRAY['Low'::text, 'Medium'::text, 'High'::text])))",
+    "reports_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "reports_pkey PRIMARY KEY (id)",
+    "reports_priority_check CHECK ((priority = ANY (ARRAY['Low'::text, 'Medium'::text, 'High'::text])))",
+    "reports_source_check CHECK ((source = ANY (ARRAY['app'::text, 'sms'::text])))",
+    "reports_status_check CHECK ((status = ANY (ARRAY['Pending'::text, 'Under Review'::text, 'In Progress'::text, 'Resolved'::text, 'Rejected'::text])))",
+    "reports_vote_count_check CHECK ((vote_count >= 0))"
+   ]
+  }
+ ],
+ "indexes": [
+  "CREATE INDEX notifications_owner_recent ON public.notifications USING btree (user_id, created_at DESC, id DESC)",
+  "CREATE INDEX notifications_report ON public.notifications USING btree (report_id)",
+  "CREATE INDEX report_history_actor ON public.report_history USING btree (changed_by)",
+  "CREATE INDEX report_history_report ON public.report_history USING btree (report_id, created_at)",
+  "CREATE INDEX report_votes_user ON public.report_votes USING btree (user_id)",
+  "CREATE INDEX reports_barangay_recent ON public.reports USING btree (barangay, created_at DESC, id DESC)",
+  "CREATE INDEX reports_owner_recent ON public.reports USING btree (owner_id, created_at DESC, id DESC)",
+  "CREATE INDEX reports_recent ON public.reports USING btree (created_at DESC, id DESC)",
+  "CREATE INDEX sms_receipts_report ON private.sms_receipts USING btree (report_id)",
+  "CREATE UNIQUE INDEX barangays_pkey ON private.barangays USING btree (name)",
+  "CREATE UNIQUE INDEX devices_installation_id_key ON public.devices USING btree (installation_id)",
+  "CREATE UNIQUE INDEX devices_pkey ON public.devices USING btree (user_id, installation_id)",
+  "CREATE UNIQUE INDEX notifications_pkey ON public.notifications USING btree (id)",
+  "CREATE UNIQUE INDEX officials_pkey ON private.officials USING btree (user_id)",
+  "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)",
+  "CREATE UNIQUE INDEX push_dispatch_tokens_pkey ON private.push_dispatch_tokens USING btree (token_hash)",
+  "CREATE UNIQUE INDEX push_outbox_pkey ON private.push_outbox USING btree (notification_id)",
+  "CREATE UNIQUE INDEX report_history_pkey ON public.report_history USING btree (id)",
+  "CREATE UNIQUE INDEX report_votes_pkey ON public.report_votes USING btree (report_id, user_id)",
+  "CREATE UNIQUE INDEX reports_pkey ON public.reports USING btree (id)",
+  "CREATE UNIQUE INDEX sms_receipts_pkey ON private.sms_receipts USING btree (gateway_id, message_id)"
+ ],
+ "policies": [
+  {
+   "name": "devices_owner",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "public.devices",
+   "using": "(user_id = ( SELECT auth.uid() AS uid))",
+   "command": "SELECT"
+  },
+  {
+   "name": "notifications_owner",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "public.notifications",
+   "using": "(user_id = ( SELECT auth.uid() AS uid))",
+   "command": "SELECT"
+  },
+  {
+   "name": "profiles_owner",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "public.profiles",
+   "using": "(id = ( SELECT auth.uid() AS uid))",
+   "command": "SELECT"
+  },
+  {
+   "name": "history_community",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "public.report_history",
+   "using": "true",
+   "command": "SELECT"
+  },
+  {
+   "name": "votes_owner",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "public.report_votes",
+   "using": "(user_id = ( SELECT auth.uid() AS uid))",
+   "command": "SELECT"
+  },
+  {
+   "name": "reports_community",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "public.reports",
+   "using": "true",
+   "command": "SELECT"
+  },
+  {
+   "name": "pinpoint_original_read",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "storage.objects",
+   "using": "((bucket_id = 'report-originals'::text) AND ((split_part(name, '/'::text, 1) = (( SELECT auth.uid() AS uid))::text) OR can_read_original(name)))",
+   "command": "SELECT"
+  },
+  {
+   "name": "pinpoint_original_upload",
+   "check": "((bucket_id = 'report-originals'::text) AND (name ~ (('^'::text || (( SELECT auth.uid() AS uid))::text) || '/[0-9a-f-]{36}/original$'::text)) AND (EXISTS ( SELECT 1\n   FROM reports r\n  WHERE (((r.id)::text = split_part(objects.name, '/'::text, 2)) AND (r.owner_id = ( SELECT auth.uid() AS uid))))))",
+   "roles": "{authenticated}",
+   "table": "storage.objects",
+   "using": null,
+   "command": "INSERT"
+  },
+  {
+   "name": "pinpoint_photo_cleanup",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "storage.objects",
+   "using": "((bucket_id = 'report-images'::text) AND (split_part(name, '/'::text, 1) = (( SELECT auth.uid() AS uid))::text) AND (NOT (EXISTS ( SELECT 1\n   FROM reports r\n  WHERE (r.photo_path = objects.name)))))",
+   "command": "DELETE"
+  },
+  {
+   "name": "pinpoint_photo_read",
+   "check": null,
+   "roles": "{authenticated}",
+   "table": "storage.objects",
+   "using": "((bucket_id = 'report-images'::text) AND ((split_part(name, '/'::text, 1) = (( SELECT auth.uid() AS uid))::text) OR (EXISTS ( SELECT 1\n   FROM reports r\n  WHERE (r.photo_path = objects.name)))))",
+   "command": "SELECT"
+  },
+  {
+   "name": "pinpoint_photo_upload",
+   "check": "((bucket_id = 'report-images'::text) AND (name ~ (('^'::text || (( SELECT auth.uid() AS uid))::text) || '/[0-9a-f-]{36}/photo[.]jpg$'::text)))",
+   "roles": "{authenticated}",
+   "table": "storage.objects",
+   "using": null,
+   "command": "INSERT"
+  }
+ ],
+ "cron_jobs": [
+  {
+   "name": "pinpoint-cron-log-retention",
+   "command": "delete from cron.job_run_details where jobid in (\n    select jobid from cron.job where jobname in ('pinpoint-push-outbox','pinpoint-cron-log-retention')\n  ) and end_time<now()-interval '7 days';",
+   "schedule": "15 3 * * *"
+  },
+  {
+   "name": "pinpoint-push-outbox",
+   "command": "select private.dispatch_pushes();",
+   "schedule": "10 seconds"
+  }
+ ],
+ "functions": [
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": false,
+    "authenticated": false
+   },
+   "returns": "bigint",
+   "language": "plpgsql",
+   "signature": "private.dispatch_pushes()",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "void",
+   "language": "plpgsql",
+   "signature": "public.attach_original(p_report_id uuid)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": false
+   },
+   "returns": "boolean",
+   "language": "plpgsql",
+   "signature": "public.authorize_push_dispatch(p_token text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "boolean",
+   "language": "sql",
+   "signature": "public.can_read_original(p_name text)",
+   "volatility": "s",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": false
+   },
+   "returns": "TABLE(notification_id uuid, lease_token uuid, report_id uuid, message text, devices jsonb)",
+   "language": "sql",
+   "signature": "public.claim_push_batch(p_report_id uuid)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": false
+   },
+   "returns": "void",
+   "language": "sql",
+   "signature": "public.finish_push(p_notification_id uuid, p_lease_token uuid, p_error text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": false
+   },
+   "returns": "uuid",
+   "language": "plpgsql",
+   "signature": "public.ingest_sms_report(p_gateway_id text, p_message_id text, p_payload_hash text, p_category text, p_description text, p_barangay text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "void",
+   "language": "sql",
+   "signature": "public.mark_notification_read(p_id uuid)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "jsonb",
+   "language": "sql",
+   "signature": "public.my_profile()",
+   "volatility": "s",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "SETOF uuid",
+   "language": "sql",
+   "signature": "public.pending_push_reports()",
+   "volatility": "s",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "void",
+   "language": "plpgsql",
+   "signature": "public.register_device(p_installation_id uuid, p_token text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "void",
+   "language": "sql",
+   "signature": "public.remove_device(p_installation_id uuid)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": false
+   },
+   "returns": "void",
+   "language": "sql",
+   "signature": "public.remove_invalid_push_token(p_token text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "void",
+   "language": "plpgsql",
+   "signature": "public.save_profile(p_display_name text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "reports",
+   "language": "plpgsql",
+   "signature": "public.submit_report(p_id uuid, p_category text, p_description text, p_location text, p_barangay text, p_latitude double precision, p_longitude double precision, p_photo_path text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "reports",
+   "language": "plpgsql",
+   "signature": "public.update_report_status(p_report_id uuid, p_status text, p_priority text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "reports",
+   "language": "plpgsql",
+   "signature": "public.vote_report(p_report_id uuid, p_voted boolean)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  }
+ ]
+}
