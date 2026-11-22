@@ -25,3 +25,10 @@ First candidate 8691cbd enqueued an ordinary empty drain on account restoration.
 The correction skips report work when the active account/project has no Queued or Sending rows and schedules waiting originals directly. Genuine report drains retain expedited priority, quota fallback, CONNECTED, APPEND_OR_REPLACE and idempotent retries. Five local scheduler tests pass, along with ten JVM tests, debug/test APK builds and lint (0 errors, 35 warnings). Tests use a probe worker rather than live Supabase uploads. The corrected phone showed no empty restoration request and its real submission was ENQUEUED with only a completed predecessor. The old-Android foreground-service lifecycle remains untested.
 
 Detailed evidence, timestamps, endpoint limits and source links: [backend/BACKGROUND_SYNC_INVESTIGATION.md](backend/BACKGROUND_SYNC_INVESTIGATION.md). Keep raw device dumps, serials, credentials and private queue copies outside Git.
+
+## BG-003 — reports at one coordinate could not be opened from the map
+
+Owner: Claude (backend-continuation session). Status: **Fixed** in this batch, verified locally and on hosted data on the emulator.
+
+Hosted data has 11 reports at exactly 13.78, 121.07. Tapping that point opened only the first rendered feature, so the other ten were unreachable from the map. SMS reports will stack the same way, since each barangay has a single centroid. Reproduction before the fix: `MapIntegrationTest#stackedMarkersOfferAChooserSoEveryReportIsReachable` failed with `ComposeTimeoutException: Condition still not satisfied after 10000 ms` waiting for a chooser. `ReportMap` now opens one report directly and shows a chooser (up to 25 entries) when several markers are hit. Evidence and limits: [backend/MAP_HOSTED_NAVIGATION_VALIDATION.md](backend/MAP_HOSTED_NAVIGATION_VALIDATION.md). Not yet checked on the physical phone; larger stacks than 25 are truncated.
+

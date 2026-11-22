@@ -1,6 +1,8 @@
 package com.example.pinpoint.screens
 
 import android.os.Bundle
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,6 +50,7 @@ private object MapNetwork {
 
 private const val REPORT_SOURCE="reports"
 private const val REPORT_LAYER="reports-layer"
+private const val MAX_STACK_CHOICES=25
 
 private fun List<Report>.toFeatures(): FeatureCollection = FeatureCollection.fromFeatures(mapNotNull { report ->
     report.mapCoordinate()?.let { Feature.fromGeometry(Point.fromLngLat(it.longitude,it.latitude)).apply { addStringProperty("id",report.id) } }
@@ -71,6 +74,7 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
     val view=remember(context) { MapLibre.getInstance(context);MapNetwork.initialize(context.applicationContext); MapView(context) }
     var ready by remember { mutableStateOf<MapLibreMap?>(null) }
     var framed by remember { mutableStateOf(false) }
+    var stacked by remember { mutableStateOf<List<Report>>(emptyList()) }
     DisposableEffect(view,lifecycle) {
         view.onCreate(Bundle())
         var destroyed=false
@@ -93,9 +97,15 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
                 ready=map
             }
             map.addOnMapClickListener { coordinate ->
-                val hits=map.queryRenderedFeatures(map.projection.toScreenLocation(coordinate),REPORT_LAYER)
-                val id=hits.firstOrNull()?.getStringProperty("id")
-                if(id!=null && latestReports.any { it.id==id }) { reportClick(id);true } else false
+                val ids=map.queryRenderedFeatures(map.projection.toScreenLocation(coordinate),REPORT_LAYER)
+                    .mapNotNull { it.getStringProperty("id") }.distinct()
+                val hits=latestReports.filter { it.id in ids }
+                when {
+                    hits.size==1 -> { reportClick(hits.first().id);true }
+                    // Several reports share one coordinate (e.g. SMS reports at a barangay centroid): let the user pick.
+                    hits.size>1 -> { stacked=hits.take(MAX_STACK_CHOICES);true }
+                    else -> false
+                }
             }
             map.addOnMapLongClickListener { coordinate -> pick?.invoke(coordinate.latitude,coordinate.longitude);pick!=null }
         }
@@ -117,6 +127,19 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
                     .target(coordinate).build() }
             }
         }
+    }
+    if(stacked.isNotEmpty()) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest={ stacked=emptyList() },
+            title={ androidx.compose.material3.Text("${stacked.size} reports at this location") },
+            text={ androidx.compose.foundation.layout.Column(Modifier.verticalScroll(rememberScrollState())) {
+                stacked.forEach { report ->
+                    androidx.compose.material3.TextButton(onClick={ stacked=emptyList();reportClick(report.id) }) {
+                        androidx.compose.material3.Text("${report.category}: ${report.description.take(60)} (${report.status})")
+                    }
+                }
+            } },
+            confirmButton={ androidx.compose.material3.TextButton(onClick={ stacked=emptyList() }) { androidx.compose.material3.Text("Cancel") } })
     }
     AndroidView(factory={view},modifier=modifier.semantics {
         contentDescription=if(onPick!=null) "Choose report location on map" else "Community report map"

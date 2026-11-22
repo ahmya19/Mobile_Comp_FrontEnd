@@ -24,3 +24,5 @@ adb -s emulator-5556 shell am instrument -w -r `
 ~~~
 
 Keep these marker/filter/callback assertions during Claude's UI restructuring; complete the whole-app/backend matrix in CLAUDE_HANDOFF.md before declaring overall map acceptance complete.
+
+Update: the hosted whole-app route and stacked-marker handling are now covered in [MAP_HOSTED_NAVIGATION_VALIDATION.md](MAP_HOSTED_NAVIGATION_VALIDATION.md).
