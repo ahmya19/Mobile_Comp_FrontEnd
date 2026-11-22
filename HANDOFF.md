@@ -4,11 +4,17 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
 
+## Latest private-Storage validation — November 23
+
+Current branch backend/storage-access-validation builds on backend/official-map-validation (draft PR #8). Four existing test-labelled objects passed 16/16 API access checks: seven allowed reads, nine expected denials; authorized official bytes matched owner SHA-256 values. Compressed community access and restricted originals matched deployed RLS. Full fingerprints of 36 reports/45 object rows/bucket settings were preserved; both test sessions returned local logout 204. No phone/fixtures/uploads/deletes or runtime/backend policy change. See [private Storage evidence](backend/PRIVATE_STORAGE_VALIDATION.md).
+
+Next independent delivery task is to review the dependent backend PR stack, inspect each intended diff/check result and prepare the merge sequence. Keep the phone unavailable until the user says otherwise. Older task/branch pointers below are historical.
+
 ## Latest backend validation — November 23
 
 Current branch backend/official-map-validation builds on backend/map-stack-pagination (draft PR #7). The official-account hosted map passed 1/1 in 12.58 s with independent SQL ID/role expectations: six first-page markers, 13 after load-more, one Garbage marker, assigned stack/details with edit controls and other-barangay details without them. No business mutation control was activated. All 36 reports/15 notices/15 history rows retained full-row fingerprints; session/owned emulator registration cleanup verified. Test APK build and lint passed (0 errors/34 warnings). Runtime remains the prior 40f96668 candidate. No phone operations. See [official map evidence](backend/OFFICIAL_MAP_VALIDATION.md).
 
-The next independent backend gap is hosted private-photo authorization/integrity using existing labeled synthetic assets. Phone remains unavailable until the user says otherwise. Prior branch/build paragraphs below are historical.
+The private-photo authorization/integrity follow-up is now complete for the bounded matrix above. Phone remains unavailable until the user says otherwise. Prior branch/build paragraphs below are historical.
 
 ## Latest backend integration follow-up
 
