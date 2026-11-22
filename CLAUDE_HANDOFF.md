@@ -6,6 +6,8 @@ Repository: `C:\Users\USER\project\MobileConputing`. PRs #1 and #2 are merged; m
 
 Latest backend continuation update: Claude implemented hosted map navigation plus BG-003, and Codex verified the ordinary TECNO chooser/details/back route using existing data/session. The backend continuation handover is separate from this UI/UX work package. Current branch backend/map-hosted-navigation, draft PR #6 depending on #5/#4/#3; inspect actual state before editing. Read [backend/MAP_HOSTED_NAVIGATION_VALIDATION.md](backend/MAP_HOSTED_NAVIGATION_VALIDATION.md) for the latest evidence; older native-test limitations below are historical. Wider filter/official/outdoor and full-app acceptance remain open.
 
+Latest independent backend follow-up: user is using the phone; proceed without phone operations until it is available. Branch backend/map-stack-pagination builds on draft PR #6 and removes the chooser cap. Native 26/75-report selection and Cancel/reopen pass with related regressions (6/6); no phone/hosted changes. Read [backend/MAP_STACK_VALIDATION.md](backend/MAP_STACK_VALIDATION.md) before changing the chooser. Earlier phone-build/branch notes are historical.
+
 ## 1. Establish the design reference and baseline
 
 Read HANDOFF.md and CHECKPOINTS.md first. Before wiring or testing data, read [backend/README.md](backend/README.md) and [backend/VERIFICATION.md](backend/VERIFICATION.md). Use their current build/test commands and evidence rather than treating this handoff as a fresh test pass.

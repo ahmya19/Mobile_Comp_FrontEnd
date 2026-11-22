@@ -1,8 +1,10 @@
 package com.example.pinpoint.screens
 
 import android.os.Bundle
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -10,6 +12,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -50,7 +53,6 @@ private object MapNetwork {
 
 private const val REPORT_SOURCE="reports"
 private const val REPORT_LAYER="reports-layer"
-private const val MAX_STACK_CHOICES=25
 
 private fun List<Report>.toFeatures(): FeatureCollection = FeatureCollection.fromFeatures(mapNotNull { report ->
     report.mapCoordinate()?.let { Feature.fromGeometry(Point.fromLngLat(it.longitude,it.latitude)).apply { addStringProperty("id",report.id) } }
@@ -103,7 +105,7 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
                 when {
                     hits.size==1 -> { reportClick(hits.first().id);true }
                     // Several reports share one coordinate (e.g. SMS reports at a barangay centroid): let the user pick.
-                    hits.size>1 -> { stacked=hits.take(MAX_STACK_CHOICES);true }
+                    hits.size>1 -> { stacked=hits;true }
                     else -> false
                 }
             }
@@ -132,8 +134,8 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
         androidx.compose.material3.AlertDialog(
             onDismissRequest={ stacked=emptyList() },
             title={ androidx.compose.material3.Text("${stacked.size} reports at this location") },
-            text={ androidx.compose.foundation.layout.Column(Modifier.verticalScroll(rememberScrollState())) {
-                stacked.forEach { report ->
+            text={ LazyColumn(Modifier.fillMaxWidth().heightIn(max=360.dp)) {
+                items(stacked,key={ it.id }) { report ->
                     androidx.compose.material3.TextButton(onClick={ stacked=emptyList();reportClick(report.id) }) {
                         androidx.compose.material3.Text("${report.category}: ${report.description.take(60)} (${report.status})")
                     }

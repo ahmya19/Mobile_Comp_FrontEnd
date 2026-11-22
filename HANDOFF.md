@@ -4,6 +4,12 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
 
+## Latest backend integration follow-up
+
+The user is using the phone for other work and asked us to proceed without it. Leave the phone alone until it is available again; use an isolated emulator and independent backend tasks. No phone commands/settings/build changes were made in the BG-004 batch.
+
+Current branch backend/map-stack-pagination builds on backend/map-hosted-navigation (draft PR #6). BG-004 removes the stacked-marker chooser cap of 25 and uses a bounded lazy list. Native 26/75-report selection, Cancel/reopen and existing map/form/notification checks passed 6/6; ten JVM tests/builds pass, lint 0 errors/34 warnings. Candidate APK SHA-256 40f966685f549045b533e59dbbb637cdaba674131f62939f7038404a203c094b was installed only on the owned emulator, which was then stopped. The phone has the earlier recorded build below; no fresh phone verification is claimed. See [stacked report evidence](backend/MAP_STACK_VALIDATION.md).
+
 ## Current backend continuation
 
 The user separately authorized Claude to continue Codex backend implementation/integration during the handover. Claude completed hosted map navigation and BG-003; Codex has resumed backend ownership and verified the ordinary phone. This backend continuation is separate from the UI/UX work package below. Latest branch backend/map-hosted-navigation; draft PR #6 stacks on #5, #4 and #3, all currently unmerged.
