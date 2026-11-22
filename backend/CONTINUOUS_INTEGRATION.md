@@ -9,3 +9,6 @@ First GitHub validation: [run 45046214351](https://github.com/ahmya19/Mobile_Com
 This repository is public. Standard GitHub-hosted runners in public repositories are free under [GitHub's Actions billing rules](https://docs.github.com/en/actions/concepts/billing-and-usage). No artifact uploads or dependency caches are configured. Recheck cost rules before moving to a private repository or choosing another runner class.
 
 For a failing pull request, open its Checks tab or run `gh pr checks <number>`, then inspect the failing run with `gh run view <run-id> --log-failed`. Preserve the exact error and reproduce the failing command from backend locally. A workflow check does not configure branch protection: requiring this status for merges remains a repository-owner setting.
+
+Branch backend/migration-replay-validation adds the nine-migration replay and security tests, so `npm test` now runs 53 backend tests (they need no network, hosted credentials or device). `catalog_drift.py` and `hosted_authz_probe.py` are manual hosted checks and are deliberately not part of CI.
+

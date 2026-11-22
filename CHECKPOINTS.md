@@ -1,6 +1,6 @@
 # PinPoint project checkpoints
 
-Updated November 23, 2026 (Asia/Manila).
+Updated November 23, 2026 (Asia/Manila). Current backend branch: backend/migration-replay-validation (PRs #1–#10 are merged; see the delivery notes in HANDOFF.md).
 
 ## Current checkpoint
 
@@ -48,6 +48,8 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-28 | Mirror supplied UI/UX | Assigned to Claude | Inventory the supplied reference and existing screens, restructure Compose UI/navigation and compare screenshots for every screen/state. Reference location must be established; visual parity is not yet verified. |
 | CP-29 | Whole-app regression including backend | Assigned to Claude | Execute the complete matrix in CLAUDE_HANDOFF.md, including API/security and full citizen/official flows. Record Pass/Fail/Blocked with evidence and backend defects for Codex. Historical prototype checks do not close this checkpoint. |
 | CP-30 | Backend CI | Implemented and GitHub verified | PR #10 adds isolated regressions and Edge type checks. GitHub run 45046214351 passed in 21 s on standard Ubuntu: 33 backend tests plus both Edge checks. No hosted secrets, device or deployment required. See backend/CONTINUOUS_INTEGRATION.md; branch protection is a separate owner setting. |
+| CP-31 | Migration replay and reproducibility | Implemented; hosted drift verified; fresh restore not performed | All nine migrations replay in order from an empty PostgreSQL (PGlite, PG 18.7) against Supabase-shaped stubs; 12 CI tests check the final state (superseded dispatcher, grants, RLS, indexes, cron registration, nonce one-use/expiry, lease/backoff, recipient binding) and 10 deliberate breaks are caught. A read-only check of the live project (PG 17.12) matched the replayed catalog exactly: 11 tables, 21 indexes, 11 policies, 2 cron jobs, 17 functions, 0 differences. pg_cron, pg_net, Vault and FCM are stubs or platform-only; no fresh Supabase project was created. See backend/MIGRATION_REPLAY_VALIDATION.md. |
+| CP-32 | Backend security and failure paths | Implemented; hosted ordinary-client probe verified | Nine local tests (no-session RPCs, direct writes, devices, notification binding, push scoping, partial-failure retries, Storage matrix, photo-path binding, one characterization) and a hosted ordinary-client probe: 49/49 passed (service-only RPCs, private schema, direct writes, cross-account reads, Storage forbidden paths, one scoped upload/read/delete lifecycle). Two weak tests were found by mutation checks and corrected. No exploitable defect; BG-005 and three observations need owner/group decisions. See backend/SECURITY_FAILURE_PATH_VALIDATION.md. |
 
 ## Implementation ownership
 
@@ -106,5 +108,6 @@ Do not enable a paid plan to close any checkpoint. Ask about genuinely missing i
 | 2026-11-23 | CP-20 / CP-21 official role | Hosted official whole-app map passed 1/1 in 12.58 s: 6/13/1 SQL-matched markers, assigned stack/details and edit controls, other-barangay details without controls. Original 36 reports/15 notices/15 history rows unchanged; local session/device cleanup verified. Default opt-in skip and runner guards passed; build/lint 0 errors/34 warnings. No phone operations. |
 | 2026-11-23 | CP-05 / Storage access | 16 ordinary-session/anonymous GET checks passed on four existing objects (7 allowed, 9 denied); hashes/metadata matched. Full report/object/bucket fingerprints preserved, local logout HTTP 204 both accounts, initial reporter bug corrected and initial session window empty. No phone, fixtures, uploads or deletes. |
 | 2026-11-23 | CP-26 / CP-30 | Reviewed/corrected and merged PRs #3–#9 into main dbb2568 in dependency order. Protected map-run ledger/partial cleanup and local session teardown; 33 backend tests, Edge checks, Android/JVM/build/lint passed. Added GitHub backend CI in PR #10; first actual Ubuntu run passed in 21 s. Phone and hosted data untouched. |
+| 2026-11-23 | CP-31 / CP-32 | Claude continued BACKEND work on backend/migration-replay-validation: nine-migration replay (53 backend tests), live catalog drift check identical, hosted ordinary-client probe 49/49, scoped Storage lifecycle object removed; hosted counts unchanged (36 reports, 45 objects, 15 notices, 0 votes). Emulator and phone untouched in this batch. |
 
 Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).
