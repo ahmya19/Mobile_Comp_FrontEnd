@@ -13,6 +13,7 @@ import com.example.pinpoint.ui.theme.PinPointTheme
 
 class MainActivity : ComponentActivity() {
     private var pendingReportId by mutableStateOf<String?>(null)
+    private var pendingReportUser by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,7 +21,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PinPointTheme {
-                AppNavigation(notificationReportId=pendingReportId,onNotificationConsumed={pendingReportId=null})
+                AppNavigation(notificationReportId=pendingReportId,notificationUserId=pendingReportUser,onNotificationConsumed={pendingReportId=null;pendingReportUser=null})
             }
         }
     }
@@ -33,6 +34,9 @@ class MainActivity : ComponentActivity() {
 
     private fun readReportIntent(intent: Intent?) {
         val id=intent?.getStringExtra("reportId") ?: return
-        if(runCatching { UUID.fromString(id).toString()==id }.getOrDefault(false)) pendingReportId=id
+        if(runCatching { UUID.fromString(id).toString()==id }.getOrDefault(false)) {
+            pendingReportId=id
+            pendingReportUser=intent.getStringExtra("userId")
+        }
     }
 }
