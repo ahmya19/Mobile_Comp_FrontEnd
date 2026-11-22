@@ -96,4 +96,51 @@ class MapIntegrationTest {
         compose.waitUntil(10000) { opened==garbage.id }
         compose.runOnIdle { assertEquals(garbage.id,opened) }
     }
+
+    /** Reports at identical coordinates (e.g. SMS reports at a barangay centroid) must each stay reachable. */
+    @Test fun stackedMarkersOfferAChooserSoEveryReportIsReachable() {
+        val a=Report(id="stack-a",category="Road Damage",description="Stack A report",latitude=13.7565,longitude=121.0583)
+        val b=Report(id="stack-b",category="Garbage",description="Stack B report",latitude=13.7565,longitude=121.0583)
+        val state=ReportFeedState(ReportFilter(),listOf(a,b))
+        var opened:String?=null
+        compose.setContent { MapScreen({},{},{},state.reports,{opened=it},state,{},{}) }
+        val mapNode=compose.onNodeWithContentDescription("Community report map")
+        mapNode.performScrollTo()
+        var native:MapLibreMap?=null
+        var nativeView:MapView?=null
+        onView(isAssignableFrom(MapView::class.java)).perform(object:ViewAction {
+            override fun getConstraints():Matcher<View> = isAssignableFrom(MapView::class.java)
+            override fun getDescription()="Capture native map"
+            override fun perform(ui:UiController,view:View) { nativeView=view as MapView;view.getMapAsync { native=it } }
+        })
+        compose.waitUntil(30000) {
+            var actual:Set<String> = emptySet()
+            compose.runOnIdle {
+                val view=nativeView
+                if(native?.style?.getLayer("reports-layer")!=null && view!=null) {
+                    native!!.moveCamera(org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(LatLng(a.latitude!!,a.longitude!!),15.0))
+                    actual=native!!.queryRenderedFeatures(RectF(0f,0f,view.width.toFloat(),view.height.toFloat()),
+                        "reports-layer").map { it.getStringProperty("id") }.toSet()
+                }
+            }
+            actual==setOf(a.id,b.id)
+        }
+        var x=0f;var y=0f
+        compose.runOnIdle {
+            val point=native!!.projection.toScreenLocation(LatLng(a.latitude!!,a.longitude!!));x=point.x;y=point.y
+        }
+        onView(isAssignableFrom(MapView::class.java)).perform(GeneralClickAction(Tap.SINGLE,{ view ->
+            val location=IntArray(2);view.getLocationOnScreen(location);floatArrayOf(location[0]+x,location[1]+y)
+        },Press.FINGER))
+        try {
+            compose.waitUntil(10000) { compose.onAllNodes(hasText("2 reports at this location")).fetchSemanticsNodes(atLeastOneRootRequired=false).isNotEmpty() }
+        } catch(timeout:androidx.compose.ui.test.ComposeTimeoutException) {
+            val roots=compose.onAllNodes(isRoot()).fetchSemanticsNodes(atLeastOneRootRequired=false).size
+            val dump=(0 until roots).joinToString("\n----\n") { runCatching { compose.onAllNodes(isRoot())[it].printToString(4000) }.getOrDefault("?") }
+            throw AssertionError("No chooser. opened=$opened roots=$roots tree=$dump",timeout)
+        }
+        assertNull("The chooser must appear before any report opens",opened)
+        compose.onNode(hasText("Garbage: Stack B report",substring=true)).performClick()
+        compose.waitUntil(10000) { opened=="stack-b" }
+    }
 }

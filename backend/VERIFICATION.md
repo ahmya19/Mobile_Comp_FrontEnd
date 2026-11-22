@@ -239,3 +239,12 @@ Cleanup removed all 97 synthetic reports and preserved all 36 original rows by f
 ## Native map integration - November 22
 
 MapIntegrationTest passed 1/1 in 5.635 s on isolated API 36.1; test APK build passed. Real MapLibre rendered-feature IDs verified initial/page/filter states, invalid-coordinate exclusion and the native tap report-ID callback. Local callbacks supplied fixtures: this is not hosted map/full-app details navigation or GPS acceptance. No runtime/hosted/phone changes; phone remained Awake with USB stay-awake 2. See [MAP_INTEGRATION_VALIDATION.md](MAP_INTEGRATION_VALIDATION.md).
+
+## Security advisor recheck, November 22
+
+`supabase db advisors --remote` (read-only) on the hosted project returned 15 findings, all already explained above: 11 authenticated SECURITY DEFINER RPCs (attach_original, can_read_original, mark_notification_read, my_profile, pending_push_reports, register_device, remove_device, save_profile, submit_report, update_report_status, vote_report), disabled leaked-password protection (Pro feature, project stays Free), RLS enabled with no policy on private.push_dispatch_tokens (private schema, no API access by design), and unused indexes on public.report_history and public.report_votes (tiny tables). No new finding appeared after the notification, feed, voting and map validation batches. Raw output is kept outside Git.
+
+
+## BG-003 ordinary TECNO verification - November 22
+
+App/test builds passed (up-to-date). Installed only the app with data retained, SHA-256 659bebd4b9736529b14abc706cefddf46bd36b3be317fa56dd6b36c07b0e1752. On Android 15/API 35 over validated Wi-Fi, the existing citizen session opened Map, loaded all 13 coordinate reports, exposed 11 SQL-matched chooser entries and opened the oldest entry with matching full description/category/coordinates. Back returned to Map, then Home. Existing session was verified privately before/after; no new sign-in, test instrumentation, report fixture or hosted mutation was requested. Full-row fingerprints of 36 reports and 15 notices were unchanged; history/outbox counts remained 15 each and votes zero. Phone stayed Awake/USB stay-awake 2 with airplane off/Wi-Fi on. A private Windows encoding capture error was recovered with UTF-8; no app error or latency acceptance is inferred. See [MAP_HOSTED_NAVIGATION_VALIDATION.md](MAP_HOSTED_NAVIGATION_VALIDATION.md).
