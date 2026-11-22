@@ -137,6 +137,42 @@ test('community votes cannot lower an official high-priority assessment',async (
   assert.equal((await db.query('select priority from public.reports where id=$1',[r.id])).rows[0].priority,'High');
 });
 
+test('urgency crosses 3 and 10 distinct votes in both directions and retains an official Medium floor',async () => {
+  const r=await submit();
+  const voters=Array.from({length:10},()=>randomUUID());
+  for(const voter of voters) await db.query('insert into auth.users(id) values($1)',[voter]);
+  async function check(count,priority) {
+    const row=(await db.query('select vote_count,priority from public.reports where id=$1',[r.id])).rows[0];
+    assert.deepEqual(row,{vote_count:count,priority});
+  }
+  for(let i=0;i<voters.length;i++) {
+    await asUser(voters[i],()=>db.query('select public.vote_report($1,true)',[r.id]));
+    await check(i+1,i+1>=10?'High':i+1>=3?'Medium':'Low');
+  }
+  for(let i=9;i>=0;i--) {
+    await asUser(voters[i],()=>db.query('select public.vote_report($1,false)',[r.id]));
+    await check(i,i>=10?'High':i>=3?'Medium':'Low');
+  }
+  await asUser(official,()=>db.query('select public.update_report_status($1,$2,$3)',[r.id,'Under Review','Medium']));
+  await asUser(alice,()=>db.query('select public.vote_report($1,true)',[r.id]));
+  await asUser(alice,()=>db.query('select public.vote_report($1,false)',[r.id]));
+  await check(0,'Medium');
+});
+
+test('closed reports reject add and remove votes; invalid or missing targets leave counts intact',async () => {
+  const r=await submit();
+  await assert.rejects(asUser(alice,()=>db.query('select public.vote_report($1,null)',[r.id])),{code:'22023'});
+  await assert.rejects(asUser(alice,()=>db.query('select public.vote_report($1,true)',[randomUUID()])),{code:'P0002'});
+  for(const status of ['Resolved','Rejected']) {
+    await asUser(official,()=>db.query('select public.update_report_status($1,$2)',[r.id,'Under Review']));
+    await asUser(official,()=>db.query('select public.update_report_status($1,$2)',[r.id,status]));
+    for(const choice of [true,false]) {
+      await assert.rejects(asUser(alice,()=>db.query('select public.vote_report($1,$2)',[r.id,choice])),{code:'22023'});
+    }
+    assert.equal((await db.query('select vote_count from public.reports where id=$1',[r.id])).rows[0].vote_count,0);
+  }
+});
+
 test('SMS ingest is server-only, uses approved barangay coordinates and deduplicates gateway IDs',async () => {
   await db.query('insert into private.barangays(name,latitude,longitude) values($1,$2,$3)',['Alangilan',13.78,121.07]);
   const args=['gateway-test','message-1','a'.repeat(64),'Road Damage','A large pothole near school.','Alangilan'];

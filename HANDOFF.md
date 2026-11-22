@@ -22,6 +22,8 @@ Completed task 2: [hosted notification pagination](backend/NOTIFICATION_PAGING_V
 
 Latest task 3: [hosted report feed/filter validation](backend/REPORT_FEED_VALIDATION.md) passed 17 SQL cases, an insert burst and phone combined filters/details. All 97 temporary reports were removed; original 36 unchanged. Current branch: backend/report-feed-validation from merged PR #2. Phone map rendering and whole-app acceptance remain open. The phone stays awake on USB.
 
+Latest task 4: [hosted voting/urgency validation](backend/VOTING_VALIDATION.md) passed 32 API checks plus 30 local tests. Concurrent retries, private vote reads, role/direct-write denials, closed reports and official floors passed; local 3/10 crossings passed. All six reports/two history rows were removed. Current branch backend/voting-validation builds on the unmerged CP-21 branch. Group thresholds and whole-app/mobile acceptance remain separate.
+
 ## What exists
 
 Android app (Kotlin/Compose) on a Supabase Free backend: sign-in with email confirmation code, reports with photos and an offline queue, community feed and map pins, status updates by assigned officials, notifications with push, votes, filters and pagination. An SMS receiver is deployed but locked until a gateway is configured.
@@ -32,7 +34,7 @@ Android app (Kotlin/Compose) on a Supabase Free backend: sign-in with email conf
 2. Create `local.properties` in the project root (it is git-ignored): `sdk.dir=...`, `SUPABASE_URL=https://jaysxjjdvaitgrbqjlhe.supabase.co`, `SUPABASE_PUBLISHABLE_KEY=` (Supabase dashboard, Settings, API Keys). Never put secret or service-role keys here.
 3. Put the app's `google-services.json` (from the existing Firebase project) in `app/`. It is git-ignored.
 4. Build: `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`. The APK is `app/build/outputs/apk/debug/app-debug.apk`.
-5. Backend tests: `cd backend; npm install; npm test` (28 tests, including 11 background-observer diagnostics) and `npm run check:edge`.
+5. Backend tests: `cd backend; npm install; npm test` (30 tests, including 11 background-observer diagnostics) and `npm run check:edge`.
 
 ## Test accounts
 

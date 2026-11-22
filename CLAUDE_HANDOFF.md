@@ -2,7 +2,7 @@
 
 User assignment, November 22, 2026: implement the UI structure to mirror the provided UI/UX and test the entire PinPoint Citizen App, including its backend. Codex remains the backend implementation/fix owner; current responsibilities are in [HANDOFF.md](HANDOFF.md).
 
-Repository: `C:\Users\USER\project\MobileConputing`. PRs #1 and #2 are merged; main baseline is 066e6ae. Current validation branch: `backend/report-feed-validation`. Inspect HEAD, remote PR state and working tree before editing, then coordinate the UI branch from the latest reviewed baseline. Continue the existing Kotlin/Compose app and integrated backend.
+Repository: `C:\Users\USER\project\MobileConputing`. PRs #1 and #2 are merged; main baseline is 066e6ae. CP-21 branch: `backend/report-feed-validation` (draft PR #3). Latest validation branch: `backend/voting-validation`, based on CP-21; inspect PR dependencies before merging. Inspect HEAD, remote PR state and working tree before editing, then coordinate the UI branch from the latest reviewed baseline. Continue the existing Kotlin/Compose app and integrated backend.
 
 ## 1. Establish the design reference and baseline
 
@@ -53,6 +53,8 @@ For email setup consult [backend/EMAIL_CONFIRMATION.md](backend/EMAIL_CONFIRMATI
 CP-14 follow-up: read [backend/NOTIFICATION_PAGING_VALIDATION.md](backend/NOTIFICATION_PAGING_VALIDATION.md). Hosted ordering, insert-burst refresh, owner/read rules and ordinary-phone navigation/read state after restart passed; scoped fixtures are removed. Retain these scenarios during UI restructuring. Review the observed stale global network-error banner in the new UI. The latest user request keeps the phone on/awake, with USB stay-awake 2; do not run screen-off/reboot tests while that preference applies.
 
 CP-21 follow-up: read [backend/REPORT_FEED_VALIDATION.md](backend/REPORT_FEED_VALIDATION.md) before changing feed/filter UI. Hosted 17-case ordering/filter checks and insert refresh passed; phone combined filters, all 20 Beta rows and correct details passed. All 97 fixtures are removed. Preserve those regressions; map marker rendering and whole-app acceptance remain open.
+
+CP-22 follow-up: read [backend/VOTING_VALIDATION.md](backend/VOTING_VALIDATION.md) before changing vote/urgency controls. 32 ordinary hosted API checks passed; local threshold regression expanded the suite to 30 tests. All fixtures are removed. Preserve retry, account privacy, role denial and official-floor behavior; group threshold approval and mobile UI acceptance remain pending.
 
 ## 5. Deliver evidence and coordinate fixes
 
