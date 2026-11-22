@@ -2,6 +2,10 @@ package com.example.pinpoint.data
 
 import android.content.ContentValues
 import android.content.Context
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.net.Uri
@@ -9,6 +13,8 @@ import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -119,8 +125,14 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
         schedule(owner)
     }
     fun schedule(owner: String) {
-        val request=OneTimeWorkRequestBuilder<ReportSyncWorker>().setInputData(workDataOf("owner" to owner))
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
+        val builder=OneTimeWorkRequestBuilder<ReportSyncWorker>().setInputData(workDataOf("owner" to owner))
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        val project=SupabaseBackend.create(context)?.url
+        if(project!=null && items(owner,project).any { it.state in listOf("Queued","Sending") }) {
+            // A short report/photo send is user-initiated. Preserve durable work when quota is used.
+            builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        }
+        val request=builder.build()
         // Appending avoids losing a newly queued item as an existing drain finishes.
         WorkManager.getInstance(context).enqueueUniqueWork("pinpoint-reports-$owner",ExistingWorkPolicy.APPEND_OR_REPLACE,request)
     }
@@ -144,6 +156,23 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
 }
 
 class ReportSyncWorker(context: Context,parameters: WorkerParameters) : CoroutineWorker(context,parameters) {
+    // WorkManager uses a foreground service for expedited requests on Android 11 and earlier.
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val channel="pinpoint-report-uploads"
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O) {
+            applicationContext.getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(channel,"Report uploads",NotificationManager.IMPORTANCE_LOW))
+        }
+        val notification=NotificationCompat.Builder(applicationContext,channel)
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle("Sending saved reports")
+            .setContentText("Your report is being sent when a connection is available.")
+            .setOngoing(true).setOnlyAlertOnce(true).setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .build()
+        return ForegroundInfo(0x10000000 or (id.hashCode() and 0x0fffffff),notification)
+    }
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val backend=SupabaseBackend.create(applicationContext) ?: return@withContext Result.success()
         val owner=inputData.getString("owner") ?: return@withContext Result.failure()

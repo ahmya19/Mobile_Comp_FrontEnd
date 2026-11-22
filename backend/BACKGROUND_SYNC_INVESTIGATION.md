@@ -1,6 +1,6 @@
 # CP-25 background sync investigation
 
-November 22, 2026. Owner: Codex. Status: diagnostic tools ready; ordinary-app phone reproduction pending. CP-25 remains open.
+November 22, 2026. Owner: Codex. Status: ordinary-app background delay reproduced; scheduling candidate prepared for validation. CP-25 remains open.
 
 ## What the existing evidence establishes
 
@@ -26,7 +26,32 @@ No useful blocked-thread stack or paired device uptime/elapsed trace was capture
 2. A queued worker is delayed in background. If system connectivity remains validated but the report is absent, capture pending job/process state before reopening. Do not force the worker or change battery exemptions during the observation.
 3. Device-side requests cannot reach Supabase despite network validation. Compare targeted app errors and the new UUID's gateway log window. Network validation alone does not prove app-to-Supabase reachability.
 
-No production queue, retry, UI or phone-setting change was made. The phone failure has not been reproduced in this batch. The original environment is needed to distinguish these hypotheses.
+The initial read-only batch made no app change. The subsequently approved ordinary-app trials below reproduced a background delay without instrumentation. This rules out instrumentation as a necessary condition for this new failure; it does not establish the exact cause of historical run 8.
+
+## Approved ordinary-app trials, November 22
+
+User approved the TECNO and exactly two hosted report/photo fixtures. Both used the existing APK (SHA-256 5de576c1fac1cc4178ced09833e3d2745484b495fef9e54937c907e6acf3fb26), ordinary form and native gallery picker, one synthetic 512×512 JPEG, Alangilan, no GPS and no original. The user controlled all radios. No instrumentation, force-stop, Retry uploads or settings exemption was used on the phone.
+
+| Trial | Observed result |
+| --- | --- |
+| CP25-FG-20261122-A01 | Cellular; one report observed about 8.639 s after first host-observed availability, or 7.431 s after validation. PinPoint was top-resumed before reconnection; Quick Settings remained open at the post-check, so continuous visual foregrounding is not established. |
+| CP25-BG-20261122-A01 | Pressed Home while offline, then reconnected. No server row by the end of the five-minute observation, including 256.324 s after first observed validation. All 60 visibility samples were readable, awake and showed PinPoint neither top-resumed nor focused (largest sampling gap 5.270 s). No host read errors or wrong transport. Automatic-latency target failed in this observation. |
+
+At 01:01:24 Asia/Manila, a stable private WorkManager database copy showed the background ReportSyncWorker ENQUEUED, run_attempt_count=0 and schedule_requested_at populated, with a persisted system-job ID. This confirms it had not started at that snapshot. The persisted marker does not establish successful OS registration. The job-dump extraction did not reliably establish current registration, so absence of a platform job or a specific OEM restriction is not claimed.
+
+The observation ended at about 01:04. Work resumed after a gap at about noon; the same background report was already Synced. Server creation was 12:02:57 Asia/Manila, corroborated by the worker SUCCESS log. The user reports only reconnecting USB, without reopening PinPoint. Device/network/app behavior during the unobserved gap is unknown; neither an 11-hour reconnect latency nor USB as the proven recovery trigger is claimed. A post-gap process check was cached, not frozen, and not force-stopped; that cannot establish its earlier process state.
+
+Both fixtures now exist once. Both authenticated downloads decode as 512×512 JPEGs, have 165,343 bytes and match the private queued compressed-photo SHA-256. Queue state is Synced and the local compressed copies were removed after acknowledgement. The original ten recovery samples remain a separate cohort. These two diagnostics do not constitute two new automatic-timing passes, a force-stop test, or full acceptance. Fixtures remain hosted; deletion requires approval.
+
+## Scheduling candidate and limits
+
+The current report drain is ordinary deferrable work. The candidate requests expedited work only when the active owner/project has Queued or Sending reports, retains CONNECTED, stable UUIDs, account checks, APPEND_OR_REPLACE and existing retries, and falls back to normal work if expedited quota is exhausted. Empty/restoration-only drains remain ordinary work; optional originals remain unmetered work. Older Android versions receive the foreground notification required by WorkManager, containing no report or account details.
+
+This prioritization suits a short user-initiated report/photo send, but is a candidate mitigation rather than a proven explanation or phone fix. Expedited work can still be deferred by system load/quota. [Android expedited-work guidance](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work). The exact OS/scheduler reason for the observed non-start remains unresolved. A fresh install/retest requires new phone/data approval after local checks pass; the two-fixture approval above has been used.
+
+Candidate local checks pass: debug and instrumentation APK builds, 10 JVM tests and lint (0 errors, 35 warnings). The two additional warnings concern matched test-library versions; production dependencies were not changed. On the isolated API 36.1 emulator, the baseline failed priority and missing-foreground-info checks; the candidate passes all three ReportSchedulingTest checks (final 1.196 s). These exercise offline gating/release through WorkManager's test driver, ordinary priority for completed/other-project rows, quota fallback configuration and the real notification provider. Execution uses a probe worker, not Supabase or the TECNO scheduler. The old-Android foreground-service lifecycle remains untested. Candidate APK SHA-256: 91a007c06cb1edb326ff5a2049382d2265327aa392ad4657feda4e9416714451. It has not been installed on the phone.
+
+Local setup exposed an unrelated emulator issue: avdmanager wrote target=android-0 for the newly created minor-version image, followed by SurfaceFlinger crashes with Assertion failed: !rcEnc->featureInfo()->hasReadColorBufferDma. Only the isolated AVD target was corrected to android-36.1 and the supported swiftshader renderer selected. Its crash buffer stayed clear during successful checks. The user's Pixel_8 AVD and global SDK tools were not changed.
 
 ## Prepared external observer
 
@@ -40,7 +65,7 @@ The report query returns at most two rows, enough to flag duplicates but not cou
 
 Local verification: **11 focused diagnostic tests pass; full backend suite 28/28**. Coverage includes active-network/history parsing, unknown formats, a simulated run-8 observation gap, missing validation, timing gaps, read failures, wrong transport, duplicate rows and citizen/photo guards. A three-second system-only emulator smoke check identified validated Wi-Fi with timing_valid=false and no cloud authentication. A synthetic physical target without approval was rejected before ADB access. Repository-local output and an existing private archive were also refused. These verify the tool, not the phone defect. No Android rebuild is needed.
 
-## Next experiment — requires new approval
+## Original two-trial protocol — completed above
 
 Two ordinary-app trials on the TECNO when free: a foreground control, then a background comparison. Use the existing build/demo citizen, synthetic photos, no personal GPS or originals, and two labeled hosted report/photo fixtures. Include host observation plus targeted read-only job/process/server checks. No installation, billing, deployment or persistent setting change. User controls radios. Keep fixtures until separately approved cleanup.
 

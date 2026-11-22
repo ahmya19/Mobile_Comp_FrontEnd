@@ -6,6 +6,8 @@ Queue states are Queued, Sending, Synced and Failed. A network failure returns S
 
 Workers run only with a network connection and the same signed-in user and project recorded in the queue. Signing into another account cannot submit someone else's drafts. WorkManager schedules retries; exact reconnect timing must be measured on a device and is not guaranteed by this contract.
 
+Pending compressed report drains request expedited priority, with RUN_AS_NON_EXPEDITED_WORK_REQUEST if quota is exhausted. Drains without active-owner/project Queued or Sending rows remain ordinary work. The legacy Android foreground notification contains no report/account details. Originals retain separate unmetered scheduling. This is a locally verified candidate; physical background validation remains open in CP-25, and system load/quota can still defer execution.
+
 The private bucket is `report-images`; the object name is `<user UUID>/<report UUID>/photo.jpg`. Upload once with no overwrite. If an earlier attempt uploaded it, compare the stored bytes with the saved local bytes before reusing it. The database function requires the correct owner path and an uploaded object. Published evidence cannot be deleted or overwritten through client policies.
 
 `submit_report` takes the stable UUID, category, description, text location, barangay, optional paired coordinates and optional photo path. Ownership, status and priority come from the server. A retry with the same owner and payload returns the existing record. Reusing the UUID with changed content or another account fails. Photo files can be removed locally only after a server acknowledgement.

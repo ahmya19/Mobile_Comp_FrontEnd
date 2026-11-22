@@ -2,13 +2,17 @@
 
 Updated November 22, 2026. These are prototype results, not a claim that the proposal's field-study targets have been met.
 
-## Background investigation, November 22
+## Initial read-only background investigation, November 22
 
 Read-only run-8 SQL/gateway checks found the successful photo upload after foregrounding and about 0.153 s between Storage creation and report creation. No matching photo/submit POST appeared in the filtered pre-foreground gateway window; device-side failures and incomplete logs remain possible. Root cause is unresolved.
 
-A host observer now samples system connectivity and citizen-scoped server reads without instrumentation or app/radio changes. Eleven focused tests pass; the complete local backend suite is 28/28. A three-second system-only emulator smoke check identified validated Wi-Fi without cloud login; a synthetic physical target was rejected before ADB access. No physical-phone operation, hosted business-data mutation, deployment, secret or APK change was performed in this batch. The ordinary-app comparison needs new approval. Protocol and limits: [BACKGROUND_SYNC_INVESTIGATION.md](BACKGROUND_SYNC_INVESTIGATION.md).
+A host observer samples system connectivity and citizen-scoped server reads without instrumentation or app/radio changes. Eleven focused tests pass; the backend suite is 28/28. A three-second system-only emulator smoke check identified validated Wi-Fi without cloud login; a synthetic physical target was rejected before ADB access. This initial batch made no physical-phone operation, hosted business-data mutation, deployment, secret or APK change. The comparison was subsequently approved and completed below. Protocol and limits: [BACKGROUND_SYNC_INVESTIGATION.md](BACKGROUND_SYNC_INVESTIGATION.md).
 
 ## Automated and cloud checks
+
+Subsequent approved phone comparison: two ordinary-form/gallery reports on the existing build recovered once with matching decoded photos. The resumed-activity control delivered about 8.639 s after host-observed availability (visibility caveat retained); the Home/background report stayed absent for 256.324 s after observed validation. Its mid-observation worker was ENQUEUED with zero attempts. It later recovered during an unobserved gap; the user reports only reconnecting USB. No trigger or reconnect latency is inferred from that gap. This reproduces a background non-start without instrumentation; BG-001 remains open.
+
+The expedited-priority candidate passed debug/test APK builds, 10 JVM tests, lint (0 errors, 35 warnings) and 3 local scheduler checks on isolated API 36.1. The baseline failed priority and missing-foreground-info checks; the candidate passed 3/3, final 1.196 s. WorkManager test-driver constraints and a probe worker were used, so this is not a physical upload pass. Notification creation was checked on API 36.1; the old-Android foreground-service lifecycle remains untested. No candidate phone installation or hosted deployment/secret/schema change was made. Evidence and APK identity: [BACKGROUND_SYNC_INVESTIGATION.md](BACKGROUND_SYNC_INVESTIGATION.md).
 
 | Check | Result |
 | --- | --- |
