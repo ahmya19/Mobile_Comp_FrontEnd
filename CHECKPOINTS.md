@@ -6,7 +6,7 @@ Updated November 23, 2026 (Asia/Manila).
 
 The free cloud backend is deployed and connected to the existing Kotlin frontend. Feed, voting, citizen/official map and private Storage validations are recorded below. The user is using the phone for other work: leave it untouched until it is available. Wider CP-25 measurements and Claude's whole-app/UI acceptance remain open.
 
-PRs #1–#9 are merged; main is dbb2568. The dependent follow-ups were reviewed, retargeted and merged in order. Merge-review fixes preserve map-run evidence, clean partial fixtures transactionally and locally sign out test sessions. The combined candidate passed 33 backend tests (including 11 Python cases and two PGlite cleanup cases), Edge checks, Android builds/JVM tests and lint (zero errors, 34 warnings). No phone or new hosted-data operations were used in this merge batch. Next task: CP-30 backend CI.
+PRs #1–#9 are merged; reviewed backend baseline is dbb2568. The dependent follow-ups were reviewed, retargeted and merged in order. Merge-review fixes preserve map-run evidence, clean partial fixtures transactionally and locally sign out test sessions. The combined candidate passed 33 backend tests (including 11 Python cases and two PGlite cleanup cases), Edge checks, Android builds/JVM tests and lint (zero errors, 34 warnings). No phone or new hosted-data operations were used in this batch. CP-30 backend CI also passed its first real GitHub run; current delivery is PR #10. Next independent task: audit migration replay and test coverage for a fresh-project setup.
 
 Latest work assignment: Codex owns all backend implementation/fixes. Claude owns UI structuring to mirror the provided UI/UX and whole-app testing, including the backend. Authoritative ownership is in HANDOFF.md; Claude's work package is CLAUDE_HANDOFF.md.
 
@@ -47,7 +47,7 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-27 | Team handoff | Partial | Setup/evidence/APK delivered; ownership and Claude's UI/whole-app test package documented. Design comparison, complete regression evidence and team acceptance remain pending. |
 | CP-28 | Mirror supplied UI/UX | Assigned to Claude | Inventory the supplied reference and existing screens, restructure Compose UI/navigation and compare screenshots for every screen/state. Reference location must be established; visual parity is not yet verified. |
 | CP-29 | Whole-app regression including backend | Assigned to Claude | Execute the complete matrix in CLAUDE_HANDOFF.md, including API/security and full citizen/official flows. Record Pass/Fail/Blocked with evidence and backend defects for Codex. Historical prototype checks do not close this checkpoint. |
-| CP-30 | Backend CI | In progress | Workflow implemented on backend/automated-checks; awaiting its first GitHub-hosted run. See backend/CONTINUOUS_INTEGRATION.md. No hosted secrets, device or deployment required. |
+| CP-30 | Backend CI | Implemented and GitHub verified | PR #10 adds isolated regressions and Edge type checks. GitHub run 45046214351 passed in 21 s on standard Ubuntu: 33 backend tests plus both Edge checks. No hosted secrets, device or deployment required. See backend/CONTINUOUS_INTEGRATION.md; branch protection is a separate owner setting. |
 
 ## Implementation ownership
 
@@ -71,7 +71,7 @@ Advisor warnings and their access-control context are documented in backend/VERI
 2. CP-14 is complete and PR #2 merged at 066e6ae. CP-21 feed/filter validation is complete on backend/report-feed-validation; see backend/REPORT_FEED_VALIDATION.md. Review CP-21 and CP-22 validation branches; hosted voting/derived urgency checks now pass. Hosted emulator and ordinary-phone citizen map navigation now pass; wider map/whole-app acceptance remains separate. Keep demo accounts until free SMTP setup under CP-08.
 3. Confirm vote thresholds and the approved barangay list/centroids.
 4. Select a gateway phone/app and SIM for CP-23; implement its exact webhook adapter, then test carrier SMS.
-5. PRs #1–#9 are merged; finish CP-30 backend CI and retain the separate team UI/whole-app acceptance work.
+5. CP-30 backend CI passed on GitHub. Audit migration replay/fresh-project instructions next; retain the separate team UI/whole-app acceptance work.
 
 Do not enable a paid plan to close any checkpoint. Ask about genuinely missing infrastructure or permissions, while continuing independent work.
 
@@ -105,5 +105,6 @@ Do not enable a paid plan to close any checkpoint. Ask about genuinely missing i
 | 2026-11-22 | BG-004 / CP-20 / CP-21 | Reproduced 26-versus-25 truncation, retained every loaded hit in a bounded lazy chooser. Native 26/75-report, small-stack, filter, form-map and notification checks passed 6/6; ten JVM checks/builds pass; lint 0 errors/34 warnings. Emulator only, no phone or hosted changes. |
 | 2026-11-23 | CP-20 / CP-21 official role | Hosted official whole-app map passed 1/1 in 12.58 s: 6/13/1 SQL-matched markers, assigned stack/details and edit controls, other-barangay details without controls. Original 36 reports/15 notices/15 history rows unchanged; local session/device cleanup verified. Default opt-in skip and runner guards passed; build/lint 0 errors/34 warnings. No phone operations. |
 | 2026-11-23 | CP-05 / Storage access | 16 ordinary-session/anonymous GET checks passed on four existing objects (7 allowed, 9 denied); hashes/metadata matched. Full report/object/bucket fingerprints preserved, local logout HTTP 204 both accounts, initial reporter bug corrected and initial session window empty. No phone, fixtures, uploads or deletes. |
+| 2026-11-23 | CP-26 / CP-30 | Reviewed/corrected and merged PRs #3–#9 into main dbb2568 in dependency order. Protected map-run ledger/partial cleanup and local session teardown; 33 backend tests, Edge checks, Android/JVM/build/lint passed. Added GitHub backend CI in PR #10; first actual Ubuntu run passed in 21 s. Phone and hosted data untouched. |
 
 Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).

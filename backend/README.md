@@ -154,6 +154,8 @@ npm run check:edge
 
 Backend tests run the actual PostgreSQL migrations in PGlite with simulated Auth/Storage schemas. They test business constraints and access control; they do not replace testing the hosted PostgREST, Storage or Google services. Android checkpoint instrumentation is in BackendCheckpointTest.kt; its phases require explicit test credentials passed privately by the host, not committed passwords.
 
+[Backend CI](CONTINUOUS_INTEGRATION.md) runs the isolated backend suite and Edge type checks on GitHub pull requests without cloud credentials or device access. Hosted integration and device acceptance retain their separate evidence.
+
 The latest evidence, exact failed checks and next actions live in CHECKPOINTS.md and backend/VERIFICATION.md. Do not equate successful compilation with completion of device, SMS or user-study targets.
 
 For the citizen-form → official status UI → citizen notification workflow, see [emulator rehearsal](EMULATOR_TESTING.md). The runner defaults to emulators; phone use needs the user's approval and the explicit AllowPhysicalDevice switch.
