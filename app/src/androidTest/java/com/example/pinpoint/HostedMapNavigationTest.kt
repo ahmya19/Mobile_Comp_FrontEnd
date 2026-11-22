@@ -17,6 +17,8 @@ import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.pinpoint.data.SupabaseBackend
+import com.example.pinpoint.data.PinPointRepository
+import androidx.work.WorkManager
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.Matcher
 import org.json.JSONObject
@@ -32,6 +34,7 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * Opt-in whole-app check against the hosted project: real authenticated feed data, native map
@@ -55,7 +58,15 @@ class HostedMapNavigationTest {
                 androidx.test.runner.lifecycle.Stage.STOPPED).flatMap { monitor.getActivitiesInStage(it).toList() }
                 .distinct().forEach { it.finish() }
         }
-        runBlocking { backend?.takeIf { it.auth.currentUser!=null }?.auth?.signOut() }
+        runBlocking { backend?.takeIf { it.auth.currentUser!=null }?.let { configured ->
+            val uid=requireNotNull(configured.auth.currentUser).id
+            try {
+                WorkManager.getInstance(context).cancelUniqueWork("pinpoint-device-$uid").result.get(15,TimeUnit.SECONDS)
+                context.getSharedPreferences("pinpoint_device",0).getString("id",null)?.let {
+                    PinPointRepository(configured).removeDevice(it)
+                }
+            } finally { configured.auth.signOut() }
+        } }
     }
 
     /** println does not reach the instrumentation output; sendStatus does, so IDs land in the evidence log. */

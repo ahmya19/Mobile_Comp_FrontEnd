@@ -12,7 +12,7 @@ Requirements: Supabase CLI logged in and linked (privileged reads/cleanup), loca
 Supabase URL/publishable key, the private demo-accounts JSON, a booted emulator with both APKs installed.
 Secrets are read locally and never printed. Evidence is written to --work (outside Git).
 """
-import argparse, json, os, re, subprocess, sys, urllib.request, uuid
+import argparse, json, os, pathlib, re, subprocess, sys, urllib.request, uuid
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 PREFIX = 'MAPNAV-20261122-A01'
@@ -80,24 +80,66 @@ def shell_quote(v):
 def ledger_path(work): return os.path.join(work, 'map-nav-ledger.json')
 
 
+def validate_paths(a):
+    repo = pathlib.Path(REPO).resolve()
+    for value in (a.work, a.credentials):
+        path = pathlib.Path(value).resolve()
+        if path == repo or repo in path.parents:
+            raise SystemExit('Keep credentials and private work/evidence outside the repository.')
+
+
+def save_ledger(a, ledger, exclusive=False):
+    path = ledger_path(a.work)
+    target = path if exclusive else path + '.' + str(uuid.uuid4()) + '.tmp'
+    with open(target, 'x', encoding='utf-8') as stream:
+        json.dump(ledger, stream, indent=1)
+        stream.flush()
+        os.fsync(stream.fileno())
+    if exclusive:
+        a.intent_recorded = True
+    else:
+        os.replace(target, path)
+
+
+def digest():
+    return sql("select md5(coalesce(string_agg(to_jsonb(r)::text,',' order by id),'')) digest from public.reports r")[0]['digest']
+
+
+def submit_fixtures(a, creds, cfg, ledger):
+    base, key, jwt, uid = citizen_session(creds, cfg)
+    headers = {'apikey': key, 'authorization': f'Bearer {jwt}', 'content-type': 'application/json'}
+    try:
+        if uid != ledger['citizen_uid']:
+            raise RuntimeError('Citizen identity does not match the private ledger.')
+        for f in ledger['fixtures'].values():
+            http_json(f"{base}/rest/v1/rpc/submit_report", {
+                'p_id': f['id'], 'p_category': f['category'], 'p_description': f['description'],
+                'p_location': f"{PREFIX} location", 'p_barangay': 'Alangilan', 'p_latitude': f['latitude'],
+                'p_longitude': f['longitude'], 'p_photo_path': None}, headers)
+    finally:
+        ledger['host_session_cleanup'] = False
+        try:
+            http_json(f'{base}/auth/v1/logout?scope=local', {}, headers)
+            ledger['host_session_cleanup'] = True
+        finally:
+            save_ledger(a, ledger)
+
+
 def prepare(a, creds, cfg):
     os.makedirs(a.work, exist_ok=True)
+    if os.path.exists(ledger_path(a.work)):
+        raise SystemExit('Preserve the existing ledger; use cleanup for recovery or a fresh --work directory.')
     base_counts = counts()
     ids_before = [r['id'] for r in sql("select id::text id from public.reports order by created_at desc, id desc")]
-    ledger = {'prefix': PREFIX, 'baseline_counts': base_counts, 'baseline_report_ids': ids_before,
-              'fixtures': {k: dict(v, id=str(uuid.uuid4())) for k, v in FIXTURES.items()}, 'status': 'intent-recorded'}
-    json.dump(ledger, open(ledger_path(a.work), 'w'), indent=1)  # intent first, so cleanup always knows the scope
-    base, key, jwt, uid = citizen_session(creds, cfg)
-    ledger['citizen_uid'] = uid
-    for name, f in ledger['fixtures'].items():
-        http_json(f"{base}/rest/v1/rpc/submit_report", {
-            'p_id': f['id'], 'p_category': f['category'], 'p_description': f"{PREFIX} {name} marker fixture",
-            'p_location': f"{PREFIX} location", 'p_barangay': 'Alangilan', 'p_latitude': f['latitude'],
-            'p_longitude': f['longitude'], 'p_photo_path': None},
-            {'apikey': key, 'authorization': f'Bearer {jwt}', 'content-type': 'application/json'})
-        f['description'] = f"{PREFIX} {name} marker fixture"
+    ledger = {'schema': 1, 'prefix': PREFIX, 'baseline_counts': base_counts, 'baseline_report_ids': ids_before,
+              'baseline_report_digest': digest(), 'citizen_uid': str(uuid.UUID(creds['citizen']['uid'])),
+              'fixtures': {k: dict(v, id=str(uuid.uuid4()), description=f'{PREFIX} {k} marker fixture')
+                           for k, v in FIXTURES.items()}, 'status': 'intent-recorded'}
+    save_ledger(a, ledger, exclusive=True)  # durable intent before any hosted write; never replace another run
+    submit_fixtures(a, creds, cfg, ledger)
+    uid = ledger['citizen_uid']
     ledger['status'] = 'fixtures-created'
-    json.dump(ledger, open(ledger_path(a.work), 'w'), indent=1)
+    save_ledger(a, ledger)
 
     rows = sql("select id::text id, category, description, latitude, longitude, owner_id::text owner "
                "from public.reports order by created_at desc, id desc")
@@ -128,7 +170,8 @@ def prepare(a, creds, cfg):
                            'longitude': g[0]['longitude'],
                            'pick': {'id': pick['id'], 'category': pick['category'], 'description': pick['description'],
                                     'latitude': pick['latitude'], 'longitude': pick['longitude']}}
-    json.dump(oracle, open(os.path.join(a.work, 'map-nav-oracle.json'), 'w'), indent=1)
+    with open(os.path.join(a.work, 'map-nav-oracle.json'), 'x', encoding='utf-8') as stream:
+        json.dump(oracle, stream, indent=1)
     adb(a.serial, 'shell', 'run-as', PKG, 'mkdir', '-p', 'files')
     # One command string, so the redirect runs inside run-as rather than in the device's outer shell.
     r = adb(a.serial, 'shell', f"run-as {PKG} sh -c 'cat > files/map-nav-oracle.json'",
@@ -139,6 +182,9 @@ def prepare(a, creds, cfg):
 
 
 def run(a, creds):
+    archive = os.path.join(a.work, 'map-nav-test.log')
+    if os.path.exists(archive):
+        raise SystemExit('Preserve the existing test archive before another run.')
     c = creds['citizen']
     cmd = ('am instrument -w -r -e class com.example.pinpoint.HostedMapNavigationTest '
            '-e allowHostedMapChecks true '
@@ -147,26 +193,66 @@ def run(a, creds):
     r = adb(a.serial, 'shell', cmd)
     out = r.stdout.decode('utf-8', 'replace')
     out = out.replace(c['password'], '[redacted password]').replace(c['email'], '[demo email]')
-    open(os.path.join(a.work, 'map-nav-test.log'), 'w', encoding='utf-8').write(out)
+    with open(archive, 'x', encoding='utf-8') as stream:
+        stream.write(out)
     keep = [l for l in out.splitlines() if re.search(r'CP_MAP|^OK \(|^Time:|FAILURES|Tests run|AssertionError|Reason|rendered', l)]
     print('\n'.join(keep[:40]))
     return 'OK (1 test)' in out
 
 
+def cleanup_sql(led):
+    if led.get('schema') != 1 or led.get('prefix') != PREFIX or set(led['fixtures']) != set(FIXTURES):
+        raise ValueError('Unknown ledger format; preserve it for manual scope verification.')
+    owner = str(uuid.UUID(led['citizen_uid']))
+    base_ids = {str(uuid.UUID(i)) for i in led['baseline_report_ids']}
+    fingerprint = led['baseline_report_digest']
+    if not re.fullmatch('[0-9a-f]{32}', fingerprint):
+        raise ValueError('Invalid baseline fingerprint.')
+    expected = []
+    for name, item in led['fixtures'].items():
+        report_id = str(uuid.UUID(item['id']))
+        if report_id in base_ids or any(report_id == row[0] for row in expected):
+            raise ValueError('Fixture IDs overlap the original baseline or each other.')
+        if any(item[key] != value for key, value in FIXTURES[name].items()) or item['description'] != f'{PREFIX} {name} marker fixture':
+            raise ValueError('Fixture identity does not match the recorded scenario.')
+        expected.append((report_id, item['category'], item['description'], item['latitude'], item['longitude']))
+    def literal(value): return "'" + str(value).replace("'", "''") + "'"
+    idlist = ','.join(literal(row[0])+'::uuid' for row in expected)
+    values = ','.join('('+','.join([literal(i)+'::uuid',literal(c),literal(d),str(lat),str(lon)])+')'
+                      for i,c,d,lat,lon in expected)
+    return f"""begin;
+do $$ declare observed text; begin
+ perform 1 from public.reports where id in ({idlist}) for update;
+ select md5(coalesce(string_agg(to_jsonb(r)::text,',' order by id),'')) into observed
+   from public.reports r where id not in ({idlist});
+ if observed<>{literal(fingerprint)} then raise exception 'Original report baseline changed; cleanup refused'; end if;
+ if exists(with expected(id,category,description,latitude,longitude) as (values {values})
+   select 1 from public.reports r join expected e on e.id=r.id where
+   r.owner_id is distinct from {literal(owner)}::uuid or r.category<>e.category or r.description<>e.description
+   or r.location<>{literal(PREFIX+' location')} or r.barangay<>'Alangilan'
+   or r.latitude is distinct from e.latitude::float8 or r.longitude is distinct from e.longitude::float8
+   or r.photo_path is not null or r.original_path is not null or r.status<>'Pending' or r.vote_count<>0
+   or exists(select 1 from public.report_history h where h.report_id=r.id)
+   or exists(select 1 from public.notifications n where n.report_id=r.id)
+   or exists(select 1 from public.report_votes v where v.report_id=r.id)
+   or exists(select 1 from private.sms_receipts s where s.report_id=r.id)
+   or exists(select 1 from storage.objects o where split_part(o.name,'/',2)=r.id::text))
+ then raise exception 'Unexpected fixture identity/reference; cleanup refused'; end if;
+ delete from public.reports where id in ({idlist});
+end $$;
+commit;"""
+
+
 def cleanup(a):
-    led = json.load(open(ledger_path(a.work)))
-    ids = [f['id'] for f in led['fixtures'].values()]
-    for i in ids:
-        uuid.UUID(i)
-    idlist = ','.join(f"'{i}'" for i in ids)
-    sql(f"delete from public.report_history where report_id in ({idlist})", write=True)
-    sql(f"delete from public.reports where id in ({idlist}) and description like '{PREFIX}%'", write=True)
+    with open(ledger_path(a.work), encoding='utf-8') as stream:
+        led = json.load(stream)
+    sql(cleanup_sql(led), write=True)
     after = counts()
     ids_after = [r['id'] for r in sql("select id::text id from public.reports order by created_at desc, id desc")]
-    ok = after == led['baseline_counts'] and ids_after == led['baseline_report_ids']
+    ok = after == led['baseline_counts'] and ids_after == led['baseline_report_ids'] and digest() == led['baseline_report_digest']
     led['status'] = 'cleaned' if ok else 'CLEANUP-MISMATCH'
     led['after_cleanup_counts'] = after
-    json.dump(led, open(ledger_path(a.work), 'w'), indent=1)
+    save_ledger(a, led)
     json.dump({'baseline': led['baseline_counts'], 'after': after, 'ids_equal': ids_after == led['baseline_report_ids']},
               open(os.path.join(a.work, 'map-nav-cleanup-verification.json'), 'w'), indent=1)
     print(json.dumps({'cleanup': led['status'], 'baseline': led['baseline_counts'], 'after': after}))
@@ -174,6 +260,8 @@ def cleanup(a):
 
 
 def main():
+    if not __debug__:
+        raise SystemExit('Run without -O so the oracle assertions remain active.')
     p = argparse.ArgumentParser()
     p.add_argument('cmd', choices=['prepare', 'run', 'cleanup', 'full'])
     p.add_argument('--credentials', required=True)
@@ -181,16 +269,33 @@ def main():
     p.add_argument('--serial', default='emulator-5556')
     p.add_argument('--filter-category', default='Garbage')
     a = p.parse_args()
+    a.intent_recorded = False
     if not re.fullmatch(r'emulator-\d+', a.serial):
         raise SystemExit('Use an isolated emulator serial.')
-    creds = json.load(open(a.credentials, encoding='utf-8-sig')); cfg = props()
-    if a.cmd == 'prepare': prepare(a, creds, cfg)
+    validate_paths(a)
+    if a.cmd in ('prepare', 'full') and os.path.exists(ledger_path(a.work)):
+        raise SystemExit('Preserve the existing ledger; use cleanup or a fresh --work directory.')
+    try:
+        with open(a.credentials, encoding='utf-8-sig') as stream:
+            creds = json.load(stream)
+        cfg = props()
+    except Exception:
+        raise SystemExit('Could not read private configuration.') from None
+    if cfg.get('SUPABASE_URL') != 'https://jaysxjjdvaitgrbqjlhe.supabase.co' or not cfg.get('SUPABASE_PUBLISHABLE_KEY','').startswith('sb_publishable_'):
+        raise SystemExit('Use the expected project and public publishable key.')
+    if a.cmd == 'prepare':
+        try: prepare(a, creds, cfg)
+        except BaseException:
+            if a.intent_recorded: cleanup(a)
+            raise
     elif a.cmd == 'run': sys.exit(0 if run(a, creds) else 1)
     elif a.cmd == 'cleanup': sys.exit(0 if cleanup(a) else 1)
     else:
-        prepare(a, creds, cfg)
-        try: passed = run(a, creds)
-        finally: cleaned = cleanup(a)
+        try:
+            prepare(a, creds, cfg)
+            passed = run(a, creds)
+        finally:
+            if a.intent_recorded: cleaned = cleanup(a)
         sys.exit(0 if passed and cleaned else 1)
 
 

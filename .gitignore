@@ -18,3 +18,5 @@ app/google-services.json
 **/*serviceAccount*.json
 **/firebase-adminsdk*.json
 supabase/.temp/
+__pycache__/
+*.py[cod]
