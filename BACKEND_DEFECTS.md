@@ -62,3 +62,15 @@ Owner: backend/Kotlin. Status: **Fixed** (November 23), emulator verified; physi
 
 A tapped notification opened its report in whichever account was signed in, and a signed-out account's report notifications stayed in the tray. The notification intent now carries the recipient id, `AppNavigation` honors it only for that account, and sign-out clears the report notifications. Proof: `NotificationRoutingTest` (JVM) and `AuthQueueFailureTest#notificationsAreRecipientBoundAndSignOutClearsThem`.
 
+## BG-009 — the official-map runner silently skipped its setup on Windows PowerShell 5.1
+
+Owner: backend tooling. Status: **Fixed** (November 23). Found during the whole-app regression.
+
+`Invoke-PinPointProcess` used `ProcessStartInfo.ArgumentList` (PowerShell 7 only) and the `run-as sh -c "..."` step lost its inner double quotes on 5.1, so the oracle was not copied and the old result file was not removed; the runner still passed using leftover files. `backend/scripts/AndroidShell.ps1` now quotes arguments for both versions, and `run-hosted-official-map.ps1` verifies the on-device oracle equals the supplied one and that no stale result file remains. See [backend/WHOLE_APP_BACKEND_REGRESSION.md](backend/WHOLE_APP_BACKEND_REGRESSION.md).
+
+## BG-010 — the map driver's guarded cleanup did nothing on Windows
+
+Owner: backend tooling. Status: **Fixed** (November 23). Found when its post-check reported `CLEANUP-MISMATCH`.
+
+`npx.cmd` (cmd.exe) truncates an argument at its first newline, so the multi-line cleanup transaction ran only `begin;` and left the two labelled fixtures on the hosted project (restored to baseline by a single-line rerun of the same guarded SQL, verified). `map_nav_hosted.py` now sends one line and refuses comments; `SqlTransportTest` (Python) fails without the fix, and the node PGlite tests execute the exact single-line form. The newline hazard guards were also added to `hosted_authz_probe.py`.
+

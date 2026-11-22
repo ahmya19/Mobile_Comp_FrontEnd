@@ -32,8 +32,17 @@ def props():
     return out
 
 
+def one_line(query):
+    """cmd.exe (which runs npx.cmd) truncates an argument at its first newline, so a multi-line statement would
+    silently execute only its first line (the guarded cleanup transaction ran just 'begin;'). Join lines instead;
+    the generated SQL has no comments or multi-line literals, which the check below enforces."""
+    if re.search(r'--|/\*', query):
+        raise ValueError('Statements sent through npx.cmd must not contain comments.')
+    return re.sub(r'[ \t]*\r?\n[ \t]*', ' ', query).strip()
+
+
 def sql(query, write=False):
-    cmd = ['npx.cmd', 'supabase', 'db', 'query', '--remote', '--yes' if write else '--read-only', query]
+    cmd = ['npx.cmd', 'supabase', 'db', 'query', '--remote', '--yes' if write else '--read-only', one_line(query)]
     r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, encoding='utf-8', shell=False)
     text = r.stdout
     start = text.find('{')
