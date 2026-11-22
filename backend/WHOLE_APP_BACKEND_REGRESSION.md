@@ -5,7 +5,7 @@ Checkpoint CP-34. This is the backend side of whole-app regression. It does **no
 ## Environment
 
 - Emulator: owned AVD `PinPoint_Backend_API36`, Android API 36 (explicit serial `emulator-5556`, started headless by this session and still running when this was written). Normal host internet; Google Play Services present.
-- Build: branch `backend/auth-queue-failure-validation` at `cd7d619` plus the uncommitted test and script additions listed in the delivery notes. Debug app APK SHA-256 `7c43e7794a2e9a7b094da18a6b3aeafd71eb333459223644b5add9c52f98c149`; test APK SHA-256 `6956221dbf62cfe1eb1b8bdd47bfbe205e8f6681d74bd1f980805d5b01506fad` (includes `LocationPermissionTest`).
+- Build: branch `backend/whole-app-regression` (application code identical to `cd7d619`; later commits add tests, scripts and documentation only, and the app APK hash below was unchanged in the final rebuild). Debug app APK SHA-256 `7c43e7794a2e9a7b094da18a6b3aeafd71eb333459223644b5add9c52f98c149`; test APK SHA-256 `6956221dbf62cfe1eb1b8bdd47bfbe205e8f6681d74bd1f980805d5b01506fad` (includes `LocationPermissionTest`).
 - Hosted project: `jaysxjjdvaitgrbqjlhe`, ordinary demo citizen and official sessions with the public key only. Privileged SQL was used for oracles, verification and scoped cleanup, never as proof of client authorization.
 
 ## Result matrix
