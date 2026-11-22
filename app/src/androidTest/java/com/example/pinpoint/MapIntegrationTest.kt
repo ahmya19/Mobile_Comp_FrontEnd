@@ -5,6 +5,7 @@ import android.view.View
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.UiController
 import androidx.test.espresso.ViewAction
@@ -13,6 +14,7 @@ import androidx.test.espresso.action.Press
 import androidx.test.espresso.action.Tap
 import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.example.pinpoint.data.*
 import com.example.pinpoint.screens.MapScreen
 import org.hamcrest.Matcher
@@ -142,5 +144,92 @@ class MapIntegrationTest {
         assertNull("The chooser must appear before any report opens",opened)
         compose.onNode(hasText("Garbage: Stack B report",substring=true)).performClick()
         compose.waitUntil(10000) { opened=="stack-b" }
+    }
+
+    @Test fun stackBeyond25KeepsTheLastReportReachable() {
+        val reports=(1..26).map { index ->
+            Report(id="large-stack-$index",category="Road Damage",description="Stack report $index",
+                latitude=13.7565,longitude=121.0583)
+        }
+        var opened:String?=null
+        openNativeStack(reports) { opened=it }
+        val title=compose.onNode(hasText("reports at this location",substring=true))
+            .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("") { it.text }
+        assertEquals("Every rendered hit must remain in the chooser","26 reports at this location",title)
+        assertNull("No report should open until a choice is made",opened)
+        val target=hasText("Road Damage: Stack report 26 (Pending)")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(target)
+        compose.onNode(target).performClick()
+        compose.waitUntil(10000) { opened==reports.last().id }
+        compose.onNodeWithText("26 reports at this location").assertDoesNotExist()
+    }
+
+    @Test fun largerStackCanBeCancelledAndReopenedBeforeChoosingItsLastReport() {
+        val reports=(1..75).map { index ->
+            Report(id="large-stack-$index",category="Road Damage",description="Stack report $index",
+                latitude=13.7565,longitude=121.0583)
+        }
+        var opened:String?=null
+        val tapStack=openNativeStack(reports) { opened=it }
+        compose.onNodeWithText("75 reports at this location").assertIsDisplayed()
+        val target=hasText("Road Damage: Stack report 75 (Pending)")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(target)
+        compose.onNode(target).assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.runOnIdle { assertNull("Cancel must not open a report",opened) }
+        compose.onNodeWithText("75 reports at this location").assertDoesNotExist()
+        // The platform window can still intercept touches after its Compose semantics disappear.
+        InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(500,5000)
+        tapStack()
+        compose.onNodeWithText("Road Damage: Stack report 1 (Pending)").assertIsDisplayed()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(target)
+        compose.onNode(target).performClick()
+        compose.waitUntil(10000) { opened==reports.last().id }
+        compose.onNodeWithText("75 reports at this location").assertDoesNotExist()
+    }
+
+    private fun openNativeStack(reports:List<Report>,onOpen:(String)->Unit):()->Unit {
+        val state=ReportFeedState(ReportFilter(),reports)
+        compose.setContent { MapScreen({},{},{},state.reports,onOpen,state,{},{}) }
+        compose.onNodeWithContentDescription("Community report map").performScrollTo()
+        var native:MapLibreMap?=null
+        var nativeView:MapView?=null
+        onView(isAssignableFrom(MapView::class.java)).perform(object:ViewAction {
+            override fun getConstraints():Matcher<View> = isAssignableFrom(MapView::class.java)
+            override fun getDescription()="Capture native map for a large coincident stack"
+            override fun perform(ui:UiController,view:View) {
+                nativeView=view as MapView
+                view.getMapAsync { native=it }
+            }
+        })
+        val coordinate=LatLng(reports.first().latitude!!,reports.first().longitude!!)
+        compose.waitUntil(30000) {
+            var actual:Set<String> = emptySet()
+            compose.runOnIdle {
+                val view=nativeView
+                if(native?.style?.getLayer("reports-layer")!=null && view!=null) {
+                    native!!.moveCamera(org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(coordinate,15.0))
+                    actual=native!!.queryRenderedFeatures(RectF(0f,0f,view.width.toFloat(),view.height.toFloat()),
+                        "reports-layer").map { it.getStringProperty("id") }.toSet()
+                }
+            }
+            actual==reports.map { it.id }.toSet()
+        }
+        val tapStack={
+            var x=0f;var y=0f
+            compose.runOnIdle {
+                val point=native!!.projection.toScreenLocation(coordinate)
+                x=point.x;y=point.y
+            }
+            onView(isAssignableFrom(MapView::class.java)).perform(GeneralClickAction(Tap.SINGLE,{view ->
+                val location=IntArray(2);view.getLocationOnScreen(location);floatArrayOf(location[0]+x,location[1]+y)
+            },Press.FINGER))
+            compose.waitUntil(10000) {
+                compose.onAllNodes(hasText("reports at this location",substring=true))
+                    .fetchSemanticsNodes(atLeastOneRootRequired=false).size==1
+            }
+        }
+        tapStack()
+        return tapStack
     }
 }
