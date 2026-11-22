@@ -6,7 +6,7 @@ Updated November 22, 2026 (Asia/Manila).
 
 The free cloud backend is deployed and connected to the existing Kotlin frontend. Task 1 now has a verified TECNO-specific mitigation: Battery Lab No Restrictions prevents the reproduced background freeze in the tested setup. Existing WorkManager uploads passed awake and screen-off Wi-Fi checks (~1.3 s from observed availability); a reverse control reproduced the delay. Six new fixtures recovered intact, with failed/untimed cases preserved. The tested final APK is installed, and radios/display settings are restored. Wider CP-25 measurements and Claude's whole-app/UI acceptance remain open. The user explicitly authorized this unattended project-specific phone/PC batch; no repeated approval was required for those covered operations.
 
-Code is shared in [draft PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) on backend/pinpoint-free. The draft is ready for team testing and review.
+[PR #1](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1) is merged into main at 708b466. Current task branch: backend/notification-pagination-validation; CP-14 hosted paging validation is in progress.
 
 Latest work assignment: Codex owns all backend implementation/fixes. Claude owns UI structuring to mirror the provided UI/UX and whole-app testing, including the backend. Authoritative ownership is in HANDOFF.md; Claude's work package is CLAUDE_HANDOFF.md.
 
@@ -19,7 +19,7 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | ID | Task | Status | Evidence / remaining condition |
 | --- | --- | --- | --- |
 | CP-01 | Clone existing frontend | Done | Repository is at C:\Users\USER\project\MobileConputing. Existing Kotlin/Compose screens retained. |
-| CP-02 | Confirm role and repository access | Done | User owns backend and authorized mobile features. GitHub account has push permission; main remains the uploaded baseline. |
+| CP-02 | Confirm role and repository access | Done | User owns backend and authorized mobile features. GitHub account has write permission; PR #1 is merged into main. |
 | CP-03 | Choose and provision backend | Done | User selected Supabase Free in DreiwanabeTexh's Org. Project jaysxjjdvaitgrbqjlhe is active in Singapore. Firebase retained for FCM. |
 | CP-04 | Configure authentication | Done | Hosted email/password sign-in works for citizen and official fixtures; app restores an encrypted session after restart. Public signup email delivery remains CP-08. |
 | CP-05 | Provision private photo storage | Done | Compressed and original buckets deployed with limits and owner/official policies. No paid Firebase bucket. Authenticated cloud uploads and reads passed. |
@@ -31,7 +31,7 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-11 | Compressed photos | Prototype verified | Live private upload/read and official read passed; anonymous read denied. Android offline photo was retained, synced and removed locally only after acknowledgement. |
 | CP-12 | My Reports, community and home | Prototype verified | Account-scoped reads, 25-row pages, automatic refresh/retry and loaded-data summaries connected. Android feed/filter test passed. |
 | CP-13 | Official status and history | Prototype verified | Citizen/wrong-barangay updates denied. Valid transitions atomically update report/history/notice. History displays in details. |
-| CP-14 | Notification history and read state | Prototype verified | SQL/live owner and read-state checks passed earlier. Six JVM tests now cover paging, equal timestamps, insert bursts, retries and read rollback; emulator UI loads 123 local notices and opens the correct report. Refresh no longer drops the gap between new and older pages. Hosted pagination with 50+ notices remains pending; no production fixtures were added. |
+| CP-14 | Notification history and read state | Prototype verified | SQL/live owner and read-state checks passed earlier. Six JVM tests now cover paging, equal timestamps, insert bursts, retries and read rollback; emulator UI loads 123 local notices and opens the correct report. Refresh no longer drops the gap between new and older pages. Hosted pagination validation is in progress on a new branch: baseline 15 notices captured, with guarded 123-notice fixtures and an 11-notice insert burst planned. See backend/NOTIFICATION_PAGING_VALIDATION.md. |
 | CP-15 | FCM push | Prototype verified | Restricted sender credential stored in Edge secrets. Background device notification observed; foreground FCM and notification tap to details passed. Server cron delivered without a mobile send call. Invalid-token/logout recovery tested at appropriate layers; multi-phone latency study remains CP-25. |
 | CP-16 | Complete two-account device rehearsal | Emulator verified; phones pending | A sequential citizen form/photo → official status UI → citizen notification/read-state rehearsal passed on one emulator. Cloud verification found both photo variants, Under Review, one history row and one read notification. Two simultaneous phones remain a separate check. |
 | CP-17 | Durable queue contract | Done | Versioned contract in backend/contracts/offline-sync.md specifies IDs, account/project binding, states, files, acknowledgements and retries. |
@@ -43,7 +43,7 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-23 | SMS gateway/parser | Tested up to the gateway; carrier test External | Signed webhook (original format and SMS Gateway for Android format), GSM-7 parser, replay protection and SQL ingestion are deployed. A simulated signed SMS against the hosted function created one report at a test barangay; retry created no duplicate; tampered, stale, wrong-device, wrong-event, malformed and unknown-barangay messages were rejected. Test data and temporary secrets were then removed, so the receiver fails closed. Remaining: a spare phone with a SIM that can run the gateway app (Play Protect blocked the sideloaded APK on the primary phone), the real gateway secret, and the group's approved barangay names/centroids (3 rounded Test Barangay rows are in the database for now). |
 | CP-24 | Automated baseline | Done | 28 backend tests (17 existing plus 11 diagnostic), 10 JVM tests, Edge checks and Android builds pass; lint 0 errors, 35 warnings; five local scheduler checks pass. Earlier emulator notification/map checks pass 2/2 using local fixtures. Earlier Auth and full-workflow evidence remains in backend/VERIFICATION.md. |
 | CP-25 | Proposal acceptance measurements | Partial / External | Configured-TECNO background Wi-Fi checks now meet the observed 60 s timing check awake and screen off; reverse control and earlier failures are retained. These are single-phone USB-powered observations, not statistical acceptance or new carrier/overnight tests. Historical ten samples retain their transport/timing exceptions. Five handoffs, outdoor GPS, push timing and SUS remain. |
-| CP-26 | Review and GitHub delivery | Done | Changes reviewed, secret/whitespace checks passed, committed and pushed to backend/pinpoint-free. Draft PR #1 is open for the group: https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1. |
+| CP-26 | Review and GitHub delivery | Done | Changes reviewed, secret/whitespace checks passed, committed and pushed to backend/pinpoint-free. PR #1 merged into main at 708b466: https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/1. |
 | CP-27 | Team handoff | Partial | Setup/evidence/APK delivered; ownership and Claude's UI/whole-app test package documented. Design comparison, complete regression evidence and team acceptance remain pending. |
 | CP-28 | Mirror supplied UI/UX | Assigned to Claude | Inventory the supplied reference and existing screens, restructure Compose UI/navigation and compare screenshots for every screen/state. Reference location must be established; visual parity is not yet verified. |
 | CP-29 | Whole-app regression including backend | Assigned to Claude | Execute the complete matrix in CLAUDE_HANDOFF.md, including API/security and full citizen/official flows. Record Pass/Fail/Blocked with evidence and backend defects for Codex. Historical prototype checks do not close this checkpoint. |
@@ -67,10 +67,10 @@ Advisor warnings and their access-control context are documented in backend/VERI
 ## Next implementation and validation batch
 
 1. Preserve the verified TECNO background setup and repeat it during Claude's complete app regression. Historical run 8's precise cause is not retrospectively proven; cross-device/carrier/overnight and statistical measurements remain separate. Current unattended project-phone operations were authorized by the user; stay within that task scope.
-2. When approved, live-test notification paging with 50+ hosted notices. Current local regression/UI tests do not certify hosted pagination. Keep demo accounts until the user completes the free SMTP setup under CP-08.
+2. Complete the authorized CP-14 hosted paging batch on backend/notification-pagination-validation, preserving pre-existing notices and cleaning up only labeled fixtures. Keep demo accounts until the user completes free SMTP setup under CP-08. See backend/NOTIFICATION_PAGING_VALIDATION.md.
 3. Confirm vote thresholds and the approved barangay list/centroids.
 4. Select a gateway phone/app and SIM for CP-23; implement its exact webhook adapter, then test carrier SMS.
-5. Review the draft PR and perform the team build/handoff.
+5. PR #1 is merged; complete the team UI/whole-app handoff and review subsequent task branches.
 
 Do not enable a paid plan to close any checkpoint. Ask about genuinely missing infrastructure or permissions, while continuing independent work.
 
