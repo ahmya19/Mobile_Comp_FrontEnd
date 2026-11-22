@@ -56,6 +56,8 @@ CP-21 follow-up: read [backend/REPORT_FEED_VALIDATION.md](backend/REPORT_FEED_VA
 
 CP-22 follow-up: read [backend/VOTING_VALIDATION.md](backend/VOTING_VALIDATION.md) before changing vote/urgency controls. 32 ordinary hosted API checks passed; local threshold regression expanded the suite to 30 tests. All fixtures are removed. Preserve retry, account privacy, role denial and official-floor behavior; group threshold approval and mobile UI acceptance remain pending.
 
+Native map follow-up: read [backend/MAP_INTEGRATION_VALIDATION.md](backend/MAP_INTEGRATION_VALIDATION.md). Local screen fixtures with actual MapLibre rendering verified page/filter marker IDs, invalid-coordinate exclusion and exact marker-tap callback (1/1, 5.635 s). The full AppNavigation-to-details route was not exercised. Complete that route and phone/outdoor cases during whole-app regression. Latest branch backend/map-integration-validation depends on CP-22.
+
 ## 5. Deliver evidence and coordinate fixes
 
 Codex retains the 2c94c80 empty-job fix (BG-002). The established WorkManager path now passes configured-TECNO background Wi-Fi checks: 1.310 s from observed availability / 0.096 s from validation awake, and 1.337 / 1.337 s with the screen off. All sampled app-state reads stayed off screen and kernel-unfrozen in those positives. Battery Lab > Power Saving Management for Apps > Pinpoint > No Restrictions is separate from Android Unrestricted; App Launch was already Allowed. Reverting just the OEM policy to Intelligent Management reproduced freezing and no row for 82.831 s after validation; restoring No Restrictions recovered that same report without reopening PinPoint. The additional native-transfer experiment also stalled under the restriction and was removed.

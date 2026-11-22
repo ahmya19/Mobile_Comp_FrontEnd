@@ -235,3 +235,7 @@ Cleanup removed all 97 synthetic reports and preserved all 36 original rows by f
 ## CP-22 voting and urgency - November 22
 
 32 hosted API checks passed using two ordinary demo sessions: concurrent retries, idempotency, private reads, direct-write/role denials, closed votes, null/missing targets and official Medium/High floors. Independent SQL confirmed states, zero votes, two history rows and no notifications. Guarded cleanup removed six reports/two history rows; original 36 reports/zero votes unchanged. Thirty local tests passed, including upward/downward 3/10 boundaries using ten local users. Hosted ten-account/mobile UI acceptance is not claimed. Runtime/schema/thresholds unchanged. See [VOTING_VALIDATION.md](VOTING_VALIDATION.md).
+
+## Native map integration - November 22
+
+MapIntegrationTest passed 1/1 in 5.635 s on isolated API 36.1; test APK build passed. Real MapLibre rendered-feature IDs verified initial/page/filter states, invalid-coordinate exclusion and the native tap report-ID callback. Local callbacks supplied fixtures: this is not hosted map/full-app details navigation or GPS acceptance. No runtime/hosted/phone changes; phone remained Awake with USB stay-awake 2. See [MAP_INTEGRATION_VALIDATION.md](MAP_INTEGRATION_VALIDATION.md).
