@@ -50,6 +50,8 @@ Codex reproduced the background case with the ordinary app and an external obser
 
 For email setup consult [backend/EMAIL_CONFIRMATION.md](backend/EMAIL_CONFIRMATION.md); demo accounts remain the current path. Real SMTP, SMS/carrier checks, approved barangays/thresholds, outdoor GPS, handoffs, push timing and SUS remain open where the recorded evidence says so.
 
+CP-14 follow-up: read [backend/NOTIFICATION_PAGING_VALIDATION.md](backend/NOTIFICATION_PAGING_VALIDATION.md). Hosted ordering, insert-burst refresh, owner/read rules and ordinary-phone navigation/read state after restart passed; scoped fixtures are removed. Retain these scenarios during UI restructuring. Review the observed stale global network-error banner in the new UI. The latest user request keeps the phone on/awake, with USB stay-awake 2; do not run screen-off/reboot tests while that preference applies.
+
 ## 5. Deliver evidence and coordinate fixes
 
 Codex retains the 2c94c80 empty-job fix (BG-002). The established WorkManager path now passes configured-TECNO background Wi-Fi checks: 1.310 s from observed availability / 0.096 s from validation awake, and 1.337 / 1.337 s with the screen off. All sampled app-state reads stayed off screen and kernel-unfrozen in those positives. Battery Lab > Power Saving Management for Apps > Pinpoint > No Restrictions is separate from Android Unrestricted; App Launch was already Allowed. Reverting just the OEM policy to Intelligent Management reproduced freezing and no row for 82.831 s after validation; restoring No Restrictions recovered that same report without reopening PinPoint. The additional native-transfer experiment also stalled under the restriction and was removed.

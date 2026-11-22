@@ -18,6 +18,8 @@ Latest backend work: the queue correction in 2c94c80 remains in the delivered ru
 
 The user subsequently authorized unattended project-specific phone/PC investigation, test builds, radio/per-app setting changes and synthetic hosted fixtures. Those steps did not require repeated permission during this batch. The zero-budget, no-secrets and project-only boundaries remain; do not treat this as authority over unrelated apps/accounts or new paid services. Radios and temporary USB stay-awake are restored; PinPoint retains Android Unrestricted and OEM No Restrictions.
 
+Latest task 2: [hosted notification pagination](backend/NOTIFICATION_PAGING_VALIDATION.md) passed with the real Kotlin feed and 149 rows, plus ordinary-phone report navigation/read persistence after restart. Temporary fixtures were removed and the original 15 notices preserved. Work is on backend/notification-pagination-validation after PR #1 merged into main. The latest user instruction keeps the phone powered on/awake while they sleep; USB stay-awake 2 is intentionally left enabled for this batch.
+
 ## What exists
 
 Android app (Kotlin/Compose) on a Supabase Free backend: sign-in with email confirmation code, reports with photos and an offline queue, community feed and map pins, status updates by assigned officials, notifications with push, votes, filters and pagination. An SMS receiver is deployed but locked until a gateway is configured.
