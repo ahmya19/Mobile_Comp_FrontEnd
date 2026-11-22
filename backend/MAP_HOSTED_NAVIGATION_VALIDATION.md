@@ -31,7 +31,11 @@ Needs a Supabase CLI login (linked project), local.properties, the private demo-
 python backend/scripts/map_nav_hosted.py full --credentials <accounts.json> --work <private dir> --serial emulator-5556
 ~~~
 
-`prepare`, `run` and `cleanup` can be run separately. The driver never prints credentials, guards the serial to `emulator-N`, and cleanup runs even when the test fails.
+`prepare`, `run` and `cleanup` can be run separately. Use a fresh private work directory for each cycle; both credentials and work paths must resolve outside the repository. Existing ledgers and test archives are preserved. The driver never prints credentials and guards the serial to `emulator-N`.
+
+The driver durably records both intended fixture IDs before submitting either report. Partial preparation and test failures both enter cleanup, while an existing run's ledger is never claimed by another invocation. The host citizen session is signed out with local scope after submission; instrumentation removes its own device registration and signs out its separate session. Cleanup validates fixture identity, refuses unexpected references or changes to the original report fingerprint, and deletes only recorded fixture IDs in one guarded transaction. An interrupted run can use `cleanup` with its original work directory. Legacy ledgers without the schema/fingerprint require manual scope verification and are refused automatically.
+
+Merge review regression coverage: 11 mocked Python failure-path tests, plus two PGlite tests executing the actual generated PostgreSQL cleanup (partial setup succeeds; unexpected history rolls back). These run through `npm test` alongside the existing backend suite.
 
 ## Ordinary TECNO follow-up — November 22
 
