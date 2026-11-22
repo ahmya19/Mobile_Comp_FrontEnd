@@ -21,6 +21,31 @@ def ledger():
                          for i,(name,value) in enumerate(driver.FIXTURES.items(),1)}}
 
 
+class SqlTransportTest(unittest.TestCase):
+    """cmd.exe truncates an argument at its first newline; a multi-line guarded cleanup then ran only 'begin;'."""
+
+    def test_guarded_cleanup_reaches_the_cli_as_one_complete_line(self):
+        sent = []
+
+        def fake_run(command, **kwargs):
+            sent.append(command[-1])
+            return types.SimpleNamespace(stdout='{"rows":[]}', stderr='')
+
+        statement = driver.cleanup_sql(ledger())
+        self.assertIn('\n', statement, 'the guard is written across lines for readability')
+        with patch.object(driver.subprocess, 'run', fake_run):
+            driver.sql(statement, write=True)
+        self.assertEqual(len(sent), 1)
+        self.assertNotIn('\n', sent[0]); self.assertNotIn('\r', sent[0])
+        self.assertTrue(sent[0].startswith('begin;') and sent[0].endswith('commit;'))
+        self.assertIn('delete from public.reports', sent[0])
+        self.assertIn('cleanup refused', sent[0])
+
+    def test_statements_with_comments_are_refused_rather_than_truncated(self):
+        with self.assertRaises(ValueError):
+            driver.one_line('select 1 -- trailing comment\nselect 2')
+
+
 class MapDriverSafetyTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='pinpoint-map-driver-')

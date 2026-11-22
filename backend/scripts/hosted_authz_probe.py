@@ -49,6 +49,8 @@ def call(method, path, token=None, body=None, headers=None, raw=None, ctype='app
 
 
 def sql(query):
+    # cmd.exe (npx.cmd) truncates an argument at its first newline, which would run only part of a statement.
+    if len(query.splitlines()) > 1: raise ValueError('Send single-line SQL through npx.cmd.')
     r = subprocess.run(['npx.cmd' if os.name == 'nt' else 'npx', 'supabase', 'db', 'query', '--remote', '--read-only', query],
                        cwd=REPO, capture_output=True, text=True, encoding='utf-8')
     t = r.stdout; i = t.find('{')

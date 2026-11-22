@@ -4,13 +4,19 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
 
-## Current delivery — November 23
+## Current delivery — November 23 (supersedes the dated sections below, which are history)
 
-PRs #1–#9 are merged; main is dbb2568. The reviewed combined tree passed 33 backend tests (including 11 Python cases and two PGlite cleanup cases), Edge checks, Android app/test builds, JVM tests and lint (zero errors, 34 warnings). The hosted-map runner now preserves private evidence, protects partial-setup cleanup and revokes its own local sessions. No phone or hosted fixture changes were made in this merge batch.
+**Git:** PRs #1–#10 are merged; `main` is bc97b76. Three backend PRs are open and stacked in this order, so review and merge them in order and retarget each to `main` after its parent merges: **#11** `backend/migration-replay-validation` (base `main`), **#12** `backend/auth-queue-failure-validation` (base #11's branch), **#13** `backend/whole-app-regression` (base #12's branch). CI (`.github/workflows/backend-checks.yml`) runs on every PR.
 
-CP-30 is implemented in PR #10: GitHub run 45046214351 passed 33 backend tests and both Edge checks on standard Ubuntu in 21 s. Read [CI operation](backend/CONTINUOUS_INTEGRATION.md) and inspect the PR's current merge state before choosing a branch. Next independent backend task: audit all nine migrations and fresh-project replay instructions, identify isolated-test gaps and add meaningful coverage where platform services are unnecessary. Completion means every migration is accounted for, local replay limits are explicit and added checks pass; do not replay creation migrations on the existing hosted database.
+**Done this round (Claude continuing backend work; evidence in the linked documents):**
+- CP-31 [migration replay](backend/MIGRATION_REPLAY_VALIDATION.md): all nine migrations replay from an empty PostgreSQL in CI; the live project's catalog is identical to the replayed final state (read-only check); fresh-project steps are written but **no fresh project was created**.
+- CP-32 [security and failure paths](backend/SECURITY_FAILURE_PATH_VALIDATION.md): local policy/grant tests plus a hosted ordinary-client probe (49/49); open decision BG-005.
+- CP-33 [auth/queue failure matrix](backend/AUTH_QUEUE_FAILURE_VALIDATION.md): 12 emulator cases against a local fake server; BG-006 to BG-008 fixed in Kotlin.
+- CP-34 [whole-app regression](backend/WHOLE_APP_BACKEND_REGRESSION.md): workflow, maps and permission checks on the emulator with independent verification; BG-009 and BG-010 (Windows tooling) fixed; hosted baseline restored (36 reports, 15 notices).
 
-The phone remains unavailable; make no phone calls or changes until the user says otherwise. A backend continuation by Claude is separate from the UI assignment; supply a return handoff with commits/PRs, exact checks, blockers and one next task. Older branch/next-task paragraphs below are historical.
+**Phone:** still unavailable. Do not query, install, launch, sign out, change settings or run tests on it until the user says so. Use the owned emulator `PinPoint_Backend_API36` with an explicit serial.
+
+**Next tasks** (see [CHECKPOINTS.md](CHECKPOINTS.md) and [BACKEND_DEFECTS.md](BACKEND_DEFECTS.md)): merge the PR stack; decide BG-005 (priority-only change notifies) and the three observations in the security document; verify BG-003/BG-004/BG-008 on the phone once released; then the externally blocked items (public signup email needs a free SMTP provider, carrier SMS needs a spare gateway phone, approved barangays and vote thresholds need group input, outdoor GPS, handoffs, push timing and SUS need field work). UI parity (CP-28) and group acceptance (CP-29) stay with the separate UI work package.
 
 ## Latest private-Storage validation — November 23
 

@@ -30,7 +30,7 @@ async function scenario(withHistory=false) {
   await db.query('insert into reports(id,owner_id,category,description,location,barangay,latitude,longitude) values($1,$2,$3,$4,$5,$6,$7,$8)',
     [fixture.id,data.citizen_uid,fixture.category,fixture.description,`${data.prefix} location`,'Alangilan',fixture.latitude,fixture.longitude]);
   if(withHistory) await db.query('insert into report_history values($1)',[fixture.id]);
-  const code="import importlib.util,json,sys; s=importlib.util.spec_from_file_location('driver','scripts/map_nav_hosted.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.cleanup_sql(json.load(sys.stdin)))";
+  const code="import importlib.util,json,sys; s=importlib.util.spec_from_file_location('driver','scripts/map_nav_hosted.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.one_line(m.cleanup_sql(json.load(sys.stdin))))";  // the exact single-line form sent through npx.cmd
   const result=spawnSync(python,['-c',code],{cwd:backend,input:JSON.stringify(data),encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
   return {db,sql:result.stdout};
