@@ -24,6 +24,8 @@ Latest task 3: [hosted report feed/filter validation](backend/REPORT_FEED_VALIDA
 
 Latest task 4: [hosted voting/urgency validation](backend/VOTING_VALIDATION.md) passed 32 API checks plus 30 local tests. Concurrent retries, private vote reads, role/direct-write denials, closed reports and official floors passed; local 3/10 crossings passed. All six reports/two history rows were removed. Current branch backend/voting-validation builds on the unmerged CP-21 branch. Group thresholds and whole-app/mobile acceptance remain separate.
 
+Latest map validation: [native marker integration](backend/MAP_INTEGRATION_VALIDATION.md) passed 1/1 on the emulator using local fixtures and real rendered-feature IDs/hit testing. Page/filter controls and exact report-ID callback passed. Current branch backend/map-integration-validation builds on CP-22. Full-app details navigation, phone map behavior and outdoor GPS remain separate.
+
 ## What exists
 
 Android app (Kotlin/Compose) on a Supabase Free backend: sign-in with email confirmation code, reports with photos and an offline queue, community feed and map pins, status updates by assigned officials, notifications with push, votes, filters and pagination. An SMS receiver is deployed but locked until a gateway is configured.
