@@ -1,12 +1,12 @@
 # PinPoint project checkpoints
 
-Updated November 23, 2026 (Asia/Manila). Current backend branch: backend/migration-replay-validation (PRs #1–#10 are merged; see the delivery notes in HANDOFF.md).
+Updated November 23, 2026 (Asia/Manila). Current validation branch: backend/hosted-paging-final-validation, based on backend/whole-app-regression at 1a38747. PRs #1–#10 are merged; #11–#13 remain open and stacked. See HANDOFF.md for delivery order.
 
 ## Current checkpoint
 
 The free cloud backend is deployed and connected to the existing Kotlin frontend. Feed, voting, citizen/official map and private Storage validations are recorded below. The user is using the phone for other work: leave it untouched until it is available. Wider CP-25 measurements and Claude's whole-app/UI acceptance remain open.
 
-PRs #1–#9 are merged; reviewed backend baseline is dbb2568. The dependent follow-ups were reviewed, retargeted and merged in order. Merge-review fixes preserve map-run evidence, clean partial fixtures transactionally and locally sign out test sessions. The combined candidate passed 33 backend tests (including 11 Python cases and two PGlite cleanup cases), Edge checks, Android builds/JVM tests and lint (zero errors, 34 warnings). No phone or new hosted-data operations were used in this batch. CP-30 backend CI also passed its first real GitHub run; current delivery is PR #10. Next independent task: audit migration replay and test coverage for a fresh-project setup.
+Main is bc97b76 with PRs #1–#10 merged. Claude delivered migration/security validation and Auth/queue/runtime fixes in open PRs #11–#13. Codex completed the remaining final-build paging reruns: CP-21 passed all 17 SQL-oracle cases (1/1, 67.646 s); CP-14 passed all 149 ordered notices and persisted read state (1/1, 25.845 s). All 98 synthetic reports/134 notices were cleaned; 12 saved table fingerprints match baseline. No phone operations. Next delivery step: review the new stack and merge in dependency order; BG-005 remains a separate decision.
 
 Latest work assignment: Codex owns all backend implementation/fixes. Claude owns UI structuring to mirror the provided UI/UX and whole-app testing, including the backend. Authoritative ownership is in HANDOFF.md; Claude's work package is CLAUDE_HANDOFF.md.
 
@@ -113,5 +113,6 @@ Do not enable a paid plan to close any checkpoint. Ask about genuinely missing i
 | 2026-11-23 | CP-31 / CP-32 | Claude continued BACKEND work on backend/migration-replay-validation: nine-migration replay (53 backend tests), live catalog drift check identical, hosted ordinary-client probe 49/49, scoped Storage lifecycle object removed; hosted counts unchanged (36 reports, 45 objects, 15 notices, 0 votes). Emulator and phone untouched in this batch. |
 | 2026-11-23 | CP-33 | Auth/queue failure matrix passed on the emulator against a local fake server (12 tests); BG-006 (captive-portal page), BG-007 (stale-token 401) and BG-008 (notification account binding) fixed with mutation-checked tests. No hosted request or phone use. |
 | 2026-11-23 | CP-34 | Whole-app backend regression on the emulator passed (workflow 3 phases, citizen/official maps, permission decline/grant, local classes); two Windows tooling defects fixed; hosted baseline restored. Phone untouched. |
+| 2026-11-23 | CP-14 / CP-21 final build | On 1a38747's APK, hosted feed passed 17 SQL-oracle cases and equal-timestamp insert burst (67.646 s); notification paging/read persistence passed all 149 rows (25.845 s). Guarded cleanup removed 98 reports/134 notices; all 12 baseline fingerprints restored, including 36 reports/15 notices/two devices/45 objects. Owned emulator stopped; phone untouched. |
 
 Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).

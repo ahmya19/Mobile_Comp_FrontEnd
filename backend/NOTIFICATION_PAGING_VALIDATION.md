@@ -1,5 +1,15 @@
 # CP-14 hosted notification pagination
 
+## Final-build rerun — November 23, 2026
+
+Codex reran `HostedNotificationPagingTest` after Claude's shared Auth/request changes, on candidate `1a387476bd0b7892f480781d41468e4e22384376`. App SHA-256: `7c43e7794a2e9a7b094da18a6b3aeafd71eb333459223644b5add9c52f98c149`; test APK: `6956221dbf62cfe1eb1b8bdd47bfbe205e8f6681d74bd1f980805d5b01506fad`. Only the isolated API 36 emulator `emulator-5556` was addressed.
+
+The guarded PowerShell runner passed **1/1 in 25.845 s**. A new synthetic report and 123 equal-timestamp notices supplied the initial 100-row window. After the emulator reached its host checkpoint, 11 higher-ID notices were inserted. Fresh independent SQL arrays matched the initial 100, refreshed 100 and complete 149 rows, including all 134 fixtures without gaps/duplicates. The older-notice component callback opened the expected report, its read RPC was acknowledged, and both a separate SQL query and the test refresh verified persistence. Fixture outbox count remained zero. This rerun did not repeat the earlier ordinary-client access-control probe or phone navigation checks below.
+
+All 134 notices and their report were removed along with the separate feed test's 97 reports by guarded, exact-ID transactional cleanup. Counts and full-row fingerprints of all 12 saved tables matched the pre-batch baseline, including the original 15 notice rows/read states, 36 reports, two devices and 45 Storage objects. No cleanup remains. No phone, attachment, deployment, migration, secret or billing change; the test locally signed out its own session and the owned emulator was stopped.
+
+Private evidence: `work/paging-final-20261123-b01/ledger.json`, `notice-oracle.json`, `notice-test.log`, `cleanup.sql` and `result-and-cleanup.json` in the Codex task workspace. Test runtime includes the host handshake; no delivery-latency or field acceptance claim is made. The sections below retain historical results.
+
 Status: **verified on hosted Supabase, the isolated emulator and the ordinary TECNO app**, November 22, 2026. Base main is 708b466 (PR #1 merged). Branch: backend/notification-pagination-validation; [PR #2](https://github.com/ahmya19/Mobile_Comp_FrontEnd/pull/2) is merged into main at 066e6ae. The app runtime, schema and server functions were unchanged in this batch.
 
 ## Hosted fixture and ordering checks
