@@ -1,0 +1,3 @@
+<resources>
+    <bool name="user_report_transfers">true</bool>
+</resources>

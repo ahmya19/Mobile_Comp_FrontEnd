@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 
 data class QueuedReport(val id: String,val ownerId: String,val project: String,val draft: ReportDraft,
     val photoFile: String?,val state: String,val error: String?,val createdAt: Long,
@@ -179,35 +180,47 @@ class ReportSyncWorker(context: Context,parameters: WorkerParameters) : Coroutin
         return ForegroundInfo(0x10000000 or (id.hashCode() and 0x0fffffff),notification)
     }
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        val backend=SupabaseBackend.create(applicationContext) ?: return@withContext Result.success()
-        val owner=inputData.getString("owner") ?: return@withContext Result.failure()
-        if (backend.auth.currentUser?.id!=owner) return@withContext Result.success()
-        val queue=ReportQueue.get(applicationContext)
-        for(item in queue.items(owner,backend.url).filter { it.state in listOf("Queued","Sending") }) {
-            if(backend.auth.currentUser?.id!=owner) return@withContext Result.success()
-            try {
-                queue.setState(item.id,"Sending")
-                val photo=item.photoFile?.let { path ->
-                    val file=File(path)
-                    check(file.isFile) { "Saved photo is missing. This report needs attention." }
-                    file.readBytes()
+    override suspend fun doWork(): Result {
+        val owner=inputData.getString("owner") ?: return Result.failure()
+        return if(ReportDrain.run(applicationContext,owner)) Result.retry() else Result.success()
+    }
+}
+
+/** WorkManager and user-requested jobs share one drain, so acknowledgement/file cleanup cannot race. */
+internal object ReportDrain {
+    private val mutex=kotlinx.coroutines.sync.Mutex()
+    suspend fun run(applicationContext: Context,owner: String,project: String?=null,reportId: String?=null): Boolean =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val backend=SupabaseBackend.create(applicationContext) ?: return@withLock false
+                if (backend.auth.currentUser?.id!=owner) return@withLock false
+                if(project!=null && backend.url!=project) return@withLock false
+                val queue=ReportQueue.get(applicationContext)
+                for(item in queue.items(owner,backend.url).filter { it.state in listOf("Queued","Sending") && (reportId==null || it.id==reportId) }) {
+                    if(backend.auth.currentUser?.id!=owner) return@withLock false
+                    try {
+                        queue.setState(item.id,"Sending")
+                        val photo=item.photoFile?.let { path ->
+                            val file=File(path)
+                            check(file.isFile) { "Saved photo is missing. This report needs attention." }
+                            file.readBytes()
+                        }
+                        PinPointRepository(backend).submit(item.id,item.draft,photo,owner)
+                        queue.setState(item.id,"Synced")
+                        item.photoFile?.let { File(it).delete() }
+                        if(item.originalFile!=null) queue.scheduleOriginals(owner)
+                    } catch(error: Exception) {
+                        if(error is CancellationException) { queue.setState(item.id,"Queued"); throw error }
+                        if(backend.auth.currentUser?.id!=owner) { queue.setState(item.id,"Queued");return@withLock false }
+                        val retryable=error is java.io.IOException && (error !is BackendException || error.status>=500 || error.status in listOf(408,429))
+                        queue.setState(item.id,if(retryable) "Queued" else "Failed","${error.javaClass.simpleName}: ${error.message}")
+                        if(retryable) return@withLock true
+                    }
                 }
-                PinPointRepository(backend).submit(item.id,item.draft,photo,owner)
-                queue.setState(item.id,"Synced")
-                item.photoFile?.let { File(it).delete() }
-                if(item.originalFile!=null) queue.scheduleOriginals(owner)
-            } catch(error: Exception) {
-                if(error is CancellationException) { queue.setState(item.id,"Queued"); throw error }
-                if(backend.auth.currentUser?.id!=owner) { queue.setState(item.id,"Queued");return@withContext Result.success() }
-                val retryable=error is java.io.IOException && (error !is BackendException || error.status>=500 || error.status in listOf(408,429))
-                queue.setState(item.id,if(retryable) "Queued" else "Failed","${error.javaClass.simpleName}: ${error.message}")
-                if(retryable) return@withContext Result.retry()
+                queue.scheduleOriginals(owner)
+                false
             }
         }
-        queue.scheduleOriginals(owner)
-        Result.success()
-    }
 }
 
 class OriginalUploadWorker(context: Context,parameters: WorkerParameters): CoroutineWorker(context,parameters) {

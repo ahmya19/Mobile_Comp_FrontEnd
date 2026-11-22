@@ -204,6 +204,7 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         backend?.auth?.currentUser?.id?.let { WorkManager.getInstance(getApplication()).cancelUniqueWork("pinpoint-reports-$it") }
         backend?.auth?.currentUser?.id?.let { WorkManager.getInstance(getApplication()).cancelUniqueWork("pinpoint-originals-$it") }
         backend?.auth?.currentUser?.id?.let { WorkManager.getInstance(getApplication()).cancelUniqueWork("pinpoint-device-$it") }
+        backend?.auth?.currentUser?.id?.let { UserReportTransfer.cancel(getApplication(),it) }
         backend?.auth?.signOut()
         draftId = null
     }
@@ -220,6 +221,8 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         val repo = requireNotNull(repository)
         val id = draftId ?: repo.newReportId().also { draftId = it }
         queue.enqueue(requireNotNull(backend),id,draft,image,keepOriginal)
+        // Only this explicit Submit may request a user-visible platform transfer.
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { UserReportTransfer.schedule(getApplication(),id) }
         draftId = null
         lastSubmissionId = id
         mutableState.update { it.copy(submittedReportId=id,submissionPending=true) }
