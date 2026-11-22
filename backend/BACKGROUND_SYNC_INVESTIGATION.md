@@ -1,5 +1,7 @@
 # CP-25 background sync investigation
 
+Latest outcome: a separate TECNO Battery Lab policy explains the reproducible delay. With only PinPoint set to No Restrictions, the established WorkManager runtime passes awake and screen-off background Wi-Fi checks (~1.3 s after observed availability); reversing the policy reproduces freezing. Wider acceptance remains open. See the [unattended comparison](#unattended-oem-policy-comparison---november-22) and [setup guide](ANDROID_BACKGROUND_SETUP.md).
+
 November 22, 2026. Owner: Codex. Status: empty-job ordering corrected; physical background delivery still blocked, with kernel UID freezing observed. CP-25 remains open.
 
 ## What the existing evidence establishes
@@ -87,9 +89,9 @@ All 35 readable app-state samples showed the phone awake and PinPoint neither to
 
 Independent client verification found one report and a matching, decoded 512x512 JPEG of 165,343 bytes; the queue reached Synced and removed its local compressed file after acknowledgement. A final SQL read over all **five separately approved diagnostic UUIDs** found five reports, five unique IDs, five attached photos, zero coordinates and zero originals. All five downloaded photos match their saved compressed hashes. They remain hosted; cleanup needs approval. Keep this cohort separate from the ten historical persistence/recovery samples.
 
-Current state: code fix 2c94c80 is installed; five scheduler tests and ten JVM tests pass, build/lint pass (0 errors, 35 warnings). Empty-predecessor correction is verified locally and at the actual phone restoration/queue boundary. BG-001 and CP-25's background latency acceptance remain open: further investigation must distinguish the UID-freezer controller and system job dispatch, then evaluate a supported user-initiated transfer path if required. Historical run 8 did not capture kernel cgroups, so this new finding is consistent with its stalled callback/timer but does not retrospectively prove its cause.
+At the end of that batch, code fix 2c94c80 was installed; five scheduler tests and ten JVM tests pass, build/lint pass (0 errors, 35 warnings). Empty-predecessor correction is verified locally and at the actual phone restoration/queue boundary. BG-001 and CP-25's background latency acceptance remain open: further investigation must distinguish the UID-freezer controller and system job dispatch, then evaluate a supported user-initiated transfer path if required. Historical run 8 did not capture kernel cgroups, so this new finding is consistent with its stalled callback/timer but does not retrospectively prove its cause.
 
-PinPoint is left Unrestricted as approved. Wi-Fi is on; airplane mode remains on from the user-controlled setup. Phone testing is finished and the temporary Wi-Fi-control authorization has been consumed. Further settings/APK/fixture changes need a new concrete scope. No provider/billing/schema/Edge Function/secret change was made.
+At that earlier stopping point, PinPoint was left Unrestricted, Wi-Fi on and airplane mode on. Those narrow trial permissions had been consumed. The later unattended authorization and comparison below supersede that stopping point and record the final restored radio state. No provider/billing/schema/Edge Function/secret change was made.
 
 ## Prepared external observer
 
@@ -124,3 +126,48 @@ node .\backend\scripts\observe-background-sync.mjs `
 ~~~
 
 Use a distinct label/output for each trial; the description begins with that exact label. Node 24 and the existing Android SDK suffice. For an emulator connectivity-only smoke check, use --serial emulator-5554 --system-only --seconds 3 and an unused private output, omitting credentials/label. Polling/ADB requests have five-second timeouts; final photo verification can add a further request after the observation limit. Ctrl+C ends observation after an in-flight read.
+
+## Unattended OEM-policy comparison - November 22
+
+The user explicitly authorized unattended project-specific phone/PC work, candidate installs, radio/per-app setting controls and synthetic hosted fixtures. No additional billing/provider/account setup was included. All new submissions used the ordinary form and native picker with the same synthetic photo, Alangilan, no GPS and no original. No PinPoint test instrumentation or Retry uploads was used during measurements. Radio state was verified by the host rather than inferred from a setting toggle.
+
+### Controller and separate policy
+
+Targeted system logs recorded Hiber/stateManager freezing PinPoint's UID and Hiber/proxyManager reporting a job-proxy event for the same app. The native job was retained while the app was visible/offline, then became unknown to JobScheduler shortly after Home while the UID group was frozen. This is stronger evidence than Android's isFrozen=false process flag alone; the exact proprietary meaning of the proxy event's numeric argument is not inferred.
+
+Phone Master > App Launch already showed Pinpoint Allowed; no switch was changed there. Android App Battery Usage remained Unrestricted. A separate installed Battery Lab screen, **Power Saving Management for Apps > Pinpoint**, showed **Intelligent Management** selected. Its text explicitly describes background restrictions. Only this app's radio was changed to **No Restrictions**, and the selection was verified by reopening the dialog. No global optimization, other app, root/kernel control or security protection was changed.
+
+### Controlled results
+
+Times below are host monotonic poll-completion endpoints. Availability and validation are distinct; the 0.096 s interval is below the polling scale and must not be presented as exact network-to-app-acknowledgement latency. Server-created UTC and PC UTC can differ slightly; no cross-clock subtraction is used.
+
+| Fixture suffix | Runtime | OEM policy / condition | Availability to server observed | Validation to server observed | Result |
+| --- | --- | --- | --- | --- | --- |
+| UIDT-A01 | Experimental 82b9e4e | Intelligent Management / preparation | Not measured | Not measured | Recovered during an unobserved gap; no timing verdict |
+| UIDT-A02 | Experimental 82b9e4e | Intelligent Management / Home, awake | No row in 300 s observation | Absent for 292.384 s after validation | Failed timely recovery; later recovered outside observation |
+| UIDT-A03 | Same experimental APK | No Restrictions / Home, awake | 1.264 s | 1.264 s | Automatic recovery; one matching report/photo |
+| WM-OEM-A01 | Existing 2c94c80 APK | No Restrictions / Home, awake | 1.310 s | 0.096 s | Automatic recovery; one matching report/photo |
+| WM-OEM-N01 | Same existing APK | Intelligent Management / reverse control, Home, awake | No row in 90 s observation | Absent for 82.831 s after validation | Delay/freezing reproduced; restoring No Restrictions recovered same report |
+| WM-OEM-A02 | Rebuilt established runtime | No Restrictions / screen off | 1.337 s | 1.337 s | Automatic recovery; one matching report/photo |
+
+Full labels use CP25-UIDT-20261122-A01/A02/A03 and CP25-WM-OEM-20261122-A01/N01/A02. The delivered CSV retains all six cases; no mean/pass percentage is pooled with the earlier five diagnostics or ten historical persistence/recovery samples.
+
+The UIDT-A02 observation had 60 readable, awake, non-resumed/non-focused app samples, 59 with kernel freezing. The WM-OEM-N01 reverse control had 19 such samples, 18 frozen. The three positive observations each had three readable, non-resumed/non-focused samples, all kernel-unfrozen; WM-OEM-A02's three samples were all asleep according to PowerManager. The native service was observed active in UIDT-A03; the WorkManager positives used an APK without that service. Sampling does not establish continuous visibility/state between reads.
+
+UIDT-A01's preparation did not establish a retained job/timed reconnect, so its eventual recovery remains untimed. A subsequent harness run caught Select a valid category before a report was created; category/read-back and saved-screen checks were tightened. A Windows Unicode menu-label mismatch was fixed in the private harness, not the app. UIDT-A02's server row was created at 09:40:26 UTC, before the OEM-setting change recorded at 09:40:53 UTC. It therefore cannot be credited to that change. It recovered while settings were being inspected outside the timed window, with no sampled recovery trigger. Keep these limitations visible.
+
+The reverse control changes only the OEM policy on the established WorkManager runtime after its positive check. It reproduces the delay, and restoring No Restrictions recovered the same UUID/photo without reopening PinPoint. Together with the kernel and targeted Hiber signals, this establishes a reproducible device-policy dependency for these cases. It does not retroactively prove historical run 8's exact cause, whose kernel cgroups were not captured.
+
+### Runtime choice, local checks and final device state
+
+The user-initiated JobScheduler experiment scheduled only explicit submits on API 34+, shared the serialized/idempotent drain, showed a generic required notification and retained WorkManager fallback. The Android guidance recommends WorkManager for short interruptible transfers; the native path did not avoid this phone's restriction. Its added permission/service/resources/tests were removed from the delivery branch after comparison. The experiment is retained on local branch experiment/pinpoint-user-report-transfer, with commits 82b9e4e and ffeedc9; removal is 8ca02e2. There is no net app-source change from e9036f4 / the 2c94c80 runtime correction. [Android UIDT guidance](https://developer.android.com/develop/background-work/background-tasks/uidt).
+
+The experimental platform-capability test failed against the previous APK with NameNotFoundException for the absent service; ten combined scheduler/platform tests passed against the experiment on the isolated API 36.1 emulator. Those checks did not certify the TECNO and are not counted as final-runtime tests. Final established runtime checks: **5/5 scheduler tests (0.398 s), 10/10 JVM tests, debug/test APK builds and lint (0 errors, 35 warnings)**. No production dependency, schema, server function, secret or billing change was made. The earlier 28-test backend baseline was not rerun for these Android/device-only comparisons.
+
+The existing APK used for awake/reverse WorkManager checks has SHA-256 6970b799c3f07a9953ae8e38c3ba0fb5f973bd89e323679c0651f15e7ebe91f0. The rebuilt and physically installed/screen-off-tested final APK has SHA-256 **d008315e7a25bf8800a684e8143b5bc82b2eb2c8494127d3d56965761073fdcf**. Its installed hash was independently read back; the rebuilt DEX has no experimental transfer classes. Source is the same established scheduler/queue implementation.
+
+Final read-only SQL over the six exact fixture UUIDs found **6 reports, 6 unique IDs, 6 attached photos, 0 coordinates and 0 originals**. Each ordinary citizen-authenticated download decoded as a 512x512 JPEG, contained 165,343 bytes and matched the private pre-reconnect compressed-photo hash. Each queue reached Synced and removed its local compressed file after acknowledgement. These six remain hosted for review; no unrelated data was modified.
+
+The phone is left with the tested final APK, Android Unrestricted as before, OEM No Restrictions for PinPoint, and App Launch Allowed as before. Airplane mode was restored **off**, Wi-Fi **on**, and the temporary USB stay-awake override restored to its original **0**; the screen was left asleep after the final trial. The isolated test emulator was stopped. Full setup: [ANDROID_BACKGROUND_SETUP.md](ANDROID_BACKGROUND_SETUP.md).
+
+BG-002 stays fixed. BG-001 is mitigated for this configured TECNO/Wi-Fi setup, with a reproducible failing control. CP-25 remains partial for other devices, carrier/overnight/unplugged behavior and proposal statistics, handoffs, outdoor GPS, push timing and SUS. Do not claim a universal under-60-second guarantee or whole-app acceptance.
