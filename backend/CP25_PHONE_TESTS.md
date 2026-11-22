@@ -91,3 +91,9 @@ The user approved two ordinary form/gallery fixtures on the existing APK, no ins
 The background report later recovered during an unobserved gap; the user reports only reconnecting USB. Server creation was 12:02:57 Asia/Manila. This does not establish its recovery trigger or an 11-hour reconnect latency. Both fixtures now exist once, with decoded 512x512 JPEGs of 165,343 bytes matching the saved compressed hashes. Keep this cohort separate from the ten earlier force-stop/recovery samples; it does not add two automatic-latency passes.
 
 The expedited scheduling candidate passes three local WorkManager tests, ten JVM tests and build/lint (0 errors, 35 warnings), but is not installed/verified on the phone. CP-25 remains open. Protocol, limitations and candidate identity: [BACKGROUND_SYNC_INVESTIGATION.md](BACKGROUND_SYNC_INVESTIGATION.md). Further phone installation/fixtures require approval.
+
+### First scheduling candidate recheck, November 22
+
+The user approved installation of 8691cbd and two new fixtures; one was used. Recheck 1 briefly used validated Wi-Fi before switching to cellular that never validated, so its five-minute observation has invalid timing and an unexpected-transport flag. The saved report/photo remained intact. Worker snapshots showed its expedited request BLOCKED behind an ordinary empty restoration job. On validated Wi-Fi it recovered after PinPoint was foregrounded, once with its matching decoded photo. No retry or second report was created for recovery.
+
+The correction skips empty report drains and directly schedules waiting originals. An exact restoration/submit regression failed against 8691cbd and all five expanded local scheduler checks pass after correction. The corrected installation and proposed remaining approved fixture over stable Wi-Fi need approval. This cohort is not a cellular latency pass. Full details: BACKGROUND_SYNC_INVESTIGATION.md.

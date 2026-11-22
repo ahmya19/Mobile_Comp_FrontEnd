@@ -189,3 +189,10 @@ Run 7 used Wi-Fi despite planned cellular and retains its original mismatch erro
 Including the earlier three samples gives ten recovery records, not ten unconditional automatic-latency passes. Detailed times, photo sizes, conditions and remaining measurement work are in [CP25_PHONE_TESTS.md](CP25_PHONE_TESTS.md). No handoff/GPS/push-timing/SUS target was closed by these offline trials.
 
 The runner now rejects physical targets without an explicit switch, redacts credentials, preserves archived trial numbers and supports read-only re-verification of deviations. An independent host deadline was added after the stall: 330 s for observation, 90 s for other phases, stopping only PinPoint on timeout without clearing its queue. Local tests checked stdout/stderr/exit capture, malformed credentials, physical-target rejection and a 527 ms timeout of a deliberately delayed child. That host-timeout branch was not deliberately exercised on the real phone. Protocol: [PHONE_TRIAL_RUNNER.md](PHONE_TRIAL_RUNNER.md).
+
+
+## Candidate follow-up, November 22
+
+After approval, 8691cbd was installed with data retained. Its first ordinary background recheck had seven validated Wi-Fi samples followed by cellular that never validated; timing is invalid. An expedited request was BLOCKED behind an ordinary empty restoration drain. The report stayed intact and later recovered once with its matching decoded photo after foregrounding on validated Wi-Fi.
+
+An expanded local test reproduced the restoration/submit ordering problem on 8691cbd (expected one request, got two). The correction omits empty report drains and directly schedules pending originals. Five local scheduler tests pass in 0.407 s, alongside ten JVM tests, debug/test APK builds and lint (0 errors, 35 warnings). The corrected APK is not installed yet; one previously approved fixture remains unused. Proposed stable-Wi-Fi recheck and changed installation require approval. See BACKGROUND_SYNC_INVESTIGATION.md for exact identities and limits.

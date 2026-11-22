@@ -125,13 +125,19 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
         schedule(owner)
     }
     fun schedule(owner: String) {
+        val project=SupabaseBackend.create(context)?.url ?: return
+        val pending=items(owner,project)
+        if(pending.none { it.state in listOf("Queued","Sending") }) {
+            // An empty ordinary drain would become a predecessor of the next urgent report.
+            if(pending.any { it.state=="Synced" && it.originalFile!=null && it.originalState !in listOf("Uploaded","Failed") }) {
+                scheduleOriginals(owner)
+            }
+            return
+        }
         val builder=OneTimeWorkRequestBuilder<ReportSyncWorker>().setInputData(workDataOf("owner" to owner))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-        val project=SupabaseBackend.create(context)?.url
-        if(project!=null && items(owner,project).any { it.state in listOf("Queued","Sending") }) {
-            // A short report/photo send is user-initiated. Preserve durable work when quota is used.
-            builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-        }
+        // A short report/photo send is user-initiated. Preserve durable work when quota is used.
+        builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
         val request=builder.build()
         // Appending avoids losing a newly queued item as an existing drain finishes.
         WorkManager.getInstance(context).enqueueUniqueWork("pinpoint-reports-$owner",ExistingWorkPolicy.APPEND_OR_REPLACE,request)

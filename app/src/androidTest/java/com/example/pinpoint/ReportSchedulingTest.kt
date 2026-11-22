@@ -12,6 +12,7 @@ import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.example.pinpoint.data.ReportQueue
 import com.example.pinpoint.data.ReportSyncWorker
+import com.example.pinpoint.data.OriginalUploadWorker
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -34,7 +35,7 @@ class ReportSchedulingTest {
         SchedulingProbeWorker.runs.set(0)
         val factory=object: WorkerFactory() {
             override fun createWorker(appContext: Context,name: String,parameters: WorkerParameters): ListenableWorker {
-                check(name==ReportSyncWorker::class.java.name) { "Unexpected worker in isolated scheduler test" }
+                check(name in listOf(ReportSyncWorker::class.java.name,OriginalUploadWorker::class.java.name)) { "Unexpected worker in isolated scheduler test" }
                 return SchedulingProbeWorker(appContext,parameters)
             }
         }
@@ -53,11 +54,12 @@ class ReportSchedulingTest {
         WorkManagerImpl.setDelegate(null)
     }
 
-    private fun row(state: String="Queued",project: String=BuildConfig.SUPABASE_URL) {
+    private fun row(state: String="Queued",project: String=BuildConfig.SUPABASE_URL,original: Boolean=false) {
         queue.writableDatabase.insertOrThrow("queue",null,ContentValues().apply {
             put("id",UUID.randomUUID().toString());put("owner_id",owner);put("project",project)
             put("draft","""{"category":"Other","description":"Local scheduling fixture","location":"Local fixture","barangay":"Local fixture"}""")
             put("state",state);put("created_at",System.currentTimeMillis())
+            if(original) {put("original_file","local-scheduler-fixture.original");put("original_state","Waiting for Wi-Fi")}
         })
     }
     private fun scheduled(): WorkInfo {
@@ -79,12 +81,35 @@ class ReportSchedulingTest {
         assertEquals(1,SchedulingProbeWorker.runs.get())
     }
 
-    @Test fun completedAndOtherProjectRowsDoNotConsumeExpeditedQuota() {
+    @Test fun completedAndOtherProjectRowsDoNotCreateReportWork() {
         row(state="Synced")
         row(project="https://other-project.invalid")
-        val work=scheduled()
-        val spec=requireNotNull(manager.workDatabase.workSpecDao().getWorkSpec(work.id.toString()))
+        queue.schedule(owner)
+        assertTrue(manager.getWorkInfosForUniqueWork("pinpoint-reports-$owner").get(5,TimeUnit.SECONDS).isEmpty())
+        assertEquals(0,SchedulingProbeWorker.runs.get())
+    }
+
+    @Test fun offlineRestorationCannotPutAnEmptyOrdinaryJobAheadOfTheNextReport() {
+        // Actual call sequence: signed-in account restoration, then an offline form submission.
+        queue.schedule(owner)
+        row()
+        queue.schedule(owner)
+        val work=manager.getWorkInfosForUniqueWork("pinpoint-reports-$owner").get(5,TimeUnit.SECONDS)
+        assertEquals("Restoration must not add an empty predecessor",1,work.size)
+        assertEquals(WorkInfo.State.ENQUEUED,work.single().state)
+        assertTrue(requireNotNull(manager.workDatabase.workSpecDao().getWorkSpec(work.single().id.toString())).expedited)
+        requireNotNull(WorkManagerTestInitHelper.getTestDriver(context)).setAllConstraintsMet(work.single().id)
+        assertEquals(1,SchedulingProbeWorker.runs.get())
+    }
+
+    @Test fun waitingOriginalIsScheduledWithoutAnEmptyReportPredecessor() {
+        row(state="Synced",original=true)
+        queue.schedule(owner)
+        assertTrue(manager.getWorkInfosForUniqueWork("pinpoint-reports-$owner").get(5,TimeUnit.SECONDS).isEmpty())
+        val original=manager.getWorkInfosForUniqueWork("pinpoint-originals-$owner").get(5,TimeUnit.SECONDS).single()
+        val spec=requireNotNull(manager.workDatabase.workSpecDao().getWorkSpec(original.id.toString()))
         assertFalse(spec.expedited)
+        assertEquals(NetworkType.UNMETERED,spec.constraints.requiredNetworkType)
         assertEquals(0,SchedulingProbeWorker.runs.get())
     }
 
