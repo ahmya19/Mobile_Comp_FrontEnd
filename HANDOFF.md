@@ -11,6 +11,7 @@ Start here for ownership and current project state. Details: [backend/README.md]
 **Historical final-build paging follow-up (merged in #14):** on candidate 1a38747, CP-21 passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 matched all 149 notices/read persistence (1/1, 25.845 s). Its 98 reports/134 notices were cleaned, preserving all 12 baseline fingerprints. Do not automatically repeat that batch for documentation-only changes. Current next tasks are listed below.
 
 **Done this round (Claude continuing backend work; evidence in the linked documents):**
+- CP-44 [original TUS recovery](backend/ORIGINAL_TUS_RECOVERY_VALIDATION.md): 13-case matrix behind the unchanged release checks; BG-017 and BG-018 fixed; real phone Wi-Fi run pending.
 - CP-43 [fixture-pair real FCM](backend/FIXTURE_PAIR_FCM_VALIDATION.md): separate citizen reporter/recipient and REST official actor, strict failed-observation exits, exact tray isolation and actual activity-destruction proof. See the final matrix and cleanup evidence there; the physical phone was untouched.
 - CP-31 [migration replay](backend/MIGRATION_REPLAY_VALIDATION.md): all nine migrations replay from an empty PostgreSQL in CI; the live project's catalog is identical to the replayed final state (read-only check); fresh-project steps are written but **no fresh project was created**.
 - CP-32 [security and failure paths](backend/SECURITY_FAILURE_PATH_VALIDATION.md): local policy/grant tests plus a hosted ordinary-client probe (49/49); open decision BG-005.
