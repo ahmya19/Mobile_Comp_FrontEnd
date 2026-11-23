@@ -32,6 +32,7 @@ class FakeSupabaseServer : Closeable {
 
     val requests = CopyOnWriteArrayList<Seen>()
     val reports = ConcurrentHashMap<String, String>()          // report id -> owner uid
+    val reportDescriptions = ConcurrentHashMap<String, String>()   // report id -> description as committed
     val creations = CopyOnWriteArrayList<Pair<String, String>>() // (owner uid, report id) per actual creation
     val photos = ConcurrentHashMap<String, ByteArray>()
     val rpcBehaviors = ConcurrentLinkedQueue<Rpc>()
@@ -206,6 +207,7 @@ class FakeSupabaseServer : Closeable {
             val behavior = rpcBehaviors.poll() ?: Rpc.OK
             fun commit(): JSONObject {
                 val owner = reports.putIfAbsent(id, uid)
+                reportDescriptions.putIfAbsent(id, JSONObject(String(r.body)).optString("p_description"))
                 if (owner == null) creations += uid to id else check(owner == uid) { "another account's report" }
                 return JSONObject().put("id", id).put("owner_id", uid)
             }
