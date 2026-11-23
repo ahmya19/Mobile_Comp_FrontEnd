@@ -244,6 +244,8 @@ class Device:
         if 'mInputShown=true' in self.sh('dumpsys input_method | grep mInputShown'): self.sh('input keyevent KEYCODE_BACK'); time.sleep(1)
 
     def type_into(self, label, text):
+        # Hide any open IME first so lower fields (e.g. Barangay) are not covered by the keyboard when tapped.
+        self.hide_ime()
         # Exact label first: substring matching hits section headers such as "4. Location" on the redesigned form.
         if not (self.tap_text(label, 6, exact=True) or self.tap_text(label, 10)): return False
         time.sleep(0.8); self.sh('input text ' + text.replace(' ', '%s')); time.sleep(0.8); return True

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.pinpoint.data.notificationTargetAllowed
 import com.example.pinpoint.data.PinPointViewModel
+import com.example.pinpoint.ui.theme.White
 import java.net.URLEncoder
 
 @Composable
@@ -46,7 +48,7 @@ fun AppNavigation(
             if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    Column(Modifier.fillMaxSize().systemBarsPadding()) {
+    Column(Modifier.fillMaxSize().background(White).systemBarsPadding()) {
         state.error?.let { error ->
             Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
             Row {
