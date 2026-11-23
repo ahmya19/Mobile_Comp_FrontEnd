@@ -18,6 +18,8 @@ Each was applied temporarily and the file restored: identity gate removed (1 fai
 
 ## Limits
 
+Hosted follow-up: the authorization driver passed 49/49 against the real project after this merge, with its image removed, both local logouts confirmed by HTTP 204 and all 12 baseline table fingerprints preserved. See [HOSTED_AUTHZ_SMOKE_VALIDATION.md](HOSTED_AUTHZ_SMOKE_VALIDATION.md). The status-changing workflow/FCM drivers remain unrun while shared registrations may include the user's unavailable phone. The failure-path proof below remains local mocked/PGlite evidence.
+
 - `hosted_safety` cannot make Storage deletion transactional: the report delete is one transaction, the object delete is a separate API call verified afterwards (`object_cleanup`). A failure between them is visible as `fixture_cleanup=FAILED-object-still-present` and recoverable with `--cleanup-only`.
 - The workflow driver cannot name the report id before the app generates it, so the on-device receipt is the narrow run-identity contract; it needs `run-as` access (debug build, emulator).
 - A real no-push hosted smoke run of the changed workflow/authz drivers was not performed in this batch (no hosted workflow reruns allowed); the mocked and PGlite proofs are the evidence. Phone drivers were reviewed statically only and their changes are limited to the shared session and exit-code semantics.
