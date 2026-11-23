@@ -85,3 +85,7 @@ Owner: backend/Kotlin data. Status: **Fixed** (November 23). `ReportQueue.enqueu
 ## BG-013 — feed errors had no retry, and a failed empty list read "No reports match"
 
 Owner: Kotlin UI state. Status: **Fixed** (November 23). The Map and report-list screens showed a feed error but no way to retry it, and a failed first load displayed "No reports match these filters." A **Retry loading reports** control (reusing the current filter and pages) was added and the empty message is hidden while an error is shown. Remaining polish: the error text still uses the app-wide `ExceptionClass: message` form.
+
+## BG-014 — hosted-test drivers could delete the wrong rows and mislabel cleanup
+
+Owner: backend tooling. Status: **Fixed** (November 23), proven locally only. Five tooling defects, not a production RLS exploit and not run against the hosted project: (1) the workflow driver deleted an inferred "sole new report"'s notices and history even after its identity checks failed; (2) verification exceptions skipped cleanup and logout; (3) forbidden upload attempts were not individually ledgered or verified; (4) the FCM probe's signed-out status change bypassed the per-send guard; (5) logout failures were swallowed or stopped other sessions' teardown, and runs were labelled cleaned from row counts. See [backend/HOSTED_TOOLING_FAILURE_SAFETY.md](backend/HOSTED_TOOLING_FAILURE_SAFETY.md).

@@ -10,7 +10,8 @@ and the exact storage object name list. Exclusive private ledger before the run.
 """
 import argparse, json, os, re, struct, subprocess, sys, urllib.request, uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hosted_authz_probe import REPO, call, sign_in, sign_out_local  # noqa: E402
+import hosted_safety as safety  # noqa: E402
+from hosted_authz_probe import REPO, call, sign_in  # noqa: E402
 from map_nav_hosted import ADB, PKG, props, shell_quote, sql  # noqa: E402
 
 
@@ -42,6 +43,7 @@ def main():
     with open(ledger, 'x') as f:
         json.dump({'marker': marker, 'baseline_reports': base['reports'], 'baseline_objects': len(base['objects']), 'status': 'intent-recorded'}, f, indent=1)
     token = None; rid = None; path = None; result = {}
+    sessions = safety.SessionRegistry(call); exit_code = [1]
     try:
         cmd = ['am', 'instrument', '-w', '-r', '-e', 'class', 'com.example.pinpoint.PhonePickerHostedTest#pickedPhotoIsSubmittedToTheLiveBackend',
                '-e', 'marker', marker, f'{PKG}.test/androidx.test.runner.AndroidJUnitRunner']
@@ -53,7 +55,7 @@ def main():
         if len(rows) == 1:
             r = rows[0]; rid = r['i']; path = r['p']
             result.update(owner_is_citizen=r['o'] == cuid, photo_path_matches=path == f'{cuid}/{rid}/photo.jpg', original_absent=r['op'] is None)
-            token = sign_in(creds['citizen']['email'], creds['citizen']['password'])[0]
+            token = sessions.add('citizen', sign_in(creds['citizen']['email'], creds['citizen']['password'])[0])
             req = urllib.request.Request(cfg['SUPABASE_URL'] + f'/storage/v1/object/authenticated/report-images/{path}',
                                          headers={'apikey': cfg['SUPABASE_PUBLISHABLE_KEY'], 'Authorization': f'Bearer {token}'})
             data = urllib.request.urlopen(req, timeout=30).read()
@@ -67,17 +69,20 @@ def main():
                     f"if exists(select 1 from public.report_votes where report_id='{rid}'::uuid) or exists(select 1 from public.report_history where report_id='{rid}'::uuid) or exists(select 1 from public.notifications where report_id='{rid}'::uuid) then raise exception 'unexpected references'; end if; "
                     f"delete from public.reports where id='{rid}'::uuid; end $$; commit;", write=True)
             if path:
-                token = token or sign_in(creds['citizen']['email'], creds['citizen']['password'])[0]
+                token = token or sessions.add('citizen-cleanup', sign_in(creds['citizen']['email'], creds['citizen']['password'])[0])
                 s, _ = call('DELETE', f'/storage/v1/object/report-images/{path}', token)
                 result['object_delete_http'] = s
             after = {'reports': sql('select count(*) c from public.reports')[0]['c'], 'objects': objects()}
             led['status'] = 'cleaned' if after == base else 'CLEANUP-MISMATCH'
         finally:
-            if token: sign_out_local(token)
+            sessions.teardown(); led['session_cleanup'] = sessions.summary()
+            result['session_cleanup'] = led['session_cleanup']
             json.dump(led, open(ledger, 'w'), indent=1)
             json.dump(result, open(os.path.join(work, 'picker-result.json'), 'w'), indent=1)
-            print(json.dumps(result)); print('cleanup:', led['status'])
+            print(json.dumps(result)); print('fixture cleanup:', led['status'], '| session cleanup:', led['session_cleanup'])
+            exit_code[0] = 0 if led['status'] == 'cleaned' and led['session_cleanup'] in ('confirmed', 'already-invalid') and result.get('instrumentation_ok') else 1
+    return exit_code[0]
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

@@ -141,9 +141,15 @@ def main():
                 'concurrent_requests':8,'remaining_fixture_votes':0}
     finally:
         # Local scope preserves the user's existing phone/demo sessions.
+        # Attempt EVERY role even if one fails, then report; an early assert used to skip the remaining sessions.
+        failed_logouts=[]
         for role in tokens:
-            status,_=call('POST','/auth/v1/logout?scope=local',role=role)
-            assert status in (200,204), 'Local test-session sign-out failed'
+            try:
+                status,_=call('POST','/auth/v1/logout?scope=local',role=role)
+            except Exception as error:
+                status=type(error).__name__
+            if status not in (200,204): failed_logouts.append(f'{role}: {status}')
+        assert not failed_logouts, 'Local test-session sign-out unresolved for: '+', '.join(failed_logouts)
     with output.open('x',encoding='utf8') as stream:
         json.dump(result,stream,indent=2)
     print('Hosted voting checks passed:',result['check_count'],'cases; independent SQL verification/cleanup still required')

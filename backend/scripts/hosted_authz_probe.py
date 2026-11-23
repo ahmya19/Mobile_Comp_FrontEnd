@@ -15,6 +15,9 @@ Tokens, passwords and private IDs are never printed or written. Use a fresh --wo
 """
 import argparse, base64, json, os, subprocess, sys, time, urllib.error, urllib.request, uuid
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import hosted_safety  # noqa: E402
+
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 # A tiny valid JPEG (1x1) well under the bucket's 250 KB limit.
 JPEG = base64.b64decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=')
@@ -22,13 +25,15 @@ JPEG = base64.b64decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP/////////////////////
 
 def props():
     out = {}
-    for line in open(os.path.join(REPO, 'local.properties'), encoding='utf-8'):
+    path = os.path.join(REPO, 'local.properties')
+    if not os.path.exists(path): return out  # CI and unit tests have no private configuration
+    for line in open(path, encoding='utf-8'):
         if '=' in line and not line.startswith('#'):
             k, v = line.strip().split('=', 1); out[k] = v
     return out
 
 
-CFG = props(); BASE = CFG['SUPABASE_URL']; KEY = CFG['SUPABASE_PUBLISHABLE_KEY']
+CFG = props(); BASE = CFG.get('SUPABASE_URL', ''); KEY = CFG.get('SUPABASE_PUBLISHABLE_KEY', '')
 
 
 def call(method, path, token=None, body=None, headers=None, raw=None, ctype='application/json'):
@@ -67,7 +72,8 @@ def sign_in(email, password):
 
 
 def sign_out_local(token):
-    call('POST', '/auth/v1/logout?scope=local', token=token)  # local scope: never revokes the user's other sessions
+    """Local-scope logout (never revokes the user's other sessions). Returns (outcome, detail), never raises; see hosted_safety."""
+    return hosted_safety.logout_local(call, token)
 
 
 results = []
@@ -91,25 +97,75 @@ def empty(name, status, body):
     record(name, status == 200 and body == [], f'HTTP {status} rows={len(body) if isinstance(body, list) else "?"}')
 
 
-def main():
+def attempt_forbidden_uploads(ledger, ctok, cuid, ouid, call_fn=None, sql_fn=None):
+    """Every exact bucket/path is recorded BEFORE its upload and checked afterwards on its own. An unexpected object is a
+    failure that stays visible in the ledger (cleanup_required); it is never masked by a privileged cleanup. Returns the
+    list of unexpected objects. A lost response does not hide an object: presence is read from the host, not the reply."""
+    call_fn = call_fn or call; sql_fn = sql_fn or sql
+    plan = [(f'report-images/{ouid}/{uuid.uuid4()}/photo.jpg', "another account's folder"),
+            (f'report-images/{cuid}/{uuid.uuid4()}/photo.png', 'wrong file name'),
+            (f'report-images/{cuid}/{uuid.uuid4()}/photo.jpg/extra', 'extra path segment'),
+            (f'report-originals/{cuid}/{uuid.uuid4()}/original', 'original for a report that does not exist')]
+    attempts = [{'path': path, 'label': label, 'state': 'planned'} for path, label in plan]
+    ledger.update(forbidden_attempts=attempts)   # durable BEFORE the first upload
+
+    def exists(path):
+        bucket, name = path.split('/', 1)
+        return int(sql_fn(f"select count(*)::int n from storage.objects where bucket_id='{bucket}' and name='{name}'")[0]['n'])
+    unexpected = []
+    for entry in attempts:
+        path, label = entry['path'], entry['label']
+        if exists(path):                       # fresh UUID paths: anything present beforehand is a collision, not a result
+            entry['state'] = 'PRE-EXISTING'; unexpected.append(path); record(f'citizen: upload {label}', False, 'path already existed before the attempt'); continue
+        try:
+            s, j = call_fn('POST', f'/storage/v1/object/{path}', token=ctok, raw=JPEG, ctype='image/jpeg')
+        except Exception as error:             # lost response: the object may still exist, so fall through to the host check
+            s, j = None, type(error).__name__
+        if s is None: record(f'citizen: upload {label}', False, f'no response ({j}); host check follows')
+        else: denied(f'citizen: upload {label}', s, j)
+        entry['http'] = s
+        if exists(path): entry['state'] = 'UNEXPECTED-OBJECT-PRESENT'; unexpected.append(path)
+        else: entry['state'] = 'absent'
+    ledger.update(forbidden_attempts=attempts, cleanup_required=unexpected)
+    record('forbidden uploads created no object (each exact path checked)', not unexpected, f'unexpected objects: {len(unexpected)}')
+    for path in unexpected:                    # best effort only for the citizen's own folder; otherwise record precisely
+        entry = next(e for e in attempts if e['path'] == path)
+        if path.startswith('report-images/') and f'/{cuid}/' in path:   # never attempt deletes in the originals bucket
+            try: s, _ = call_fn('DELETE', f'/storage/v1/object/{path}', token=ctok)
+            except Exception: s = None
+            entry['client_delete_http'] = s
+            entry['state'] = 'removed-by-owner-but-policy-regressed' if not exists(path) else 'STILL-PRESENT-cleanup-required'
+        else:
+            entry['state'] = 'STILL-PRESENT-cleanup-required (no client delete attempted here: other account, or the originals bucket)'
+    ledger.update(forbidden_attempts=attempts, cleanup_required=[e['path'] for e in attempts if 'cleanup-required' in e['state']])
+    return unexpected
+
+
+
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--credentials', required=True)
     ap.add_argument('--work', required=True, help='fresh private directory outside Git')
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     work = os.path.abspath(a.work)
     if os.path.commonpath([work, REPO]) == REPO:
         raise SystemExit('Use a private --work directory outside the repository.')
     os.makedirs(work, exist_ok=True)
     creds = json.load(open(a.credentials, encoding='utf-8-sig'))
-    ctok, cuid = sign_in(creds['citizen']['email'], creds['citizen']['password'])
-    otok, ouid = sign_in(creds['official']['email'], creds['official']['password'])
+    cuid, ouid = creds['citizen']['uid'], creds['official']['uid']
     fixture_path = f'{cuid}/{uuid.uuid4()}/photo.jpg'
-    ledger_file = os.path.join(work, 'authz-probe-ledger.json')
-    with open(ledger_file, 'x') as f:  # exclusive: refuses an existing ledger
-        json.dump({'intent': 'one orphan JPEG in the citizen own folder, delete via ordinary API', 'object': fixture_path,
-                   'bucket': 'report-images', 'status': 'intent-recorded'}, f, indent=1)
+    # Intended scope is durable BEFORE any session or hosted write exists.
+    ledger = hosted_safety.RunLedger(os.path.join(work, 'authz-probe-ledger.json'),
+        intent='one orphan JPEG in the citizen own folder, plus exact-path forbidden upload attempts', object=fixture_path,
+        bucket='report-images', status='intent-recorded')
+    sessions = hosted_safety.SessionRegistry(call)
     fixture_created = False
+    failure = None
     try:
+        ctok, tuid = sign_in(creds['citizen']['email'], creds['citizen']['password']); sessions.add('citizen', ctok)
+        if tuid != cuid: raise RuntimeError('Citizen credentials do not match the recorded account.')
+        otok, tuid = sign_in(creds['official']['email'], creds['official']['password']); sessions.add('official', otok)
+        if tuid != ouid: raise RuntimeError('Official credentials do not match the recorded account.')
         anyone = sql("select id::text id, status, owner_id::text owner from public.reports where owner_id is not null order by created_at limit 1")[0]
         # All existing reports belong to the demo citizen, so the non-owner attempt is made by the official.
         owned_by_citizen = anyone['id']
@@ -147,24 +203,19 @@ def main():
             s, j = call('GET', f'/rest/v1/{table}?select=*&{col}=eq.{ouid}', token=ctok); empty(f"citizen: another account's {table}", s, j)
             s, j = call('GET', f'/rest/v1/{table}?select=*&{col}=eq.{cuid}', token=otok); empty(f"official: citizen's {table}", s, j)
 
-        # --- Storage: forbidden uploads (the object cannot be created even if wrongly allowed? it could, so verify absence below)
-        bad_paths = [(f'report-images/{ouid}/{uuid.uuid4()}/photo.jpg', "another account's folder"),
-                     (f'report-images/{cuid}/{uuid.uuid4()}/photo.png', 'wrong file name'),
-                     (f'report-images/{cuid}/{uuid.uuid4()}/photo.jpg/extra', 'extra path segment'),
-                     (f'report-originals/{cuid}/{uuid.uuid4()}/original', 'original for a report that does not exist')]
-        for path, label in bad_paths:
-            s, j = call('POST', f'/storage/v1/object/{path}', token=ctok, raw=JPEG, ctype='image/jpeg'); denied(f'citizen: upload {label}', s, j)
-        stray = sql("select count(*)::int n from storage.objects where bucket_id in ('report-images','report-originals') and (name like '%/photo.png' or name like '%/photo.jpg/extra' or name like '" + ouid + "/%')")[0]['n']
-        existing_official = sql(f"select count(*)::int n from storage.objects where name like '{ouid}/%'")[0]['n']
-        record('forbidden uploads created no object', stray == existing_official, f'objects under the official folder or odd names: {stray} (pre-existing in official folder: {existing_official})')
+        # --- Storage: forbidden uploads, each exact path ledgered first and verified on its own
+        attempt_forbidden_uploads(ledger, ctok, cuid, ouid)
 
         # --- Storage: one allowed lifecycle on a labelled orphan object in the citizen's own folder
         path = f'report-images/{fixture_path}'
-        s, j = call('POST', f'/storage/v1/object/{path}', token=ctok, raw=JPEG, ctype='image/jpeg')
-        fixture_created = s in (200, 201)
-        record('citizen: upload own orphan photo (allowed)', fixture_created, f'HTTP {s}')
+        ledger.update(allowed_object_state='upload-planned')
+        try: s, j = call('POST', f'/storage/v1/object/{path}', token=ctok, raw=JPEG, ctype='image/jpeg')
+        except Exception as error: s = None; ledger.error('allowed-upload', error)
+        # A lost acknowledgement must not hide the object: its unique path is ours, so presence on the host decides.
+        fixture_created = int(sql(f"select count(*)::int n from storage.objects where bucket_id='report-images' and name='{fixture_path}'")[0]['n']) == 1
+        record('citizen: upload own orphan photo (allowed)', s in (200, 201), f'HTTP {s}' + ('' if s else ' (no response; host shows object=%s)' % fixture_created))
         if fixture_created:
-            json.dump({'object': fixture_path, 'bucket': 'report-images', 'status': 'uploaded'}, open(ledger_file, 'w'), indent=1)
+            ledger.update(allowed_object_state='uploaded')
             s, _ = call('GET', f'/storage/v1/object/authenticated/{path}', token=ctok); record('citizen: read own orphan', s == 200, f'HTTP {s}')
             s, _ = call('GET', f'/storage/v1/object/authenticated/{path}', token=otok); record("official: cannot read citizen's unreferenced orphan", s in (400, 401, 403, 404), f'HTTP {s} (400/404 = hidden by policy)')
             s, _ = call('GET', f'/storage/v1/object/authenticated/{path}'); record('anon: cannot read it', s in (400, 401, 403, 404), f'HTTP {s}')
@@ -178,17 +229,27 @@ def main():
             s, j = call('DELETE', f'/storage/v1/object/{path}', token=otok); denied("official: cannot delete the citizen's orphan", s, j)
             still = sql(f"select count(*)::int n from storage.objects where bucket_id='report-images' and name='{fixture_path}'")[0]['n']
             record('orphan survived the forbidden delete', still == 1, f'rows={still}')
+    except BaseException as error:
+        failure = error
+        try: ledger.error('probe', error)
+        except Exception: pass
     finally:
-        if fixture_created:
+        def remove_fixture():
+            if not fixture_created: ledger.update(fixture_cleanup='nothing-created'); return
             s, _ = call('DELETE', f'/storage/v1/object/report-images/{fixture_path}', token=ctok)
             gone = sql(f"select count(*)::int n from storage.objects where bucket_id='report-images' and name='{fixture_path}'")[0]['n']
             record('citizen: delete own orphan (allowed) and verify it is gone', s in (200, 204) and gone == 0, f'HTTP {s} rows_after={gone}')
-            json.dump({'object': fixture_path, 'status': 'cleaned' if gone == 0 else 'CLEANUP-FAILED'}, open(ledger_file, 'w'), indent=1)
-        sign_out_local(ctok); sign_out_local(otok)
-    out = {'run_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'passed': sum(r['pass'] for r in results), 'total': len(results), 'results': results}
+            ledger.update(fixture_cleanup='cleaned' if gone == 0 else 'FAILED-object-still-present', object_delete_http=s)
+        hosted_safety.run_all([('fixture-cleanup', remove_fixture)], ledger)
+        sessions.teardown()
+        ledger.update(session_cleanup=sessions.summary(), sessions={r: {'outcome': o, 'detail': d} for r, (o, d) in sessions.outcomes.items()})
+    out = {'run_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'passed': sum(r['pass'] for r in results), 'total': len(results),
+           'fixture_cleanup': ledger.data.get('fixture_cleanup'), 'session_cleanup': ledger.data.get('session_cleanup'),
+           'cleanup_required': ledger.data.get('cleanup_required', []), 'results': results}
     json.dump(out, open(os.path.join(work, 'authz-probe-result.json'), 'w'), indent=1)
-    print(f"\n{out['passed']}/{out['total']} probes passed")
-    return 0 if out['passed'] == out['total'] else 1
+    print(f"\n{out['passed']}/{out['total']} probes passed | fixture cleanup: {out['fixture_cleanup']} | sessions: {out['session_cleanup']}")
+    fixture_ok = ledger.data.get('fixture_cleanup') in ('cleaned', 'nothing-created') and not out['cleanup_required']
+    return hosted_safety.final_exit(fixture_ok, out['session_cleanup'], out['passed'] == out['total'] and failure is None)
 
 
 if __name__ == '__main__':
