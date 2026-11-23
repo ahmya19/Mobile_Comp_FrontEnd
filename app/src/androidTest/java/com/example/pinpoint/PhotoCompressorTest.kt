@@ -77,4 +77,25 @@ class PhotoCompressorTest {
         val uri = jpeg(100, 100); File(uri.path!!).delete()
         assertNotNull(runCatching { compress(uri) }.exceptionOrNull())
     }
+
+    private fun encoded(width: Int, height: Int, format: Bitmap.CompressFormat, name: String): Uri {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val random = Random(3); for (y in 0 until height step 7) for (x in 0 until width step 7) bitmap.setPixel(x, y, random.nextInt() or (0xFF shl 24))
+        val file = File(context.cacheDir, name).also { files += it }
+        file.outputStream().use { assertTrue(bitmap.compress(format, 90, it)) }; bitmap.recycle()
+        return Uri.fromFile(file)
+    }
+    @Test fun otherCommonImageFormatsAreAcceptedAndBounded() {
+        for ((format, name) in listOf(Bitmap.CompressFormat.PNG to "pc-x.png", Bitmap.CompressFormat.WEBP_LOSSY to "pc-x.webp")) {
+            val out = compress(encoded(3000, 2000, format, name)); val (w, h) = size(out)
+            assertTrue("$name -> ${w}x$h", maxOf(w, h) <= 1280 && out.size <= 256000)
+        }
+    }
+    @Test fun aTwelveMegapixelPhotoStyleJpegIsAcceptedAndBounded() {
+        val out = compress(encoded(4000, 3000, Bitmap.CompressFormat.JPEG, "pc-12mp.jpg")); val (w, h) = size(out)
+        assertTrue("${w}x$h", maxOf(w, h) <= 1280 && out.size <= 256000)
+    }
+    @Test fun aHugeJpegDoesNotExhaustMemory() {
+        val out = compress(encoded(12000, 9000, Bitmap.CompressFormat.JPEG, "pc-108mp.jpg")); assertTrue(maxOf(size(out).first, size(out).second) <= 1280)
+    }
 }

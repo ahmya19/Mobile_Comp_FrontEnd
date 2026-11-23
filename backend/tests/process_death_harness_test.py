@@ -19,6 +19,11 @@ class SerialGuardTest(unittest.TestCase):
         for serial in ('12531254AH101767', 'R58M1234567', 'emulator', 'emulator-', '192.168.1.5:5555', 'emulator-5556; rm', 'emulator-5556\n'):
             with self.assertRaises(SystemExit, msg=serial): h.Device(serial, '.')
 
+    def test_a_physical_serial_needs_the_explicit_opt_in_and_must_be_plain(self):
+        self.assertEqual(h.Device('R58M1234567', '.', allow_physical=True).s, 'R58M1234567')
+        for bad in ('12531254 AH', 'abc;rm -rf', 'a', 'X' * 40, '192.168.1.5:5555', 'dev\nice'):
+            with self.assertRaises(SystemExit, msg=bad): h.Device(bad, '.', allow_physical=True)
+
     def test_emulator_serial_is_accepted(self):
         self.assertEqual(h.Device('emulator-5556', '.').s, 'emulator-5556')
 
