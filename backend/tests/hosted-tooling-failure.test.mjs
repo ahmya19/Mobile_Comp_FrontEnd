@@ -19,6 +19,11 @@ test('mocked-transport driver suite (workflow, authz forbidden uploads, logout o
   assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
+test('fixture-identity provisioner (mocked Auth admin, CLI and SQL): ledger first, no secret output, rollback of only its own users', () => {
+  const result = spawnSync(python, ['-m', 'unittest', 'discover', '-s', 'tests', '-p', 'provision_identities_test.py', '-v'], { cwd: backend, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
 test('process-death harness host side: emulator-only serial guard, fake server fault semantics, missing-file detection', () => {
   const result = spawnSync(python, ['-m', 'unittest', 'discover', '-s', 'tests', '-p', 'process_death_harness_test.py', '-v'], { cwd: backend, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);

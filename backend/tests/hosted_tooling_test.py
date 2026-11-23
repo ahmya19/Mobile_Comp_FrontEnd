@@ -28,7 +28,7 @@ OTHER = 'cccccccc-cccc-4ccc-8ccc-000000000002'
 NID = 'dddddddd-dddd-4ddd-8ddd-000000000003'
 DESC = 'CP16 eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee: water service issue.'
 PHOTO = f'{CUID}/{RID}/photo.jpg'
-CREDS = {'citizen': {'email': 'c@x.test', 'password': 'pw-c', 'uid': CUID}, 'official': {'email': 'o@x.test', 'password': 'pw-o', 'uid': OUID}}
+CREDS = {'citizen': {'email': 'c@x.test', 'password': 'pw-c', 'uid': CUID}, 'official': {'email': 'o@x.test', 'password': 'pw-o', 'uid': OUID}, 'fixture': True}
 
 
 class FakeHost:
@@ -44,6 +44,11 @@ class FakeHost:
         self.__dict__.update(kw)
 
     snap_calls = 0
+    outbox_pending = 0
+    device_deletes = 0
+    @property
+    def report_writes(self): return [w for w in self.writes if 'delete from public.reports' in w]
+    device_rows = 0
 
     def snapshot(self):
         self.snap_calls += 1
@@ -55,6 +60,7 @@ class FakeHost:
     def sql(self, query, write=False):
         if write:
             self.writes.append(query)
+            if 'delete from public.devices' in query: self.device_deletes += 1; return []
             if self.guard_refuses: raise SystemExit('SQL error: Fixture identity mismatch; cleanup refused')
             self.deleted = True; return []
         q = ' '.join(query.split())
@@ -64,6 +70,8 @@ class FakeHost:
         if 'select previous_status, status from public.report_history' in q: return self.history
         if 'select id::text id, read from public.notifications' in q: return [dict(id=n, read=True) for n in self.notes]
         if 'select id::text id from public.notifications' in q: return [dict(id=n) for n in self.notes]
+        if 'from private.push_outbox o join public.notifications n' in q: return [dict(c=str(self.outbox_pending))]
+        if 'select count(*) c from public.devices where user_id in' in q: return [dict(c=str(self.device_rows))]
         if 'from private.push_outbox' in q: return [dict(delivered=True, attempts=1)]
         if 'select count(*) c from public.report_history' in q: return [dict(c=str(len(self.history)))]
         if 'select count(*) c from public.reports where id=' in q: return [dict(c='0' if self.deleted else '1')]
@@ -150,13 +158,13 @@ class WorkflowDriverTest(unittest.TestCase):
     def tearDown(self): self.dir.cleanup()
 
     def assertNoDeletion(self, host):
-        self.assertEqual(host.writes, [], 'no destructive SQL may be sent')
+        self.assertEqual(host.report_writes, [], 'no destructive report SQL may be sent')
         self.assertFalse(host.deleted_object, 'no Storage delete may be sent')
 
     def test_happy_path_cleans_with_one_guarded_transaction_and_confirmed_logout(self):
         host = FakeHost(); code = run_workflow(host, self.work)
-        self.assertEqual(code, 0); self.assertEqual(len(host.writes), 1)
-        sql = host.writes[0]; self.assertTrue(sql.startswith('begin;') and sql.endswith('commit;')); self.assertNotIn('\n', sql)
+        self.assertEqual(code, 0); self.assertEqual(len(host.report_writes), 1)
+        sql = host.report_writes[0]; self.assertTrue(sql.startswith('begin;') and sql.endswith('commit;')); self.assertNotIn('\n', sql)
         for guard in ('Fixture identity mismatch', 'Unexpected notification references', 'Unexpected history references'): self.assertIn(guard, sql)
         led = ledger_of(self.work); self.assertEqual(led['fixture_cleanup'], 'cleaned'); self.assertEqual(led['session_cleanup'], 'confirmed')
 
@@ -186,13 +194,13 @@ class WorkflowDriverTest(unittest.TestCase):
     def test_unexpected_extra_references_are_refused_by_the_transaction(self):
         host = FakeHost(guard_refuses=True)
         code = run_workflow(host, self.work)
-        self.assertEqual(code, 1); self.assertEqual(len(host.writes), 1)
+        self.assertEqual(code, 1); self.assertEqual(len(host.report_writes), 1)
         led = ledger_of(self.work); self.assertEqual(led['fixture_cleanup'], 'REFUSED-by-guard'); self.assertFalse(host.deleted_object)
 
     def test_download_failure_still_cleans_up_scoped_fixture_and_tears_down_sessions(self):
         host = FakeHost(download_raises=True); code = run_workflow(host, self.work)
         self.assertEqual(code, 1, 'the original failure must keep the run failed')
-        self.assertEqual(len(host.writes), 1, 'identity was proven before the failure, so scoped cleanup still runs')
+        self.assertEqual(len(host.report_writes), 1, 'identity was proven before the failure, so scoped cleanup still runs')
         led = ledger_of(self.work); self.assertEqual(led['fixture_cleanup'], 'cleaned')
         self.assertTrue(any(e['where'] == 'run' for e in led['errors'])); self.assertIn('citizen', led['sessions'])
 
@@ -209,6 +217,32 @@ class WorkflowDriverTest(unittest.TestCase):
         host = FakeHost(runner_rc=1, new_ids=[], receipt={}); code = run_workflow(host, self.work)
         self.assertEqual(code, 1); self.assertNoDeletion(host)
         self.assertEqual(ledger_of(self.work)['fixture_cleanup'], 'REFUSED')
+
+    def test_shared_demo_accounts_are_refused_before_any_hosted_call_or_status_change(self):
+        calls = []
+        shared = {k: v for k, v in CREDS.items() if k != 'fixture'}
+        host = FakeHost()
+        with patch.object(workflow, 'snapshot', lambda: calls.append(1) or host.snapshot()), patch.object(workflow, 'sql', lambda *a, **k: calls.append(2) or []):
+            with self.assertRaises(SystemExit) as cm: workflow.execute(types.SimpleNamespace(work=self.work, serial='emulator-5556', credentials='x'), shared)
+        self.assertIn('fixture identities', str(cm.exception)); self.assertEqual(calls, []); self.assertEqual(os.listdir(self.work), [], 'not even a ledger is created')
+
+    def test_existing_registrations_on_the_fixture_identities_refuse_the_run_and_are_not_deleted(self):
+        host = FakeHost(device_rows=1); code = run_workflow(host, self.work)
+        self.assertEqual(code, 1); self.assertEqual(host.device_deletes, 0, 'registrations this run did not prove it owns are never removed')
+        self.assertNoDeletion(host)
+
+    def test_fixture_device_registrations_are_removed_after_a_clean_run_with_a_label_guard(self):
+        host = FakeHost(); self.assertEqual(run_workflow(host, self.work), 0)
+        self.assertEqual(host.device_deletes, 1); self.assertEqual(ledger_of(self.work)['fixture_devices'], 'removed')
+        stmt = [w for w in host.writes if 'delete from public.devices' in w][0]
+        self.assertIn("raw_app_meta_data->>'pinpoint_fixture'='true'", stmt); self.assertIn('device cleanup refused', stmt)
+
+    def test_undelivered_push_outbox_defers_cleanup_instead_of_racing_the_dispatcher(self):
+        host = FakeHost(outbox_pending=2)
+        with patch.object(workflow, 'OUTBOX_WAIT', 0), patch.object(workflow, 'OUTBOX_POLL', 0):
+            code = run_workflow(host, self.work)
+        self.assertEqual(code, 1); self.assertNoDeletion(host)
+        self.assertEqual(ledger_of(self.work)['fixture_cleanup'], 'DEFERRED-outbox-not-delivered')
 
     def test_existing_ledger_is_refused_before_any_hosted_call(self):
         host = FakeHost(); run_workflow(host, self.work)

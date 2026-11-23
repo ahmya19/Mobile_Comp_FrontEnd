@@ -14,6 +14,7 @@ Start here for ownership and current project state. Details: [backend/README.md]
 - CP-31 [migration replay](backend/MIGRATION_REPLAY_VALIDATION.md): all nine migrations replay from an empty PostgreSQL in CI; the live project's catalog is identical to the replayed final state (read-only check); fresh-project steps are written but **no fresh project was created**.
 - CP-32 [security and failure paths](backend/SECURITY_FAILURE_PATH_VALIDATION.md): local policy/grant tests plus a hosted ordinary-client probe (49/49); open decision BG-005.
 - CP-33 [auth/queue failure matrix](backend/AUTH_QUEUE_FAILURE_VALIDATION.md): 12 emulator cases against a local fake server; BG-006 to BG-008 fixed in Kotlin.
+- CP-42 [test identities](backend/TEST_IDENTITIES.md): permanent fixture citizen/official, push tests only through them; workflow driver refuses shared accounts.
 - CP-41 [approved policy deployment](backend/APPROVED_POLICY_DEPLOYMENT.md): 010/011 are live, with 18 rollback-only hosted checks, exact source/security comparison and preserved original business rows. No committed test push, phone or emulator access. Local backend suite now 69/69 plus Edge checks; history mapping documented, general db push still unsafe.
 - CP-40 [process-death recovery](backend/PROCESS_DEATH_RECOVERY_VALIDATION.md): real SIGKILL lifecycle matrix on the emulator; BG-015 fixed; TUS resume Blocked.
 - CP-39 [hosted-tooling failure safety](backend/HOSTED_TOOLING_FAILURE_SAFETY.md): identity-proven guarded cleanup, honest session outcomes, mocked/PGlite failure-path suite; BG-014.
