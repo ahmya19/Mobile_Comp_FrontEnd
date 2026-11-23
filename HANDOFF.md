@@ -6,9 +6,9 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 ## Current delivery — November 23 (supersedes the dated sections below, which are history)
 
-**Git:** PRs #1–#19 are merged; reviewed main baseline afd64a5. Evidence-only PR #20 remains open. This independent deployment-follow-up branch adds reproducible verification and records the approved live changes; inspect actual PR/check state before delivery. The earlier stack/next-task paragraphs below are historical.
+**Git:** PRs #1–#20 are merged; delivery baseline is 1242bba. This independent deployment follow-up adds reproducible verification and records the approved live changes; inspect actual PR/check state for its final delivery. Earlier stack/next-task paragraphs below are historical. Do not restart the completed merge sequence.
 
-**Codex final-build follow-up:** branch `backend/hosted-paging-final-validation` builds on #13 at 1a38747 and changes evidence/docs only. CP-21 hosted feed passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 hosted paging passed all 149 rows and persisted read state (1/1, 25.845 s). The private batch was cleaned: 98 reports/134 notices removed; all 12 original-table fingerprints restored (36 reports, 15 notices, two devices, 45 objects). Emulator stopped; phone untouched. Review this evidence follow-up after #13; no PR was merged or retargeted during the rerun. Next task is stack review/delivery, then the independent pending decisions below.
+**Historical final-build paging follow-up (merged in #14):** on candidate 1a38747, CP-21 passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 matched all 149 notices/read persistence (1/1, 25.845 s). Its 98 reports/134 notices were cleaned, preserving all 12 baseline fingerprints. Do not automatically repeat that batch for documentation-only changes. Current next tasks are listed below.
 
 **Done this round (Claude continuing backend work; evidence in the linked documents):**
 - CP-31 [migration replay](backend/MIGRATION_REPLAY_VALIDATION.md): all nine migrations replay from an empty PostgreSQL in CI; the live project's catalog is identical to the replayed final state (read-only check); fresh-project steps are written but **no fresh project was created**.

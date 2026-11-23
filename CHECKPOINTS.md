@@ -1,12 +1,12 @@
 # PinPoint project checkpoints
 
-Updated November 23, 2026 (Asia/Manila). Current validation branch: backend/hosted-paging-final-validation, based on backend/whole-app-regression at 1a38747. PRs #1–#10 are merged; #11–#13 remain open and stacked. See HANDOFF.md for delivery order.
+Updated November 23, 2026 (Asia/Manila). PRs #1–#20 are merged. Current delivery follow-up: backend/approved-policy-deployment, with the already-approved 010/011 changes live and hosted-verified. Inspect GitHub for its final PR/check state; prior stack pointers in historical logs are not pending work.
 
 ## Current checkpoint
 
 The free cloud backend is deployed and connected to the existing Kotlin frontend. Feed, voting, citizen/official map and private Storage validations are recorded below. The user is using the phone for other work: leave it untouched until it is available. Wider CP-25 measurements and Claude's whole-app/UI acceptance remain open.
 
-Main is bc97b76 with PRs #1–#10 merged. Claude delivered migration/security validation and Auth/queue/runtime fixes in open PRs #11–#13. Codex completed the remaining final-build paging reruns: CP-21 passed all 17 SQL-oracle cases (1/1, 67.646 s); CP-14 passed all 149 ordered notices and persisted read state (1/1, 25.845 s). All 98 synthetic reports/134 notices were cleaned; 12 saved table fingerprints match baseline. No phone operations. Next delivery step: review the new stack and merge in dependency order; BG-005 remains a separate decision.
+BG-005 is fixed in the hosted function, and Alangilan is the approved SMS area. Eighteen hosted database-role checks passed in a rolled-back transaction, with no committed test push; all 11 protected table fingerprints matched baseline. Catalog drift is zero, function permissions are preserved, local backend tests pass 69/69 and Edge checks pass. The only intended data change was replacing three simulation barangays with Alangilan. Phone remains unavailable. Next work: dedicated test identities, isolated workflow verification, public SMTP, spare SMS gateway, fresh restore and the separately documented TUS/field/UI gaps.
 
 Latest work assignment: Codex owns all backend implementation/fixes. Claude owns UI structuring to mirror the provided UI/UX and whole-app testing, including the backend. Authoritative ownership is in HANDOFF.md; Claude's work package is CLAUDE_HANDOFF.md.
 
