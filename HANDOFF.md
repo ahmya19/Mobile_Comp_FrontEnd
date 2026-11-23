@@ -6,15 +6,15 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 ## Current delivery — November 23 (supersedes the dated sections below, which are history)
 
-**Git:** PRs #1–#10 are merged; `main` is bc97b76. Three backend PRs are open and stacked in this order, so review and merge them in order and retarget each to `main` after its parent merges: **#11** `backend/migration-replay-validation` (base `main`), **#12** `backend/auth-queue-failure-validation` (base #11's branch), **#13** `backend/whole-app-regression` (base #12's branch). CI (`.github/workflows/backend-checks.yml`) runs on every PR.
+**Git:** PRs #1–#20 are merged; delivery baseline is 1242bba. This independent deployment follow-up adds reproducible verification and records the approved live changes; inspect actual PR/check state for its final delivery. Earlier stack/next-task paragraphs below are historical. Do not restart the completed merge sequence.
 
-**Codex final-build follow-up:** branch `backend/hosted-paging-final-validation` builds on #13 at 1a38747 and changes evidence/docs only. CP-21 hosted feed passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 hosted paging passed all 149 rows and persisted read state (1/1, 25.845 s). The private batch was cleaned: 98 reports/134 notices removed; all 12 original-table fingerprints restored (36 reports, 15 notices, two devices, 45 objects). Emulator stopped; phone untouched. Review this evidence follow-up after #13; no PR was merged or retargeted during the rerun. Next task is stack review/delivery, then the independent pending decisions below.
+**Historical final-build paging follow-up (merged in #14):** on candidate 1a38747, CP-21 passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 matched all 149 notices/read persistence (1/1, 25.845 s). Its 98 reports/134 notices were cleaned, preserving all 12 baseline fingerprints. Do not automatically repeat that batch for documentation-only changes. Current next tasks are listed below.
 
 **Done this round (Claude continuing backend work; evidence in the linked documents):**
 - CP-31 [migration replay](backend/MIGRATION_REPLAY_VALIDATION.md): all nine migrations replay from an empty PostgreSQL in CI; the live project's catalog is identical to the replayed final state (read-only check); fresh-project steps are written but **no fresh project was created**.
 - CP-32 [security and failure paths](backend/SECURITY_FAILURE_PATH_VALIDATION.md): local policy/grant tests plus a hosted ordinary-client probe (49/49); open decision BG-005.
 - CP-33 [auth/queue failure matrix](backend/AUTH_QUEUE_FAILURE_VALIDATION.md): 12 emulator cases against a local fake server; BG-006 to BG-008 fixed in Kotlin.
-- CP-41 [approved decisions](backend/APPROVED_DECISIONS.md): BG-005 policy and Alangilan jurisdiction as migrations 010/011 (not deployed); voting approved; safe-deploy procedure.
+- CP-41 [approved policy deployment](backend/APPROVED_POLICY_DEPLOYMENT.md): 010/011 are live, with 18 rollback-only hosted checks, exact source/security comparison and preserved original business rows. No committed test push, phone or emulator access. Local backend suite now 69/69 plus Edge checks; history mapping documented, general db push still unsafe.
 - CP-40 [process-death recovery](backend/PROCESS_DEATH_RECOVERY_VALIDATION.md): real SIGKILL lifecycle matrix on the emulator; BG-015 fixed; TUS resume Blocked.
 - CP-39 [hosted-tooling failure safety](backend/HOSTED_TOOLING_FAILURE_SAFETY.md): identity-proven guarded cleanup, honest session outcomes, mocked/PGlite failure-path suite; BG-014.
 - CP-38 [phone: real push, picker, live backend](backend/PHONE_PUSH_PICKER_VALIDATION.md): physical-phone observations; stack #11 to #15 merged.
@@ -23,7 +23,7 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Phone:** still unavailable. Do not query, install, launch, sign out, change settings or run tests on it until the user says so. Use the owned emulator `PinPoint_Backend_API36` with an explicit serial.
 
-**Next tasks** (see [CHECKPOINTS.md](CHECKPOINTS.md) and [BACKEND_DEFECTS.md](BACKEND_DEFECTS.md)): merge the PR stack; decide BG-005 (priority-only change notifies) and the three observations in the security document; verify BG-003/BG-004/BG-008 on the phone once released; then the externally blocked items (public signup email needs a free SMTP provider, carrier SMS needs a spare gateway phone, approved barangays and vote thresholds need group input, outdoor GPS, handoffs, push timing and SUS need field work). UI parity (CP-28) and group acceptance (CP-29) stay with the separate UI work package.
+**Next tasks:** deliver/reconcile open evidence/deployment PRs, provision the already-approved dedicated test identities through trusted Auth administration, then complete isolated workflow validation, SMTP, the spare SMS gateway and fresh restore. BG-005 and Alangilan are approved/deployed, not pending decisions. TUS crash/resume, field acceptance and UI parity retain their separate limits; keep the phone unavailable.
 
 ## Latest private-Storage validation — November 23
 
