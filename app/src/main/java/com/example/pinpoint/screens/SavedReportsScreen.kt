@@ -2,12 +2,13 @@ package com.example.pinpoint.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -16,15 +17,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pinpoint.data.QueuedReport
 import com.example.pinpoint.data.ReportDraft
+import com.example.pinpoint.data.UiText
 import com.example.pinpoint.ui.theme.*
 
-/** Offline / Saved Reports screen (PDF Board 7.1–7.4).
- *  Policy reconciliation: ONLY unsent local queue items (Queued/Failed) may be edited or deleted locally.
- *  Synced or actively Sending items remain immutable and protected. */
+/** Offline / Saved Reports screen styled to PDF Board 7.1–7.4.
+ *  Policy reconciliation: ONLY unsent local queue items (Queued/Failed) may be edited or deleted locally. */
 @Composable
 fun SavedReportsScreen(
     items: List<QueuedReport>,
@@ -38,20 +41,30 @@ fun SavedReportsScreen(
     var confirmDelete by remember { mutableStateOf<QueuedReport?>(null) }
     var editing by remember { mutableStateOf<QueuedReport?>(null) }
 
+    val failedCount = items.count { it.state == "Failed" }
+    val sendingCount = items.count { it.state == "Sending" }
+    val syncedCount = items.count { it.state == "Synced" }
+
     confirmDelete?.let { target ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete saved report?") },
+            containerColor = White,
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Delete saved report?", fontWeight = FontWeight.Bold) },
             text = {
                 Text("This removes only the unsent copy saved on this device and its local photo. Submitted reports on the server are never affected.")
             },
             confirmButton = {
-                TextButton(onClick = {
-                    val id = target.id
-                    confirmDelete = null
-                    onDeleteItem(id)
-                }) {
-                    Text("Delete saved report", color = AlertRed)
+                Button(
+                    onClick = {
+                        val id = target.id
+                        confirmDelete = null
+                        onDeleteItem(id)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AlertRed, contentColor = White),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Delete saved report")
                 }
             },
             dismissButton = {
@@ -67,27 +80,32 @@ fun SavedReportsScreen(
         var err by remember(target.id) { mutableStateOf<String?>(null) }
         AlertDialog(
             onDismissRequest = { editing = null },
-            title = { Text("Edit saved report") },
+            containerColor = White,
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Edit saved report", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Category: ${target.draft.category}", style = MaterialTheme.typography.labelLarge, color = DeepViolet)
-                    OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, minLines = 3)
-                    OutlinedTextField(loc, { loc = it }, label = { Text("Location") }, singleLine = true)
-                    OutlinedTextField(brgy, { brgy = it }, label = { Text("Barangay") }, singleLine = true)
+                    OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, minLines = 3, shape = RoundedCornerShape(14.dp), colors = pinPointFieldColors())
+                    OutlinedTextField(loc, { loc = it }, label = { Text("Location") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = pinPointFieldColors())
+                    OutlinedTextField(brgy, { brgy = it }, label = { Text("Barangay") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = pinPointFieldColors())
                     err?.let { Text(it, color = AlertRed, style = MaterialTheme.typography.bodySmall) }
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    try {
-                        val updated = target.draft.copy(description = desc, location = loc, barangay = brgy)
-                        updated.validate()
-                        editing = null
-                        onEditItem(target.id, updated)
-                    } catch (e: IllegalArgumentException) {
-                        err = e.message
-                    }
-                }) { Text("Save changes") }
+                Button(
+                    onClick = {
+                        try {
+                            val updated = target.draft.copy(description = desc, location = loc, barangay = brgy)
+                            updated.validate()
+                            editing = null
+                            onEditItem(target.id, updated)
+                        } catch (e: IllegalArgumentException) {
+                            err = e.message
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Save changes") }
             },
             dismissButton = {
                 TextButton(onClick = { editing = null }) { Text("Cancel") }
@@ -98,109 +116,168 @@ fun SavedReportsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(PinPointSurface)
-            .padding(20.dp),
+            .background(White)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        IconButton(onClick = onBackClick) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-        }
-        Text("Saved reports", style = MaterialTheme.typography.headlineMedium, color = Black)
+        PinPointTopBar(
+            title = "Saved reports",
+            onBackClick = onBackClick,
+            trailing = {
+                StatusPill(
+                    when {
+                        failedCount > 0 -> "$failedCount failed"
+                        sendingCount > 0 -> "Sending"
+                        items.isEmpty() -> "Uploaded"
+                        else -> "Waiting to sync"
+                    }
+                )
+            }
+        )
 
-        Surface(shape = RoundedCornerShape(16.dp), color = AmberTint, border = BorderStroke(1.dp, Amber.copy(alpha = 0.4f))) {
+        // Banner matching PDF 7.1 / 7.2
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = if (sendingCount > 0) GreenTint else AmberTint
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(Icons.Filled.CloudOff, contentDescription = null, tint = Black)
+                Icon(
+                    Icons.Filled.CloudOff,
+                    contentDescription = null,
+                    tint = if (sendingCount > 0) ResolvedGreen else AmberText,
+                    modifier = Modifier.size(20.dp)
+                )
                 Text(
-                    "Reports saved offline upload automatically when your connection returns. Full originals wait for unmetered Wi-Fi.",
+                    text = if (sendingCount > 0)
+                        "Back online. Uploading your saved reports now."
+                    else "Reports saved offline upload automatically when your connection returns. Full originals wait for unmetered Wi-Fi.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Black
                 )
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(
-                onClick = onRetryAll,
-                enabled = !busy && items.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Retry synchronization")
-            }
-            OutlinedButton(
-                onClick = onSmsFallbackClick,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text("SMS guide")
+        // Charcoal Sync Progress Hero Card when actively uploading (PDF 7.2)
+        if (sendingCount > 0 && items.isNotEmpty()) {
+            val pct = (syncedCount.toFloat() / items.size.coerceAtLeast(1)).coerceIn(0.15f, 1f)
+            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = InkCard) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(
+                            modifier = Modifier.size(52.dp).clip(CircleShape).background(Violet.copy(alpha = 0.25f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("$syncedCount/${items.size}", style = MaterialTheme.typography.labelLarge, color = White, fontWeight = FontWeight.Bold)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Uploading reports", style = MaterialTheme.typography.titleMedium, color = White, fontWeight = FontWeight.Bold)
+                            Text("Keep PinPoint open for the fastest sync.", style = MaterialTheme.typography.bodySmall, color = DarkBarText)
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(999.dp)).background(DarkTrack)) {
+                        Box(modifier = Modifier.fillMaxWidth(pct).fillMaxHeight().clip(RoundedCornerShape(999.dp)).background(Violet))
+                    }
+                }
             }
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (items.isEmpty()) {
                 item {
                     SectionSurfaceCard {
-                        Text("All saved reports have finished uploading.", style = MaterialTheme.typography.bodyMedium, color = ResolvedGreen)
+                        Text("All saved reports have finished uploading.", style = MaterialTheme.typography.bodyMedium, color = ResolvedGreen, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            } else {
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Pending upload · ${items.size}", style = MaterialTheme.typography.titleSmall, color = Black, fontWeight = FontWeight.Bold)
+                        Text("Auto-sync on", style = MaterialTheme.typography.labelSmall, color = MutedText)
                     }
                 }
             }
+
             items(items, key = { it.id }) { item ->
                 val canModifyLocally = item.state in listOf("Queued", "Failed")
-                SectionSurfaceCard {
+                val isFailed = item.state == "Failed"
+                SectionSurfaceCard(
+                    containerColor = PinPointSurface,
+                    border = if (isFailed) BorderStroke(1.dp, AlertRed.copy(alpha = 0.45f)) else null
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Text(item.draft.category, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Black)
-                        StatusPill(
-                            when (item.state) {
-                                "Synced" -> "Pending"
-                                "Failed" -> "Needs attention"
-                                "Sending" -> "Sending"
-                                else -> "Waiting to sync"
+                        CategoryThumbnailTile(item.draft.category, size = 50)
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    item.draft.description,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Black,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                StatusPill(
+                                    when (item.state) {
+                                        "Synced" -> "Uploaded"
+                                        "Failed" -> "Needs attention"
+                                        "Sending" -> "Sending"
+                                        else -> "Waiting to sync"
+                                    }
+                                )
                             }
-                        )
-                    }
-                    Text(item.draft.description, style = MaterialTheme.typography.bodyMedium, color = Black)
-                    Text("${item.draft.location}, ${item.draft.barangay}", style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    item.originalState?.let {
-                        Text("Original photo: $it", style = MaterialTheme.typography.labelSmall, color = DeepViolet)
-                    }
-                    item.error?.let { reason ->
-                        Surface(shape = RoundedCornerShape(10.dp), color = RedTint) {
-                            Text(com.example.pinpoint.data.UiText.humanize(reason), color = AlertRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(10.dp))
+                            Text("${item.draft.category} · ${item.draft.location}, ${item.draft.barangay}", style = MaterialTheme.typography.bodySmall, color = MutedText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            item.originalState?.let {
+                                Text("Original photo: $it", style = MaterialTheme.typography.labelSmall, color = DeepViolet)
+                            }
                         }
                     }
+
+                    item.error?.let { reason ->
+                        Surface(shape = RoundedCornerShape(12.dp), color = RedTint) {
+                            Text(UiText.humanize(reason), color = AlertRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(10.dp))
+                        }
+                    }
+
                     if (canModifyLocally) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = { editing = item },
-                                enabled = !busy,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
+                            Surface(
+                                modifier = Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(12.dp)).clickable(enabled = !busy) { editing = item },
+                                shape = RoundedCornerShape(12.dp),
+                                color = White
                             ) {
-                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Edit")
+                                Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Edit, contentDescription = null, tint = Black, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Edit", style = MaterialTheme.typography.labelLarge, color = Black)
+                                }
                             }
-                            OutlinedButton(
-                                onClick = { confirmDelete = item },
-                                enabled = !busy,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
+                            Surface(
+                                modifier = Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(12.dp)).clickable(enabled = !busy) { confirmDelete = item },
+                                shape = RoundedCornerShape(12.dp),
+                                color = White
                             ) {
-                                Icon(Icons.Filled.Delete, contentDescription = null, tint = AlertRed, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Delete", color = AlertRed)
+                                Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Delete, contentDescription = null, tint = AlertRed, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Delete", style = MaterialTheme.typography.labelLarge, color = AlertRed)
+                                }
                             }
                         }
                     } else {
@@ -210,6 +287,29 @@ fun SavedReportsScreen(
                             color = MutedText
                         )
                     }
+                }
+            }
+        }
+
+        // Bottom primary retry + SMS fallback controls (PDF 7.1 / 7.3)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onRetryAll,
+                enabled = !busy && items.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Retry synchronization", fontWeight = FontWeight.Bold)
+            }
+            Surface(
+                modifier = Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onSmsFallbackClick),
+                shape = RoundedCornerShape(14.dp),
+                color = PinPointSurface
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("SMS guide (no data fallback)", style = MaterialTheme.typography.labelLarge, color = Black)
                 }
             }
         }

@@ -7,7 +7,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.pinpoint.ui.theme.*
 
+/** Login (PDF 1.3) and Registration (PDF 1.4) on pure white canvas with 52dp filled #F5F5F8 fields. */
 @Composable
 fun AuthScreen(
     busy: Boolean,
@@ -40,128 +44,164 @@ fun AuthScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(PinPointSurface)
+            .background(White)
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(24.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Violet),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = White, modifier = Modifier.size(28.dp))
-            }
-            Column {
-                Text("PinPoint", style = MaterialTheme.typography.headlineLarge, color = Black)
-                Text(
-                    text = if (register) "Create your citizen account" else "Sign in to your community",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MutedText
-                )
+        if (register) {
+            PinPointTopBar(
+                title = "",
+                onBackClick = { register = false; password = "" },
+                backEnabled = !busy,
+                trailing = {
+                    Text(
+                        "STEP 1 OF 2",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedText,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            )
+        } else {
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Violet),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = White, modifier = Modifier.size(26.dp))
+                }
+                Text("PinPoint", style = MaterialTheme.typography.titleLarge, color = Black)
             }
         }
 
-        SectionSurfaceCard {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = if (register) "Create your account" else "Welcome back",
-                style = MaterialTheme.typography.titleLarge,
-                color = Black,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.headlineLarge,
+                color = Black
             )
             Text(
                 text = if (register) "Public signups create citizen accounts. Officials are assigned by barangay administration."
-                else "Report local issues, vote on community priorities, and track barangay updates.",
-                style = MaterialTheme.typography.bodySmall,
+                else "Sign in to your community",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MutedText
             )
+        }
 
-            if (register) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Full name") },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
-                )
-            }
+        Spacer(Modifier.height(2.dp))
 
+        if (register) {
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Full name") },
+                leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, tint = MutedText, modifier = Modifier.size(20.dp)) },
                 enabled = !busy,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
+                colors = pinPointFieldColors()
             )
+        }
 
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                enabled = !busy,
-                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = { showPassword = !showPassword }) {
-                        Icon(
-                            imageVector = if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                            contentDescription = if (showPassword) "Hide password" else "Show password"
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp)
-            )
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null, tint = MutedText, modifier = Modifier.size(20.dp)) },
+            enabled = !busy,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            colors = pinPointFieldColors()
+        )
 
-            if (register) {
-                PasswordStrengthChecklist(password)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = acceptedTerms, onCheckedChange = { acceptedTerms = it }, enabled = !busy)
-                    Text(
-                        "I agree to PinPoint's community reporting terms and privacy notice.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MutedText
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = MutedText, modifier = Modifier.size(20.dp)) },
+            enabled = !busy,
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(
+                        imageVector = if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = if (showPassword) "Hide password" else "Show password",
+                        tint = MutedText
                     )
                 }
-            } else {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { password = ""; onForgotPassword(email) }, enabled = !busy) {
-                        Text("Forgot password?", color = DeepViolet)
-                    }
-                }
-            }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            colors = pinPointFieldColors()
+        )
 
-            Button(
-                onClick = { onAuthenticate(register, name, email, password); password = "" },
-                enabled = !busy && email.isNotBlank() && password.isNotBlank() && (!register || (name.isNotBlank() && acceptedTerms)),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(16.dp)
+        if (register) {
+            PasswordStrengthChecklist(password)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = acceptedTerms, onCheckedChange = { acceptedTerms = it }, enabled = !busy)
+                Text(
+                    "I agree to PinPoint's community reporting terms and privacy notice.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (busy) "Please wait..." else if (register) "Create account" else "Sign in")
+                TextButton(onClick = { password = ""; onForgotPassword(email) }, enabled = !busy) {
+                    Text("Forgot password?", color = DeepViolet, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
 
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Button(
+            onClick = { onAuthenticate(register, name, email, password); password = "" },
+            enabled = !busy && email.isNotBlank() && password.isNotBlank() && (!register || (name.isNotBlank() && acceptedTerms)),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Violet, contentColor = White)
+        ) {
+            Text(
+                text = if (busy) "Please wait..." else if (register) "Create account" else "Sign in",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(Modifier.weight(1f, fill = false))
+
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             TextButton(onClick = { register = !register; password = "" }, enabled = !busy) {
-                Text(if (register) "Already have an account? Sign in" else "New here? Create account")
+                Text(
+                    if (register) "Already have an account? Sign in" else "New to PinPoint? Create account",
+                    color = DeepViolet,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
             if (!register) {
                 TextButton(
                     onClick = { password = ""; onConfirmEmail(email) },
                     enabled = !busy && email.isNotBlank()
                 ) {
-                    Text("Confirm an existing account")
+                    Text("Confirm an existing account", color = MutedText)
                 }
             }
         }

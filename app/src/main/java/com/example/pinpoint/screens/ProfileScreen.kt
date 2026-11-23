@@ -1,6 +1,5 @@
 package com.example.pinpoint.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,10 +9,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,12 +28,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.pinpoint.BuildConfig
 import com.example.pinpoint.data.Citizen
 import com.example.pinpoint.data.Report
 import com.example.pinpoint.ui.theme.*
 
+/** Profile & Settings styled to PDF Board 9 (centered avatar + 3 stat boxes, #F5F5F8 chevron rows, soft pink logout, Board 9.9 modal). */
 @Composable
 fun ProfileScreen(
     onHomeClick: () -> Unit,
@@ -60,16 +68,31 @@ fun ProfileScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Log out of PinPoint?") },
+            containerColor = White,
+            shape = RoundedCornerShape(24.dp),
+            icon = {
+                Box(
+                    modifier = Modifier.size(50.dp).clip(RoundedCornerShape(14.dp)).background(RedTint),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = AlertRed, modifier = Modifier.size(24.dp))
+                }
+            },
+            title = { Text("Log out of PinPoint?", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("You'll need to log in again to report or track issues. Reports saved offline stay on this device.")
+                    Text(
+                        "You'll need to log in again to report or track issues. Reports saved offline stay on this device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedText,
+                        textAlign = TextAlign.Center
+                    )
                     if (pendingUploads > 0) {
-                        Surface(shape = RoundedCornerShape(12.dp), color = AmberTint) {
+                        Surface(shape = RoundedCornerShape(14.dp), color = AmberTint) {
                             Text(
                                 "You have $pendingUploads saved report(s) not yet uploaded. They stay saved on this device until you sign back in.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Black,
+                                color = AmberText,
                                 modifier = Modifier.padding(12.dp)
                             )
                         }
@@ -79,13 +102,14 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = { showLogoutDialog = false; onSignOut() },
-                    colors = ButtonDefaults.buttonColors(containerColor = AlertRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = AlertRed, contentColor = White),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Log out")
+                    Text("Log out", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) { Text("Stay logged in") }
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Stay logged in", color = Black, fontWeight = FontWeight.SemiBold) }
             }
         )
     }
@@ -98,7 +122,9 @@ fun ProfileScreen(
         val mismatch = confirmPw.isNotEmpty() && newPw != confirmPw
         AlertDialog(
             onDismissRequest = { showChangePassword = false },
-            title = { Text("Change password") },
+            containerColor = White,
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Change password", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -107,7 +133,9 @@ fun ProfileScreen(
                         label = { Text("Current password") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = pinPointFieldColors()
                     )
                     OutlinedTextField(
                         value = newPw,
@@ -115,7 +143,9 @@ fun ProfileScreen(
                         label = { Text("New password") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = pinPointFieldColors()
                     )
                     OutlinedTextField(
                         value = confirmPw,
@@ -124,7 +154,9 @@ fun ProfileScreen(
                         singleLine = true,
                         isError = mismatch,
                         visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = pinPointFieldColors()
                     )
                     if (mismatch) Text("Passwords don't match yet", color = AlertRed, style = MaterialTheme.typography.bodySmall)
                     PasswordStrengthChecklist(newPw)
@@ -138,7 +170,8 @@ fun ProfileScreen(
                         showChangePassword = false
                         onChangePassword(cur, next)
                     },
-                    enabled = !busy && currentPw.isNotBlank() && newPw.length >= 8 && newPw == confirmPw
+                    enabled = !busy && currentPw.isNotBlank() && newPw.length >= 8 && newPw == confirmPw,
+                    shape = RoundedCornerShape(12.dp)
                 ) { Text("Update password") }
             },
             dismissButton = {
@@ -148,7 +181,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        containerColor = PinPointSurface,
+        containerColor = White,
         bottomBar = {
             PinPointBottomBar(
                 selectedRoute = "profile",
@@ -165,151 +198,228 @@ fun ProfileScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp),
+                .padding(horizontal = 20.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(text = "Profile", style = MaterialTheme.typography.headlineMedium, color = Black)
 
-            // User Identity & Counters Card (PDF 9.1)
-            SectionSurfaceCard {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(
-                        modifier = Modifier.size(56.dp).clip(CircleShape).background(VioletTint),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(initials, style = MaterialTheme.typography.titleLarge, color = DeepViolet, fontWeight = FontWeight.Bold)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = user.displayName.ifBlank { "Citizen" }, style = MaterialTheme.typography.titleLarge, color = Black)
-                        Text(text = user.email, style = MaterialTheme.typography.bodySmall, color = MutedText)
-                        Spacer(Modifier.height(4.dp))
-                        Surface(shape = RoundedCornerShape(999.dp), color = if (user.official) GreenTint else VioletTint) {
-                            Text(
-                                text = if (user.official) "Official · ${user.barangay ?: "Alangilan"}" else "Citizen · Alangilan",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (user.official) ResolvedGreen else DeepViolet,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                }
-                HorizontalDivider(color = SoftBorder)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    ProfileStat("Reports", reports.size)
-                    ProfileStat("Resolved", resolvedCount)
-                    ProfileStat("Upvotes", upvotesTotal)
-                }
-            }
-
-            if (editing) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Display name") },
-                    enabled = !busy,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                )
-            }
-
-            Button(
-                onClick = {
-                    if (editing) {
-                        onSaveProfile(name)
-                        editing = false
-                    } else editing = true
-                },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(16.dp)
+            // Centered Identity Hero (PDF 9.1)
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(if (editing) "Save Profile" else "Edit Profile")
-            }
-
-            // Account & Utility Rows (PDF 9.1 / 9.4)
-            SectionSurfaceCard {
-                ProfileRow(Icons.Filled.Lock, "Change password", "Update your account password") { showChangePassword = true }
-                HorizontalDivider(color = SoftBorder)
-                if (pendingUploads > 0) {
-                    ProfileRow(Icons.Filled.CloudOff, "Saved offline reports ($pendingUploads)", "Review, edit, retry or remove unsent reports", onManageSavedClick)
-                    HorizontalDivider(color = SoftBorder)
+                Box(
+                    modifier = Modifier.size(76.dp).clip(CircleShape).background(VioletTint),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(initials, fontSize = 26.sp, color = DeepViolet, fontWeight = FontWeight.ExtraBold)
                 }
-                ProfileRow(Icons.Filled.Sms, "SMS reporting guide", "Format a 160-character report when data is gone", onSmsGuideClick)
-                HorizontalDivider(color = SoftBorder)
-                ProfileRow(Icons.Filled.HelpOutline, "Help and support", "FAQ, evidence policy, and background sync tips") { showHelp = !showHelp }
-                if (showHelp) {
-                    Column(modifier = Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FaqItem("Can I report without internet?", "Yes. Reports save safely in encrypted local storage and upload automatically once you reconnect. Full originals upload only on unmetered Wi-Fi.")
-                        FaqItem("Why can't I delete a submitted report?", "Committed reports and photos are preserved as auditable community records. You can edit or delete unsent saved reports before they upload.")
-                        FaqItem("Background sync on TECNO / battery-managed phones", "Set PinPoint to Unrestricted battery and No Restrictions in Battery Lab so offline reports sync automatically in the background.")
-                    }
-                }
-                HorizontalDivider(color = SoftBorder)
-                ProfileRow(Icons.Filled.Info, "About PinPoint", "Version ${BuildConfig.VERSION_NAME} · Alangilan, Batangas City") { showAbout = !showAbout }
-                if (showAbout) {
+                Text(text = user.displayName.ifBlank { "Citizen" }, style = MaterialTheme.typography.titleLarge, color = Black)
+                Text(
+                    text = "${user.email} · ${user.barangay ?: "Alangilan"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                    textAlign = TextAlign.Center
+                )
+                Surface(shape = RoundedCornerShape(999.dp), color = if (user.official) GreenTint else VioletTint) {
                     Text(
-                        "PinPoint connects residents with barangay authorities in Alangilan, Batangas City using offline-first syncing, Wi-Fi-only resumable originals, community urgency voting, and SMS fallback.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MutedText
+                        text = if (user.official) "Official · ${user.barangay ?: "Alangilan"}" else "Citizen · Alangilan",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (user.official) ResolvedGreen else DeepViolet,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            // Preserve exact "Sign out" label; guard unsynced local reports with Board 9.9 confirmation dialog.
-            OutlinedButton(
-                onClick = { if (pendingUploads > 0) showLogoutDialog = true else onSignOut() },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, AlertRed.copy(alpha = 0.6f))
-            ) {
-                Text("Sign out", color = AlertRed)
+            // 3 separate equal-width #F5F5F8 stat tiles (PDF 9.1)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ProfileStatBox("Reports", reports.size, Modifier.weight(1f))
+                ProfileStatBox("Resolved", resolvedCount, Modifier.weight(1f))
+                ProfileStatBox("Upvotes", upvotesTotal, Modifier.weight(1f))
             }
+
+            if (editing) {
+                SectionSurfaceCard {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Display name") },
+                        leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp)) },
+                        enabled = !busy,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = White,
+                            unfocusedContainerColor = White,
+                            focusedBorderColor = Violet,
+                            unfocusedBorderColor = SoftBorder
+                        )
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { onSaveProfile(name); editing = false },
+                            enabled = !busy,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("Save Profile", fontWeight = FontWeight.Bold) }
+                        OutlinedButton(
+                            onClick = { name = user.displayName; editing = false },
+                            enabled = !busy,
+                            modifier = Modifier.height(46.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("Cancel") }
+                    }
+                }
+            }
+
+            // Individual #F5F5F8 chevron rows matching PDF 9.1 / 9.4
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ProfileMenuRow(Icons.Filled.Person, "Edit Profile", "Name, contact, barangay") { editing = !editing }
+                ProfileMenuRow(Icons.Filled.Lock, "Change password", "Update your account password") { showChangePassword = true }
+                if (pendingUploads > 0) {
+                    ProfileMenuRow(Icons.Filled.CloudOff, "Saved offline reports ($pendingUploads)", "Review, edit, retry or remove unsent reports", onClick = onManageSavedClick)
+                }
+                ProfileMenuRow(Icons.Filled.Sms, "SMS reporting guide", "Format a 160-character report when data is gone", onClick = onSmsGuideClick)
+                ProfileMenuRow(
+                    icon = Icons.Filled.HelpOutline,
+                    title = "Help and support",
+                    subtitle = "FAQ, evidence policy, and background sync tips",
+                    expanded = showHelp
+                ) { showHelp = !showHelp }
+                if (showHelp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FaqAccordionItem("Can I report without internet?", "Yes. Reports save safely in encrypted local storage and upload automatically once you reconnect. Full originals upload only on unmetered Wi-Fi.")
+                        FaqAccordionItem("Why can't I delete a submitted report?", "Committed reports and photos are preserved as auditable community records. You can edit or delete unsent saved reports before they upload.")
+                        FaqAccordionItem("Background sync on TECNO / battery-managed phones", "Set PinPoint to Unrestricted battery and No Restrictions in Battery Lab so offline reports sync automatically in the background.")
+                    }
+                }
+                ProfileMenuRow(
+                    icon = Icons.Filled.Info,
+                    title = "About PinPoint",
+                    subtitle = "Version ${BuildConfig.VERSION_NAME} · Alangilan, Batangas City",
+                    expanded = showAbout
+                ) { showAbout = !showAbout }
+                if (showAbout) {
+                    SectionSurfaceCard {
+                        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(
+                                modifier = Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)).background(Violet),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = White, modifier = Modifier.size(28.dp))
+                            }
+                            Text("PinPoint", style = MaterialTheme.typography.titleLarge, color = Black)
+                            Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = MutedText)
+                            Text(
+                                "PinPoint connects residents with barangay authorities in Alangilan, Batangas City using offline-first syncing, Wi-Fi-only resumable originals, community urgency voting, and SMS fallback.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MutedText,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Soft pink-red Sign out row matching PDF 9.1 (preserves exact "Sign out" label)
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable(enabled = !busy) { if (pendingUploads > 0) showLogoutDialog = true else onSignOut() },
+                shape = RoundedCornerShape(16.dp),
+                color = RedTint
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = AlertRed, modifier = Modifier.size(20.dp))
+                    Text("Sign out", style = MaterialTheme.typography.titleSmall, color = AlertRed, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
         }
     }
 }
 
 @Composable
-private fun ProfileStat(label: String, count: Int) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(count.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Black)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MutedText)
+private fun ProfileStatBox(label: String, count: Int, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(16.dp), color = PinPointSurface) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(count.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Black)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MutedText)
+        }
     }
 }
 
 @Composable
-private fun ProfileRow(
+private fun ProfileMenuRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     subtitle: String,
+    expanded: Boolean? = null,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = PinPointSurface
     ) {
-        Box(
-            modifier = Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(VioletTint),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = DeepViolet, modifier = Modifier.size(20.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = Black, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MutedText)
+            Box(
+                modifier = Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = DeepViolet, modifier = Modifier.size(19.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, color = Black, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MutedText)
+            }
+            Icon(
+                imageVector = when (expanded) {
+                    true -> Icons.Filled.ExpandLess
+                    false -> Icons.Filled.ExpandMore
+                    null -> Icons.AutoMirrored.Filled.KeyboardArrowRight
+                },
+                contentDescription = null,
+                tint = MutedText,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
 
 @Composable
-private fun FaqItem(question: String, answer: String) {
-    Surface(shape = RoundedCornerShape(12.dp), color = PinPointSurface) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(question, style = MaterialTheme.typography.labelLarge, color = DeepViolet, fontWeight = FontWeight.SemiBold)
-            Text(answer, style = MaterialTheme.typography.bodySmall, color = Black)
+private fun FaqAccordionItem(question: String, answer: String) {
+    var open by remember { mutableStateOf(false) }
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { open = !open },
+        shape = RoundedCornerShape(14.dp),
+        color = PinPointSurface
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(question, style = MaterialTheme.typography.labelLarge, color = Black, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = DeepViolet, modifier = Modifier.size(18.dp))
+            }
+            if (open) {
+                Text(answer, style = MaterialTheme.typography.bodySmall, color = MutedText)
+            }
         }
     }
 }
