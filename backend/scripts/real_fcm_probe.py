@@ -22,7 +22,8 @@ import argparse, hashlib, json, os, re, subprocess, sys, time, uuid
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hosted_authz_probe import REPO, call, sign_in, sign_out_local  # noqa: E402
+import hosted_safety as safety  # noqa: E402
+from hosted_authz_probe import REPO, call, sign_in  # noqa: E402
 from map_nav_hosted import ADB, PKG, props, shell_quote, sql  # noqa: E402
 
 RUN = time.strftime('%Y%m%d', time.gmtime())
@@ -45,6 +46,7 @@ class Probe:
         self.official = creds['official']; self.uid = creds['official']['uid']; self.cuid = creds['citizen']['uid']
         self.matrix = []; self.report_id = a.report_id; self.marker = f'PUSHFCM-{a.run_id} real FCM probe fixture'
         self.token = None; self.installation = None
+        self.sessions = safety.SessionRegistry(call); self.exit_code = 1
 
     # ---------- hosted oracle (privileged, read-only) ----------
     def devices(self, uid):
@@ -121,7 +123,7 @@ class Probe:
 
     # ---------- hosted actions as the ORDINARY official session ----------
     def session(self):
-        if not self.token: self.token = sign_in(self.official["email"], self.official["password"])[0]
+        if not self.token: self.token = self.sessions.add('official', sign_in(self.official["email"], self.official["password"])[0])
         return self.token
 
     def rpc(self, name, body):
@@ -256,11 +258,7 @@ class Probe:
                         official_device_rows_after=len(self.devices(self.uid)), citizen_rows_unchanged=self.citizen_fp() == self.cfp)
             ok_signed_out = not self.devices(self.uid)
             if ok_signed_out:
-                notice = None
-                _, rows = call('GET', f'/rest/v1/notifications?report_id=eq.{self.report_id}&select=id', self.session())
-                before = {r['id'] for r in rows}
-                self.rpc('update_report_status', {'p_report_id': self.report_id, 'p_status': 'Under Review'})
-                notice = self.new_notice(before)
+                notice, _ = self.change('Under Review', '5b signed out')   # same guard as every other send
                 ob = self.wait_delivered(notice['id'], 60)
                 self.record('5b status change while signed out (no devices)', tray_has_notice=notice['id'] in self.tray(),
                             outbox_marked_delivered=bool(ob and ob['d'] in (True, 't', 'true')), device_rows=len(self.devices(self.uid)))
@@ -276,45 +274,54 @@ class Probe:
             self.finish(ledger)
 
     def finish(self, ledger, instrument=True):
-        """Sign out the app session locally, then remove only the fixture after its outbox rows are delivered."""
-        if instrument:
-            try: self.instrument('signout')
-            except SystemExit as e: print('signout phase:', e)
-        adb(self.s, 'shell', 'settings put system user_rotation 0; settings put system accelerometer_rotation 1')
-        adb(self.s, 'shell', f'pm grant {PKG} android.permission.POST_NOTIFICATIONS')
-        if self.token:
-            try: sign_out_local(self.token)
-            except Exception: pass
-        led = json.load(open(ledger)); led['status'] = 'run-finished'; self.cfp = led['citizen_device_fp']
-        try:
-            pending = sql(f"select count(*) c from private.push_outbox o join public.notifications n on n.id=o.notification_id where n.report_id='{self.report_id}'::uuid and o.delivered_at is null")[0]['c']
-            end = now() + 120
-            while int(pending) and now() < end:
-                time.sleep(5)
-                pending = sql(f"select count(*) c from private.push_outbox o join public.notifications n on n.id=o.notification_id where n.report_id='{self.report_id}'::uuid and o.delivered_at is null")[0]['c']
-            if int(pending):
-                led['status'] = 'CLEANUP-DEFERRED-outbox-not-delivered'; print('outbox still pending; fixture preserved')
-            else:
-                q = (f"begin; do $$ begin if (select count(*) from public.reports where id='{self.report_id}'::uuid and owner_id='{self.uid}'::uuid "
-                     f"and description='{self.marker}')<>1 then raise exception 'fixture identity mismatch'; end if; "
-                     f"if exists(select 1 from public.notifications where report_id='{self.report_id}'::uuid and user_id<>'{self.uid}'::uuid) "
-                     f"or exists(select 1 from private.push_outbox o join public.notifications n on n.id=o.notification_id where n.report_id='{self.report_id}'::uuid and o.delivered_at is null) "
-                     f"or exists(select 1 from public.report_votes where report_id='{self.report_id}'::uuid) "
-                     f"then raise exception 'unexpected fixture references; cleanup refused'; end if; "
-                     f"delete from public.notifications where report_id='{self.report_id}'::uuid; "
-                     f"delete from public.report_history where report_id='{self.report_id}'::uuid; "
-                     f"delete from public.reports where id='{self.report_id}'::uuid; end $$; commit;")
-                sql(q, write=True)
-                after = {k: sql(qq)[0]['c'] for k, qq in {
-                    'reports': 'select count(*) c from public.reports', 'notifications': 'select count(*) c from public.notifications',
-                    'outbox': 'select count(*) c from private.push_outbox', 'history': 'select count(*) c from public.report_history',
-                    'devices': 'select count(*) c from public.devices'}.items()}
-                led['after'] = after
-                led['status'] = 'cleaned' if after == led['baseline'] and self.citizen_fp() == self.cfp and not self.devices(self.uid) else 'CLEANUP-MISMATCH'
-        finally:
-            json.dump(led, open(ledger, 'w'), indent=1)
-            json.dump(self.matrix, open(os.path.join(self.a.work, 'push-matrix.json'), 'w'), indent=1)
-            print('cleanup:', led['status'], led.get('after'))
+        """Fixture cleanup and session cleanup are separate outcomes. Every step is attempted; none hides another."""
+        led = json.load(open(ledger, encoding='utf-8')); led['status'] = 'run-finished'; self.cfp = led['citizen_device_fp']
+        steps = []
+        def app_signout():
+            if instrument:
+                try: self.instrument('signout'); led['app_signout'] = 'ui-signout-ok'
+                except SystemExit as error: led['app_signout'] = 'UNRESOLVED-' + str(error)[:120]; raise
+            else: led['app_signout'] = 'not-attempted'
+        def restore_settings():
+            adb(self.s, 'shell', 'settings put system user_rotation 0; settings put system accelerometer_rotation 1')
+            adb(self.s, 'shell', f'pm grant {PKG} android.permission.POST_NOTIFICATIONS')
+        def fixture():
+            q = lambda: sql(f"select count(*) c from private.push_outbox o join public.notifications n on n.id=o.notification_id where n.report_id='{self.report_id}'::uuid and o.delivered_at is null")[0]['c']
+            pending = q(); end = now() + 120
+            while int(pending) and now() < end: time.sleep(5); pending = q()
+            if int(pending): led['fixture_cleanup'] = 'DEFERRED-outbox-not-delivered'; print('outbox still pending; fixture preserved'); return
+            sql(self.cleanup_statement(), write=True)
+            after = {k: sql(qq)[0]['c'] for k, qq in {
+                'reports': 'select count(*) c from public.reports', 'notifications': 'select count(*) c from public.notifications',
+                'outbox': 'select count(*) c from private.push_outbox', 'history': 'select count(*) c from public.report_history',
+                'devices': 'select count(*) c from public.devices'}.items()}
+            led['after'] = after
+            led['fixture_cleanup'] = 'cleaned' if after == led['baseline'] and self.citizen_fp() == self.cfp and not self.devices(self.uid) else 'MISMATCH-needs-review'
+        def sessions():
+            self.sessions.teardown()
+            led['session_cleanup'] = self.sessions.summary()
+            led['sessions'] = {r: {'outcome': o, 'detail': d} for r, (o, d) in self.sessions.outcomes.items()}
+        led.setdefault('fixture_cleanup', 'not-started'); led.setdefault('session_cleanup', 'not-started')
+        results = safety.run_all([('app-signout', app_signout), ('restore-emulator-settings', restore_settings), ('fixture-cleanup', fixture), ('rest-session-teardown', sessions)])
+        led['cleanup_errors'] = [{'step': n, 'error': type(e).__name__ + ': ' + str(e)[:160]} for n, e in results if e is not None]
+        if led['fixture_cleanup'] == 'not-started' and any(n == 'fixture-cleanup' for n, e in results if e): led['fixture_cleanup'] = 'FAILED-needs-review'
+        for name in ('session_cleanup',):
+            if name not in led or led[name] == 'not-started': led[name] = self.sessions.summary()
+        json.dump(led, open(ledger, 'w', encoding='utf-8'), indent=1)
+        json.dump(self.matrix, open(os.path.join(self.a.work, 'push-matrix.json'), 'w', encoding='utf-8'), indent=1)
+        print('fixture cleanup:', led['fixture_cleanup'], led.get('after'), '| session cleanup:', led['session_cleanup'], '| app sign-out:', led.get('app_signout'))
+        self.exit_code = safety.final_exit(led['fixture_cleanup'] == 'cleaned', led['session_cleanup'], True) if led.get('app_signout') != 'UNRESOLVED' else 1
+
+    def cleanup_statement(self):
+        return (f"begin; do $$ begin if (select count(*) from public.reports where id='{self.report_id}'::uuid and owner_id='{self.uid}'::uuid "
+                f"and description='{self.marker}')<>1 then raise exception 'fixture identity mismatch'; end if; "
+                f"if exists(select 1 from public.notifications where report_id='{self.report_id}'::uuid and user_id<>'{self.uid}'::uuid) "
+                f"or exists(select 1 from private.push_outbox o join public.notifications n on n.id=o.notification_id where n.report_id='{self.report_id}'::uuid and o.delivered_at is null) "
+                f"or exists(select 1 from public.report_votes where report_id='{self.report_id}'::uuid) "
+                f"then raise exception 'unexpected fixture references; cleanup refused'; end if; "
+                f"delete from public.notifications where report_id='{self.report_id}'::uuid; "
+                f"delete from public.report_history where report_id='{self.report_id}'::uuid; "
+                f"delete from public.reports where id='{self.report_id}'::uuid; end $$; commit;")
 
 
 def main():
@@ -331,10 +338,13 @@ def main():
         ledger = os.path.join(work, 'push-ledger.json'); led = json.load(open(ledger))
         a.report_id = str(uuid.UUID(led['report_id'])); a.run_id = 'cleanup'
         pr = Probe(a, creds); pr.marker = led['marker']; pr.cfp = led['citizen_device_fp']
-        pr.finish(ledger, instrument=False); return
+        pr.finish(ledger, instrument=False); return pr.exit_code
     a.report_id = str(uuid.uuid4()); a.run_id = f'{RUN}-{a.report_id[:6]}'
-    Probe(a, creds).run()
+    probe = Probe(a, creds)
+    try: probe.run()
+    finally: pass
+    return getattr(probe, 'exit_code', 1)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

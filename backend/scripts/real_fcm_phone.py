@@ -13,7 +13,7 @@ Observations are not CP-25 latency acceptance. Secrets, tokens, FCM tokens and i
 import argparse, json, os, re, sys, time, uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hosted_authz_probe import REPO, call, sign_in, sign_out_local  # noqa: E402
+from hosted_authz_probe import REPO, call, sign_in  # noqa: E402
 from map_nav_hosted import PKG, props, sql  # noqa: E402
 from real_fcm_probe import Probe, adb, now, MAX_WAIT  # noqa: E402
 
@@ -25,7 +25,7 @@ class Phone(Probe):
         self.marker = f'PUSHFCM-PHONE-{a.report_id[:6]} real FCM phone probe fixture'
 
     def csession(self):
-        if not self.ctoken: self.ctoken = sign_in(self.creds['citizen']['email'], self.creds['citizen']['password'])[0]
+        if not self.ctoken: self.ctoken = self.sessions.add('citizen', sign_in(self.creds['citizen']['email'], self.creds['citizen']['password'])[0])
         return self.ctoken
 
     def rows(self): return [r['i'] for r in self.devices(self.cuid)]
@@ -124,13 +124,15 @@ class Phone(Probe):
                 led['after'] = after
                 led['status'] = 'cleaned' if after == led['baseline'] else 'CLEANUP-MISMATCH'
         finally:
-            for t in (self.token, self.ctoken):
-                if t:
-                    try: sign_out_local(t)
-                    except Exception: pass
+            self.sessions.teardown()
+            led['session_cleanup'] = self.sessions.summary()
+            led['sessions'] = {r: {'outcome': o, 'detail': d} for r, (o, d) in self.sessions.outcomes.items()}
+            led['fixture_cleanup'] = led['status']
             json.dump(led, open(ledger, 'w'), indent=1)
             json.dump(self.matrix, open(os.path.join(self.a.work, 'push-matrix.json'), 'w'), indent=1)
-            print('cleanup:', led['status'], led.get('after'), 'citizen rows now:', len(rows_after), 'phone row kept:', led['phone_row_still_registered'])
+            print('fixture cleanup:', led['status'], led.get('after'), '| session cleanup:', led['session_cleanup'],
+                  '| citizen rows now:', len(rows_after), 'phone row kept:', led['phone_row_still_registered'])
+            self.exit_code = 0 if led['status'] == 'cleaned' and led['session_cleanup'] in ('confirmed', 'already-invalid') else 1
 
 
 def main():
@@ -141,8 +143,11 @@ def main():
     if os.path.commonpath([work, REPO]) == REPO: raise SystemExit('Use a private --work directory outside the repository.')
     os.makedirs(work, exist_ok=True); a.work = work
     a.report_id = str(uuid.uuid4()); a.run_id = 'phone'
-    Phone(a, json.load(open(a.credentials, encoding='utf-8-sig'))).run()
+    probe = Phone(a, json.load(open(a.credentials, encoding='utf-8-sig')))
+    try: probe.run()
+    finally: pass
+    return getattr(probe, 'exit_code', 1)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
