@@ -19,6 +19,11 @@ test('mocked-transport driver suite (workflow, authz forbidden uploads, logout o
   assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
+test('process-death harness host side: emulator-only serial guard, fake server fault semantics, missing-file detection', () => {
+  const result = spawnSync(python, ['-m', 'unittest', 'discover', '-s', 'tests', '-p', 'process_death_harness_test.py', '-v'], { cwd: backend, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
 const REPORT = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
 const UNRELATED = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000002';
 const description = (n) => `CP16 eeeeeeee-eeee-4eee-8eee-${String(n).padStart(12, '0')}: water service issue.`;
