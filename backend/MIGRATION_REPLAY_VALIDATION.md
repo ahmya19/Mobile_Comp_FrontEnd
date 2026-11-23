@@ -67,3 +67,5 @@ Known platform risks to check on a clean project: the `net.http_request_queue` a
 ## Proposed production corrections
 
 None. The replay found no defect that needs a forward migration. Observations for the group, not changes: a priority-only update by an official (same status, new priority) writes a history row and a second notification (verified by a characterization test, BG-005); `register_device` reassigns a device row to the latest account that presents the same installation id (needed for account switching; it requires knowing that private id); originals have no delete policy, so an abandoned original upload cannot be removed by its owner. Any change would be a new forward migration for review, not an edit of an applied file.
+
+<!-- ELEVEN-NOTE --> Update November 23: two forward migrations were added after this validation (010 priority-only status policy, 011 Alangilan jurisdiction); the replay now covers eleven files. The hosted project's migration history uses different timestamps than the file names, so do not use a plain `db push` there; see backend/APPROVED_DECISIONS.md.

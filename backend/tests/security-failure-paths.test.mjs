@@ -208,19 +208,16 @@ test('photo path on submit is bound to the caller and report ID, and the object 
   assert.equal((await call(alice, `${alice}/${id}/photo.jpg`)).rows[0].photo_path, `${alice}/${id}/photo.jpg`);
 });
 
-test('characterization: a priority-only change by an official is recorded like a status event (group may want this changed)', async () => {
+test('approved policy (BG-005): a priority-only change by an official updates priority only, with no history, notice or outbox row', async () => {
   await reset();
   const r = await submit(alice);
   await as('authenticated', official, () => q('select * from public.update_report_status($1,$2)', [r.id, 'Under Review']));
   const before = { history: await count('select * from public.report_history where report_id=$1', [r.id]), notices: await count('select * from public.notifications where report_id=$1', [r.id]) };
   await as('authenticated', official, () => q('select * from public.update_report_status($1,$2,$3)', [r.id, 'Under Review', 'High']));
-  const rows = (await q('select previous_status,status from public.report_history where report_id=$1 order by created_at', [r.id])).rows;
   assert.equal(before.history, 1); assert.equal(before.notices, 1);
-  assert.equal(await count('select * from public.report_history where report_id=$1', [r.id]), 2, 'a second history row is written');
-  assert.deepEqual(rows[1], { previous_status: 'Under Review', status: 'Under Review' }, 'with an unchanged status');
-  assert.equal(await count('select * from public.notifications where report_id=$1', [r.id]), 2, 'and the owner is notified again');
+  assert.equal(await count('select * from public.report_history where report_id=$1', [r.id]), 1, 'no second history row');
+  assert.equal(await count('select * from public.notifications where report_id=$1', [r.id]), 1, 'the owner is not notified again');
   assert.equal((await one('select priority from public.reports where id=$1', [r.id])).priority, 'High');
-  // an exact repeat changes nothing
   await as('authenticated', official, () => q('select * from public.update_report_status($1,$2,$3)', [r.id, 'Under Review', 'High']));
-  assert.equal(await count('select * from public.report_history where report_id=$1', [r.id]), 2);
+  assert.equal(await count('select * from public.report_history where report_id=$1', [r.id]), 1);
 });

@@ -42,7 +42,7 @@ Ten deliberate breaks of security-relevant statements were replayed through this
 
 No exploitable authorization defect was found. Observations, not fixed (owner or group decision):
 
-- **BG-005 (open, decision needed):** an official's priority-only change keeps the status but writes a history row `Under Review -> Under Review` and sends the owner a second "report is under review" notification. Pinned by a characterization test. Fixing it needs a forward migration for `update_report_status`; proposed rule: when only the priority changes, update priority and `updated_at` without a history row or notification.
+- **BG-005 (decision approved Nov 23, fixed in migration 010, not yet deployed; text below describes the pre-fix behavior):** an official's priority-only change keeps the status but writes a history row `Under Review -> Under Review` and sends the owner a second "report is under review" notification. Pinned by a characterization test. Fixing it needs a forward migration for `update_report_status`; proposed rule: when only the priority changes, update priority and `updated_at` without a history row or notification.
 - `register_device` moves a device row to whichever account presents the installation id. This is needed for account switching on one phone and requires knowing that private id. Recorded in a test, not changed.
 - Originals have no delete policy, so an abandoned original upload cannot be removed by its owner (storage growth). The photo bucket allows orphan cleanup; the originals bucket does not.
 - Upload paths accept any 36 hex-or-dash characters as the id segment. Submit requires the exact report UUID, so a junk path is just an orphan.

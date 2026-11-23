@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { alice, bob, official, platformExtensions, readMigration, migrationFiles, createReplayDb, roleRunner } from './support/replay.mjs';
 
 /*
- * Replays ALL nine supabase/migrations files, in order, from an empty database and checks the FINAL state
+ * Replays ALL eleven supabase/migrations files, in order, from an empty database and checks the FINAL state
  * (several migrations are superseded later: 006 -> 008 dispatcher, 006 finish_push, 009 claim_push_batch).
  * The shared harness (tests/support/replay.mjs) documents what the platform stubs do and do not prove.
  * This is NOT a fresh hosted restore. See backend/MIGRATION_REPLAY_VALIDATION.md.
@@ -19,6 +19,7 @@ const q = (sql, params = []) => db.query(sql, params);
 const one = async (sql, params = []) => (await db.query(sql, params)).rows[0];
 async function reset() {
   await db.exec(`delete from private.push_outbox; delete from public.notifications; delete from public.report_history;
+    delete from private.sms_receipts; delete from public.report_votes;
     delete from private.push_dispatch_tokens; delete from net.http_request_queue; delete from public.devices;
     delete from public.reports; delete from vault.secrets where name in ('pinpoint_project_url','pinpoint_publishable_key');`);
 }
@@ -32,11 +33,11 @@ async function pendingNotification(owner = alice, status = 'Under Review') {
   return { reportId: id, ...(await one('select n.id notification_id from public.notifications n where n.report_id=$1', [id])) };
 }
 
-test('inventory: exactly nine migrations, ordered, each atomic, each contributing its objects', async () => {
+test('inventory: exactly eleven migrations, ordered, each atomic, each contributing its objects', async () => {
   assert.deepEqual(files, [
     '202611210001_pinpoint.sql', '202611210002_delivery.sql', '202611210003_indexes.sql', '202611210004_originals.sql',
     '202611210005_push_retries.sql', '202611210006_push_dispatch.sql', '202611210007_dispatch_acl.sql',
-    '202611210008_dispatch_nonce.sql', '202611210009_push_recipient.sql']);
+    '202611210008_dispatch_nonce.sql', '202611210009_push_recipient.sql', '202611230010_priority_only_status_policy.sql', '202611230011_alangilan_jurisdiction.sql']);
   for (const name of files) {
     const sql = (await readMigration(name)).replace(/^(--[^\n]*\n)+/, '').trim();
     assert.ok(/^begin;/i.test(sql) && /commit;\s*$/i.test(sql), `${name} must be one transaction so a failure leaves no partial state`);
@@ -63,6 +64,8 @@ test('inventory: exactly nine migrations, ordered, each atomic, each contributin
   // 007 + 008 (final state)
   assert.ok(await exists('private.push_dispatch_tokens'));
   assert.equal((await one("select count(*)::int n from vault.secrets where name='pinpoint_push_dispatcher'")).n, 0, '008 removes the reusable dispatcher secret');
+  // 010 (approved BG-005 policy)
+  assert.match((await one("select prosrc from pg_proc where oid='public.update_report_status(uuid,text,text)'::regprocedure")).prosrc, /status_changed/);
   // 009
   assert.match((await one("select prosrc from pg_proc where oid='public.claim_push_batch(uuid)'::regprocedure")).prosrc, /'user_id'/);
 });
@@ -258,4 +261,87 @@ test('every foreign key column is the leading column of an index (no unindexed F
     join pg_attribute a on a.attrelid=c.conrelid and a.attnum=c.conkey[1]
     where c.contype='f' and not exists (select 1 from pg_index i where i.indrelid=c.conrelid and i.indkey[0]=c.conkey[1])`)).rows;
   assert.deepEqual(missing, []);
+});
+
+test('approved policy (BG-005): only an actual status change writes history, a notification and an outbox event', async () => {
+  await reset();
+  const mk = async () => { const n = await pendingNotification(alice, 'Under Review'); return n.reportId; };
+  const events = async (id) => ({
+    history: (await one('select count(*)::int n from public.report_history where report_id=$1', [id])).n,
+    notices: (await one('select count(*)::int n from public.notifications where report_id=$1', [id])).n,
+    outbox: (await one('select count(*)::int n from private.push_outbox o join public.notifications n on n.id=o.notification_id where n.report_id=$1', [id])).n });
+  const id = await mk();
+  assert.deepEqual(await events(id), { history: 1, notices: 1, outbox: 1 }, 'the real status change still creates exactly one of each');
+  const stamp = (await one('select updated_at from public.reports where id=$1', [id])).updated_at;
+  const setPriority = (p, status = 'Under Review') => as('authenticated', official, () => q('select * from public.update_report_status($1,$2,$3)', [id, status, p]));
+  await setPriority('High');
+  assert.deepEqual(await events(id), { history: 1, notices: 1, outbox: 1 }, 'a priority-only change adds no history, notice or outbox row');
+  const row = await one('select priority,official_priority,status,updated_at from public.reports where id=$1', [id]);
+  assert.equal(row.priority, 'High'); assert.equal(row.official_priority, 'High'); assert.equal(row.status, 'Under Review');
+  assert.ok(new Date(row.updated_at) >= new Date(stamp), 'updated_at is refreshed');
+  await setPriority('High');   // exact repeat
+  assert.deepEqual(await events(id), { history: 1, notices: 1, outbox: 1 }, 'an exact repeat stays idempotent');
+  await as('authenticated', official, () => q('select * from public.update_report_status($1,$2)', [id, 'Under Review']));
+  assert.deepEqual(await events(id), { history: 1, notices: 1, outbox: 1 }, 'a null-priority repeat is idempotent too');
+  // a real status change together with a priority still creates exactly one of each
+  await setPriority('Medium', 'In Progress');
+  assert.deepEqual(await events(id), { history: 2, notices: 2, outbox: 2 });
+  assert.equal((await one('select priority from public.reports where id=$1', [id])).priority, 'Medium');
+});
+
+test('approved policy: effective priority keeps the vote floor and votes never lower an official assessment (3 = Medium, 10 = High)', async () => {
+  await reset();
+  const n = await pendingNotification(alice, 'Under Review'); const id = n.reportId;
+  const prio = async () => (await one('select priority,official_priority,vote_count from public.reports where id=$1', [id]));
+  const official_sets = (p) => as('authenticated', official, () => q('select * from public.update_report_status($1,$2,$3)', [id, 'Under Review', p]));
+  await official_sets('High');
+  assert.equal((await prio()).priority, 'High');
+  await db.query('update public.reports set vote_count=3 where id=$1', [id]);   // 3 votes: the Medium floor
+  await official_sets('Low');                                                     // the official lowers their own assessment
+  assert.deepEqual([(await prio()).official_priority, (await prio()).priority], ['Low', 'Medium'], 'the effective priority falls only to the 3-vote Medium floor, never below it');
+  await db.query('update public.reports set vote_count=10 where id=$1', [id]);  // 10 votes: the High floor
+  await official_sets('Medium');
+  assert.deepEqual([(await prio()).official_priority, (await prio()).priority], ['Medium', 'High'], 'the 10-vote High floor holds over an official Medium');
+  await db.query('update public.reports set vote_count=2 where id=$1', [id]);   // votes removed below 3: only the official assessment remains
+  await official_sets('Low');
+  assert.equal((await prio()).priority, 'Low', 'below 3 votes the official Low is effective');
+  assert.equal((await one('select count(*)::int n from public.report_history where report_id=$1', [id])).n, 1, 'none of these priority-only calls wrote history');
+});
+
+test('approved policy: ordinary roles still cannot use the priority path (citizen, anonymous, other barangay, invalid values)', async () => {
+  await reset();
+  const n = await pendingNotification(alice, 'Under Review'); const id = n.reportId;
+  const before = (await one('select official_priority,updated_at from public.reports where id=$1', [id]));
+  await assert.rejects(as('authenticated', alice, () => q('select * from public.update_report_status($1,$2,$3)', [id, 'Under Review', 'High'])), { code: '42501' });
+  await assert.rejects(as('anon', null, () => q('select * from public.update_report_status($1,$2,$3)', [id, 'Under Review', 'High'])));
+  await assert.rejects(as('authenticated', '44444444-4444-4444-8444-444444444444', () => q('select * from public.update_report_status($1,$2,$3)', [id, 'Under Review', 'High'])), { code: '42501' });
+  await assert.rejects(as('authenticated', official, () => q('select * from public.update_report_status($1,$2,$3)', [id, 'Under Review', 'Critical'])), { code: '22023' });
+  assert.deepEqual(await one('select official_priority,updated_at from public.reports where id=$1', [id]), before, 'rejected calls change nothing');
+});
+
+test('approved jurisdiction: only Alangilan is configured, SMS routes to its approximate centroid, anything else fails closed', async () => {
+  await reset();
+  const rows = (await q('select name,latitude,longitude from private.barangays order by name')).rows;
+  assert.deepEqual(rows, [{ name: 'Alangilan', latitude: 13.7819, longitude: 121.0671 }], 'the simulation barangays are gone and nothing else is configured');
+  const hash = (n) => n.repeat(64).slice(0, 64);
+  const ingest = (msg, barangay, h) => as('service_role', null, () => q('select public.ingest_sms_report($1,$2,$3,$4,$5,$6) id', ['gateway-1', msg, h, 'Garbage', 'Overflowing bin', barangay]));
+  const id = (await ingest('m1', ' alangilan ', hash('a'))).rows[0].id;
+  assert.deepEqual(await one("select source,owner_id,barangay,location,latitude,longitude from public.reports where id=$1", [id]),
+    { source: 'sms', owner_id: null, barangay: 'Alangilan', location: 'Barangay center (SMS location)', latitude: 13.7819, longitude: 121.0671 });
+  assert.equal((await ingest('m1', 'Alangilan', hash('a'))).rows[0].id, id, 'a gateway retry returns the same report');
+  await assert.rejects(ingest('m2', 'Test Barangay A', hash('b')), /approved barangay centroid/);
+  await assert.rejects(ingest('m3', 'Poblacion', hash('c')), /approved barangay centroid/);
+  assert.equal((await one("select count(*)::int n from public.reports where source='sms'")).n, 1, 'rejected messages create no report');
+});
+
+test('approved jurisdiction: the migration touches no report, history or receipt and public signup cannot create an official', async () => {
+  await reset();
+  const before = await one("select md5(coalesce(string_agg(to_jsonb(r)::text,',' order by id),'')) d from public.reports r");
+  await db.exec(await readMigration('202611230011_alangilan_jurisdiction.sql'));   // idempotent re-application
+  assert.deepEqual(await one("select md5(coalesce(string_agg(to_jsonb(r)::text,',' order by id),'')) d from public.reports r"), before);
+  assert.equal((await one('select count(*)::int n from private.barangays')).n, 1);
+  // roles come only from private.officials, which the API roles cannot write, and metadata cannot elevate
+  await assert.rejects(as('authenticated', alice, () => q("insert into private.officials(user_id,barangay) values($1,'Alangilan')", [alice])));
+  await assert.rejects(as('authenticated', alice, () => q("update auth.users set raw_user_meta_data='{\"official\":true}' where id=$1", [alice])));
+  assert.equal((await as('authenticated', alice, () => q('select public.my_profile() p'))).rows[0].p.official, false);
 });
