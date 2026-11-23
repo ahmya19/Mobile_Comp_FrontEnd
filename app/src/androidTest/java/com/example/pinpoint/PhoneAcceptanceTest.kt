@@ -8,8 +8,10 @@ import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import androidx.work.WorkManager
 import com.example.pinpoint.data.ReportDraft
 import com.example.pinpoint.data.ReportQueue
+import com.example.pinpoint.data.ReportSyncWorker
 import com.example.pinpoint.data.SupabaseBackend
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -21,6 +23,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
 import java.util.Random
+import java.util.concurrent.TimeUnit
 
 /**
  * Phase driver for the physical-phone acceptance cohorts (backend/scripts/phone_acceptance.py). Inert unless `-e phase`.
@@ -91,12 +94,36 @@ class PhoneAcceptanceTest {
                     var syncedAt = 0L; var originalAt = 0L
                     while (System.currentTimeMillis() < deadline) {
                         val r = queue.items(owner, b.url).firstOrNull { it.id == id } ?: break
-                        if (syncedAt == 0L && r.state == "Synced") { syncedAt = System.currentTimeMillis(); receipt { put("t_synced_ms", syncedAt); put("client_submit_ms", syncedAt - t0) } }
+                        if (syncedAt == 0L && r.state == "Synced") {
+                            syncedAt = System.currentTimeMillis()
+                            val timing = ReportSyncWorker.recentTimings[id]
+                            receipt {
+                                put("t_synced_ms", syncedAt); put("client_submit_ms", syncedAt - t0)
+                                if (timing != null) {
+                                    put("worker_start_delay_ms", (timing.firstWorkerStartMs - t0).coerceAtLeast(0L))
+                                    put("submit_exec_ms", ((timing.syncedMs ?: syncedAt) - timing.firstWorkerStartMs).coerceAtLeast(0L))
+                                    put("worker_attempts", timing.attempts)
+                                    if (timing.lastErrorKind != null) put("worker_last_error", timing.lastErrorKind)
+                                }
+                            }
+                        }
                         if (!original && syncedAt != 0L) break
                         if (original && r.originalState == "Uploaded") { originalAt = System.currentTimeMillis(); receipt { put("t_original_done_ms", originalAt); put("original_total_ms", originalAt - t0) }; break }
                         Thread.sleep(150)
                     }
                     receipt { put("waited", true); put("synced", syncedAt != 0L); put("original_uploaded", originalAt != 0L) }
+                    // Let ReportSyncWorker commit Result.success() to WorkManager before instrumentation ends the process,
+                    // without affecting the already-recorded client_submit_ms timestamp.
+                    if (!original && syncedAt != 0L) {
+                        val finishDeadline = System.currentTimeMillis() + 2_000
+                        while (System.currentTimeMillis() < finishDeadline) {
+                            val infos = runCatching {
+                                WorkManager.getInstance(context).getWorkInfosForUniqueWork("pinpoint-reports-$owner").get(1, TimeUnit.SECONDS)
+                            }.getOrNull()
+                            if (infos != null && infos.all { it.state.isFinished }) break
+                            Thread.sleep(100)
+                        }
+                    }
                 }
             }
             "signout" -> { val b = backend(); runBlocking { b.auth.signOut() }; receiptFile.delete() }

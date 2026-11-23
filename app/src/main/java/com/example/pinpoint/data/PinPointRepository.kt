@@ -88,9 +88,20 @@ class PinPointRepository(private val backend: SupabaseBackend) {
         val photoPath=photo?.let { "$uid/$id/photo.jpg" }
         if (photo!=null && photoPath!=null) {
             require(photo.size<=256000) { "Photo must be at most 250 KB." }
-            try { backend.request("storage/v1/object/report-images/$photoPath","POST",photo,"image/jpeg",expectedUserId=uid) }
-            catch (error: BackendException) {
-                if (error.status !in listOf(400,409) || !backend.request("storage/v1/object/authenticated/report-images/$photoPath","GET",expectedUserId=uid).contentEquals(photo)) throw error
+            // Photo upload is idempotent (400/409 duplicate verifies byte equality). One fast retry recovers a stale
+            // pooled socket or brief radio drop in ~1 s instead of paying WorkManager's full retry backoff (BG-024).
+            var attempt = 0
+            while (true) {
+                try {
+                    backend.request("storage/v1/object/report-images/$photoPath","POST",photo,"image/jpeg",expectedUserId=uid)
+                    break
+                } catch (error: BackendException) {
+                    if (error.status !in listOf(400,409) || !backend.request("storage/v1/object/authenticated/report-images/$photoPath","GET",expectedUserId=uid).contentEquals(photo)) throw error
+                    break
+                } catch (error: java.io.IOException) {
+                    if (attempt++ > 0) throw error
+                    delay(400)
+                }
             }
         }
         rpc("submit_report",mapOf("p_id" to id,"p_category" to draft.category,"p_description" to draft.description.trim(),

@@ -148,6 +148,41 @@ class AuthQueueFailureTest {
         assertEquals("Synced", state(uid(alice), id)); assertEquals(1, server.photos.size); assertEquals(1, server.creations.size)
     }
 
+    @Test fun transientPhotoSocketDropBeforeWriteRecoversInSingleWorkerRun() {
+        signIn(alice)
+        val id = enqueue(photo = photoUri())
+        server.photoBehaviors += Rpc.DROP_BEFORE_COMMIT
+        assertEquals(ListenableWorker.Result.success(), runSync(uid(alice)))
+        assertEquals("Synced", state(uid(alice), id))
+        assertEquals(1, server.photos.size); assertEquals(1, server.creations.size)
+        assertEquals("two photo POST attempts in one worker run", 2,
+            server.requests.count { it.method == "POST" && it.path.startsWith("/storage/v1/object/report-images/") })
+    }
+
+    @Test fun transientPhotoSocketDropAfterWriteReusesPhotoInSingleWorkerRun() {
+        signIn(alice)
+        val id = enqueue(photo = photoUri())
+        server.photoBehaviors += Rpc.DROP_AFTER_COMMIT
+        assertEquals(ListenableWorker.Result.success(), runSync(uid(alice)))
+        assertEquals("Synced", state(uid(alice), id))
+        assertEquals(1, server.photos.size); assertEquals(1, server.creations.size)
+        assertEquals("duplicate check GET confirmed uploaded bytes", 1,
+            server.requests.count { it.method == "GET" && it.path.startsWith("/storage/v1/object/authenticated/report-images/") })
+    }
+
+    @Test fun persistentPhotoSocketDropStillRetriesThroughWorkManager() {
+        signIn(alice)
+        val id = enqueue(photo = photoUri())
+        server.photoBehaviors += Rpc.DROP_BEFORE_COMMIT
+        server.photoBehaviors += Rpc.DROP_BEFORE_COMMIT
+        assertEquals(ListenableWorker.Result.retry(), runSync(uid(alice)))
+        assertEquals("Queued", state(uid(alice), id))
+        assertEquals(0, server.photos.size); assertEquals(0, server.creations.size)
+        assertEquals(ListenableWorker.Result.success(), runSync(uid(alice)))
+        assertEquals("Synced", state(uid(alice), id))
+        assertEquals(1, server.photos.size); assertEquals(1, server.creations.size)
+    }
+
     @Test fun processDeathMidSendIsRecoveredFromTheDurableRow() {
         signIn(alice)
         val id = enqueue()

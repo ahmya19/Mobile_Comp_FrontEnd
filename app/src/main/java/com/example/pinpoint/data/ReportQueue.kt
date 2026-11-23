@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.net.Uri
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -17,11 +18,14 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.WorkRequest
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.google.gson.Gson
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -287,6 +291,7 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
         }
         val builder=OneTimeWorkRequestBuilder<ReportSyncWorker>().setInputData(workDataOf("owner" to owner))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL,WorkRequest.MIN_BACKOFF_MILLIS,TimeUnit.MILLISECONDS)
         // A short report/photo send is user-initiated. Preserve durable work when quota is used.
         builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
         val request=builder.build()
@@ -331,12 +336,16 @@ class ReportSyncWorker(context: Context,parameters: WorkerParameters) : Coroutin
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val workerStartedAt=System.currentTimeMillis()
         val backend=SupabaseBackend.create(applicationContext) ?: return@withContext Result.success()
         val owner=inputData.getString("owner") ?: return@withContext Result.failure()
         if (backend.auth.currentUser?.id!=owner) return@withContext Result.success()
         val queue=ReportQueue.get(applicationContext)
         for(listed in queue.items(owner,backend.url).filter { it.state in listOf("Queued","Sending") }) {
             if(backend.auth.currentUser?.id!=owner) return@withContext Result.success()
+            val submitStartedAt=System.currentTimeMillis()
+            val prior=recentTimings[listed.id]
+            val attemptNumber=(prior?.attempts ?: 0)+1
             try {
                 // The list above is a snapshot: re-claim the row and use its CURRENT content (it may have been deleted or edited).
                 val item=queue.claimForSend(owner,backend.url,listed.id) ?: continue
@@ -346,10 +355,25 @@ class ReportSyncWorker(context: Context,parameters: WorkerParameters) : Coroutin
                     file.readBytes()
                 }
                 PinPointRepository(backend).submit(item.id,item.draft,photo,owner)
+                val syncedAt=System.currentTimeMillis()
+                recordTiming(item.id,SyncTiming(
+                    firstWorkerStartMs=prior?.firstWorkerStartMs ?: workerStartedAt,
+                    lastSubmitStartMs=submitStartedAt,
+                    syncedMs=syncedAt,
+                    attempts=attemptNumber,
+                    lastErrorKind=prior?.lastErrorKind
+                ))
                 queue.setState(item.id,"Synced")
                 item.photoFile?.let { File(it).delete() }
                 if(item.originalFile!=null) queue.scheduleOriginals(owner)
             } catch(error: Exception) {
+                recordTiming(listed.id,SyncTiming(
+                    firstWorkerStartMs=prior?.firstWorkerStartMs ?: workerStartedAt,
+                    lastSubmitStartMs=submitStartedAt,
+                    syncedMs=null,
+                    attempts=attemptNumber,
+                    lastErrorKind=error.javaClass.simpleName
+                ))
                 if(error is CancellationException) { queue.setState(listed.id,"Queued"); throw error }
                 if(backend.auth.currentUser?.id!=owner) { queue.setState(listed.id,"Queued");return@withContext Result.success() }
                 val retryable=error is java.io.IOException && (error !is BackendException || error.status>=500 || error.status in listOf(408,429))
@@ -359,6 +383,25 @@ class ReportSyncWorker(context: Context,parameters: WorkerParameters) : Coroutin
         }
         queue.scheduleOriginals(owner)
         Result.success()
+    }
+
+    /** In-process non-sensitive timing markers for diagnosing submission latency (BG-024). */
+    data class SyncTiming(
+        val firstWorkerStartMs: Long,
+        val lastSubmitStartMs: Long,
+        val syncedMs: Long?,
+        val attempts: Int,
+        val lastErrorKind: String?
+    )
+
+    companion object {
+        val recentTimings: ConcurrentHashMap<String,SyncTiming> = ConcurrentHashMap()
+        private fun recordTiming(reportId: String,timing: SyncTiming) {
+            if(recentTimings.size>=64 && !recentTimings.containsKey(reportId)) {
+                recentTimings.entries.minByOrNull { it.value.firstWorkerStartMs }?.key?.let { recentTimings.remove(it) }
+            }
+            recentTimings[reportId]=timing
+        }
     }
 }
 

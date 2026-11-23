@@ -13,6 +13,7 @@ import com.google.gson.JsonParser
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.ConnectionPool
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -29,7 +30,8 @@ class SupabaseBackend private constructor(context: Context, val url: String, int
     sessionPreferences: String = "pinpoint_secure_session") {
     val gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create()
     private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS).callTimeout(45, TimeUnit.SECONDS).build()
+        .writeTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).callTimeout(45, TimeUnit.SECONDS)
+        .connectionPool(ConnectionPool(5, 30, TimeUnit.SECONDS)).build()
     val auth = SupabaseAuth(this, SessionStore(context, sessionPreferences))
 
     suspend fun json(path: String, method: String = "GET", body: Any? = null, authenticated: Boolean = true, expectedUserId: String? = null): JsonElement {
