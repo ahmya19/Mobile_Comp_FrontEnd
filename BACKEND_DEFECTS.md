@@ -89,3 +89,7 @@ Owner: Kotlin UI state. Status: **Fixed** (November 23). The Map and report-list
 ## BG-014 — hosted-test drivers could delete the wrong rows and mislabel cleanup
 
 Owner: backend tooling. Status: **Fixed** (November 23), proven locally only. Five tooling defects, not a production RLS exploit and not run against the hosted project: (1) the workflow driver deleted an inferred "sole new report"'s notices and history even after its identity checks failed; (2) verification exceptions skipped cleanup and logout; (3) forbidden upload attempts were not individually ledgered or verified; (4) the FCM probe's signed-out status change bypassed the per-send guard; (5) logout failures were swallowed or stopped other sessions' teardown, and runs were labelled cleaned from row counts. See [backend/HOSTED_TOOLING_FAILURE_SAFETY.md](backend/HOSTED_TOOLING_FAILURE_SAFETY.md).
+
+## BG-015 — a kill between "Synced" and deleting the local photo left a private copy forever
+
+Owner: Kotlin data. Status: **Fixed** (November 23). `ReportSyncWorker` marked a report Synced and only then deleted its compressed copy; a process death in that window left `<id>.jpg` in app-private storage with nothing ever revisiting it. Reproduced with a real SIGKILL (harness case S7: the copy remained after restart), fixed by `ReportQueue.purgeSyncedPhotos` on every schedule (S7 passes). Polish noted, not changed: a different-body object conflict surfaces as `HTTP_400: The resource already exists`. See [backend/PROCESS_DEATH_RECOVERY_VALIDATION.md](backend/PROCESS_DEATH_RECOVERY_VALIDATION.md).

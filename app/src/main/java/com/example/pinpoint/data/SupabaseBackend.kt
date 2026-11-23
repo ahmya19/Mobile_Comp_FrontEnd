@@ -107,8 +107,34 @@ class SupabaseBackend private constructor(context: Context, val url: String, int
         }
         fun resetForTesting() { testInstance = null }
 
+        private const val PERSISTED = "pinpoint_test_backend"
+        /** Debug builds only, for the host-driven process-death harness: like [installForTesting] but the loopback target is
+         *  remembered in app-private storage so a RESTARTED app process (WorkManager workers included) keeps using it. The
+         *  session store is the isolated test one; the user's real session is never touched. [clearPersistedTesting] undoes it. */
+        fun installPersistedForTesting(context: Context, url: String, key: String, sessionPreferences: String = "pinpoint_test_session"): SupabaseBackend {
+            val backend = installForTesting(context, url, key, sessionPreferences)
+            context.applicationContext.getSharedPreferences(PERSISTED, Context.MODE_PRIVATE).edit(commit = true) {
+                putString("url", url); putString("key", key); putString("session", sessionPreferences)
+            }
+            return backend
+        }
+        fun clearPersistedTesting(context: Context) {
+            context.applicationContext.getSharedPreferences(PERSISTED, Context.MODE_PRIVATE).edit(commit = true) { clear() }
+            testInstance = null
+        }
+        @Synchronized private fun persistedForTesting(context: Context): SupabaseBackend? {
+            if (!BuildConfig.DEBUG) return null
+            testInstance?.let { return it }
+            val prefs = context.applicationContext.getSharedPreferences(PERSISTED, Context.MODE_PRIVATE)
+            val url = prefs.getString("url", null) ?: return null
+            if (!url.startsWith("http://127.0.0.1")) return null
+            return SupabaseBackend(context.applicationContext, url, prefs.getString("key", "sb_publishable_test") ?: "sb_publishable_test",
+                prefs.getString("session", "pinpoint_test_session") ?: "pinpoint_test_session").also { testInstance = it }
+        }
+
         fun create(context: Context): SupabaseBackend? {
             testInstance?.let { return it }
+            persistedForTesting(context)?.let { return it }
             if (BuildConfig.SUPABASE_URL.isBlank() || BuildConfig.SUPABASE_PUBLISHABLE_KEY.isBlank()) return null
             check(BuildConfig.SUPABASE_URL.startsWith("https://") || (BuildConfig.DEBUG &&
                 BuildConfig.SUPABASE_URL.startsWith("http://127.0.0.1"))) { "Supabase must use HTTPS." }

@@ -128,8 +128,15 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
         items(owner,project).filter { it.originalState=="Failed" }.forEach { setOriginalState(it.id,"Waiting for Wi-Fi") }
         schedule(owner)
     }
+    /** A kill between "Synced" and deleting the compressed copy would otherwise leave a private photo on disk forever. */
+    fun purgeSyncedPhotos(owner: String,project: String) {
+        items(owner,project).filter { it.state=="Synced" }.forEach { item ->
+            item.photoFile?.let { path -> File(path).takeIf { it.isFile }?.delete() }
+        }
+    }
     fun schedule(owner: String) {
         val project=SupabaseBackend.create(context)?.url ?: return
+        purgeSyncedPhotos(owner,project)
         val pending=items(owner,project)
         if(pending.none { it.state in listOf("Queued","Sending") }) {
             // An empty ordinary drain would become a predecessor of the next urgent report.
