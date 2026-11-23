@@ -25,6 +25,7 @@ from map_nav_hosted import sql  # noqa: E402  (read-only by default; write=True 
 
 PKG = 'com.example.pinpoint'
 ADB = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Android', 'Sdk', 'platform-tools', 'adb.exe')
+OUTBOX_WAIT, OUTBOX_POLL = 120, 4
 TABLES = {
     'reports': 'select id::text k from public.reports',
     'notifications': 'select id::text k from public.notifications',
@@ -119,6 +120,12 @@ def run_cleanup(ledger, cuid, sessions):
     """Guarded cleanup from ledger scope. Returns nothing; records outcomes in the ledger. Never deletes without identity."""
     d = ledger.data; ident = d.get('identity')
     if not ident: ledger.update(fixture_cleanup='REFUSED'); return
+    def pending():
+        return int(sql(f"select count(*) c from private.push_outbox o join public.notifications n on n.id=o.notification_id where n.report_id='{ident['report']}' and o.delivered_at is null")[0]['c'])
+    end = time.monotonic() + OUTBOX_WAIT
+    while pending() and time.monotonic() < end: time.sleep(OUTBOX_POLL)
+    if pending():   # a live dispatcher may hold a lease on these rows: deleting them now would race it
+        ledger.update(fixture_cleanup='DEFERRED-outbox-not-delivered'); return
     notes = [r['id'] for r in sql(f"select id::text id from public.notifications where report_id='{ident['report']}'")]
     hist = int(sql(f"select count(*) c from public.report_history where report_id='{ident['report']}'")[0]['c'])
     ledger.update(dependents={'notifications': notes, 'history_rows': hist}, fixture_cleanup='pending-delete')
@@ -128,6 +135,25 @@ def run_cleanup(ledger, cuid, sessions):
         ledger.update(fixture_cleanup='REFUSED-by-guard', cleanup_error=str(error)[:300]); return
     gone = int(sql(f"select count(*) c from public.reports where id='{ident['report']}'")[0]['c']) == 0
     ledger.update(fixture_cleanup='report-removed' if gone else 'FAILED-report-still-present')
+
+
+def fixture_device_cleanup_sql(citizen, official):
+    for value in (citizen, official):
+        if not safety.valid_uuid(value): raise ValueError('Invalid fixture account id.')
+    pair = f"'{citizen}'::uuid,'{official}'::uuid"
+    return (f"begin; do $$ begin if (select count(*) from auth.users where id in ({pair}) and raw_app_meta_data->>'pinpoint_fixture'='true')<>2 "
+            f"then raise exception 'Not project fixture identities; device cleanup refused'; end if; "
+            f"delete from public.devices where user_id in ({pair}); end $$; commit;")
+
+
+def run_fixture_device_cleanup(ledger, creds):
+    """Remove ONLY the registrations of the two permanent test identities (owned emulators). Never runs for other accounts."""
+    if creds.get('fixture') is not True or ledger.data.get('device_precheck') != 'clean':   # never delete registrations this run did not prove it owns
+        ledger.update(fixture_devices='not-applicable'); return
+    ids = (creds['citizen']['uid'], creds['official']['uid'])
+    sql(fixture_device_cleanup_sql(*ids), write=True)
+    left = int(sql(f"select count(*) c from public.devices where user_id in ('{ids[0]}'::uuid,'{ids[1]}'::uuid)")[0]['c'])
+    ledger.update(fixture_devices='removed' if left == 0 else 'FAILED-registrations-remain')
 
 
 def run_object_cleanup(ledger, creds, sessions):
@@ -151,11 +177,17 @@ def leftovers_vs(baseline):
 
 def execute(a, creds):
     work = a.work; cuid = creds['citizen']['uid']
+    if creds.get('fixture') is not True:
+        raise SystemExit('Refusing: this workflow changes a report status, which sends a real push to the citizen account\'s registered devices. '
+                         'Use the project fixture identities (credentials file with "fixture": true), never the shared demo accounts.')
     ledger = safety.RunLedger(os.path.join(work, 'workflow-ledger.json'), intent='one citizen report with photo, one history row, one notification',
                               serial=a.serial, citizen_uid=cuid)
     sessions = safety.SessionRegistry(call)
     test_ok, baseline, failure = False, None, None
     try:
+        pre = sql(f"select count(*) c from public.devices where user_id in ('{cuid}'::uuid,'{creds['official']['uid']}'::uuid)")[0]['c']
+        if int(pre): raise SystemExit('The fixture identities already have device registrations; refusing so no other device can receive the push.')
+        ledger.update(device_precheck='clean')
         baseline = snapshot()
         json.dump(baseline, open(os.path.join(work, 'workflow-baseline.json'), 'x'), indent=1)
         ledger.update(baseline_counts={k: len(v) for k, v in baseline.items()}, status='intent-recorded')
@@ -205,7 +237,8 @@ def execute(a, creds):
         except Exception: pass
     finally:
         steps = [('report-cleanup', lambda: run_cleanup(ledger, cuid, sessions)),
-                 ('object-cleanup', lambda: run_object_cleanup(ledger, creds, sessions))]
+                 ('object-cleanup', lambda: run_object_cleanup(ledger, creds, sessions)),
+                 ('fixture-device-cleanup', lambda: run_fixture_device_cleanup(ledger, creds))]
         results = safety.run_all(steps, ledger)
         fixture_state = ledger.data.get('fixture_cleanup')
         if fixture_state == 'not-started': ledger.update(fixture_cleanup='nothing-created-or-unproven')
