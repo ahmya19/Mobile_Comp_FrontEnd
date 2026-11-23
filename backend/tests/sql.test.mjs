@@ -29,6 +29,7 @@ before(async () => {
   await db.exec(await readFile(new URL('../../supabase/migrations/202611210004_originals.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/202611210005_push_retries.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/202611210009_push_recipient.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/202611230010_priority_only_status_policy.sql',import.meta.url),'utf8'));
   await db.query('insert into private.officials(user_id,barangay) values($1,$2),($3,$4)',[official,'Alangilan',outsider,'Another Barangay']);
 });
 after(async () => { await db?.close(); });
