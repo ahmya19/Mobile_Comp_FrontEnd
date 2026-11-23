@@ -20,7 +20,7 @@ import java.util.Random
 class PhotoCompressorTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val files = mutableListOf<File>()
-    @After fun cleanup() { files.forEach { it.delete() } }
+    @After fun cleanup() { PhotoCompressor.forceFallbackForTesting(false); files.forEach { it.delete() } }
 
     private fun jpeg(width: Int, height: Int, orientation: Int? = null, gps: Boolean = false, noise: Boolean = false): Uri {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -97,5 +97,46 @@ class PhotoCompressorTest {
     }
     @Test fun aHugeJpegDoesNotExhaustMemory() {
         val out = compress(encoded(12000, 9000, Bitmap.CompressFormat.JPEG, "pc-108mp.jpg")); assertTrue(maxOf(size(out).first, size(out).second) <= 1280)
+    }
+
+    // ---- ImageDecoder fallback (used when BitmapFactory returns nothing for a real photo); forced here so it is deterministic.
+    private fun viaFallback(uri: Uri): ByteArray { PhotoCompressor.forceFallbackForTesting(true); return compress(uri) }
+
+    @Test fun fallbackAppliesExifOrientationOnceAndStripsGps() {
+        val out = viaFallback(jpeg(400, 200, orientation = ExifInterface.ORIENTATION_ROTATE_90, gps = true))
+        assertEquals("ImageDecoder already orients the image: it must not be rotated a second time", 200 to 400, size(out))
+        val result = File(context.cacheDir, "pc-fb-out.jpg").also { files += it; it.writeBytes(out) }
+        assertNull(ExifInterface(result.absolutePath).getAttribute(ExifInterface.TAG_GPS_LATITUDE))
+    }
+    @Test fun fallbackBoundsLargeAndHugeImages() {
+        assertTrue(size(viaFallback(jpeg(8000, 6000))).let { maxOf(it.first, it.second) <= 1280 })
+        assertTrue(size(viaFallback(encoded(12000, 9000, Bitmap.CompressFormat.JPEG, "pc-fb-108mp.jpg"))).let { maxOf(it.first, it.second) <= 1280 })
+    }
+    @Test fun fallbackAcceptsPngAndWebp() {
+        for ((format, name) in listOf(Bitmap.CompressFormat.PNG to "pc-fb.png", Bitmap.CompressFormat.WEBP_LOSSY to "pc-fb.webp")) {
+            val (w, h) = size(viaFallback(encoded(3000, 2000, format, name))); assertTrue("$name ${w}x$h", maxOf(w, h) <= 1280)
+        }
+    }
+    @Test fun fallbackRejectsCorruptEmptyAndNonImageInputWithTheExistingMessage() {
+        val corrupt = File(context.cacheDir, "pc-fb-corrupt.jpg").also { files += it; it.writeBytes(ByteArray(4096) { (it * 31).toByte() }) }
+        val empty = File(context.cacheDir, "pc-fb-empty.jpg").also { files += it; it.writeBytes(ByteArray(0)) }
+        val text = File(context.cacheDir, "pc-fb-text.jpg").also { files += it; it.writeText("not an image") }
+        for (f in listOf(corrupt, empty, text)) {
+            val error = runCatching { viaFallback(Uri.fromFile(f)) }.exceptionOrNull()
+            assertTrue("${f.name}: $error", error is IllegalArgumentException); assertEquals("Cannot read the selected image.", error!!.message)
+        }
+    }
+    @Test fun fallbackHandlesATruncatedJpegWithoutCrashing() {
+        val full = File(jpeg(3000, 2000).path!!).readBytes()
+        val truncated = File(context.cacheDir, "pc-fb-trunc.jpg").also { files += it; it.writeBytes(full.copyOf(full.size / 2)) }
+        val result = runCatching { viaFallback(Uri.fromFile(truncated)) }
+        // A partly readable photo may decode (bounded) or be refused with the clear message; it must never crash or return oversized bytes.
+        result.onSuccess { assertTrue(maxOf(size(it).first, size(it).second) <= 1280 && it.size <= 256000) }
+        result.onFailure { assertTrue("$it", it is IllegalArgumentException && it.message == "Cannot read the selected image.") }
+    }
+    @Test fun fallbackKeepsAVanishedSourceDistinctFromACorruptOne() {
+        val uri = jpeg(100, 100); File(uri.path!!).delete()
+        val error = runCatching { viaFallback(uri) }.exceptionOrNull()
+        assertTrue("a vanished source must fail without producing bytes: $error", error != null && error !is IllegalArgumentException)
     }
 }

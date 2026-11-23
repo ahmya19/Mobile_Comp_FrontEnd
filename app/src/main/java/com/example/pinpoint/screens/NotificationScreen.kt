@@ -137,7 +137,7 @@ fun NotificationsScreen(
                                 color = Black
                             )
                             if (notification.createdAt.isNotBlank()) {
-                                Text(notification.createdAt, style = MaterialTheme.typography.labelSmall, color = MutedText)
+                                Text(com.example.pinpoint.data.UiText.formatTimestamp(notification.createdAt), style = MaterialTheme.typography.labelSmall, color = MutedText)
                             }
                         }
                     }

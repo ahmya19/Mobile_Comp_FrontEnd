@@ -3,6 +3,7 @@ package com.example.pinpoint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.annotation.SuppressLint
 import android.media.ExifInterface
 import android.net.Uri
 import androidx.compose.ui.test.*
@@ -24,6 +25,8 @@ import java.util.UUID
 
 /** Covers Batch 2A: FileProvider camera URI + EXIF/GPS/cleanup, account-isolated durable drafts,
  *  policy-safe unsent queue edit/delete (refusing Synced/Sending), password recovery/change, and UI parity controls. */
+// The test deliberately uses the platform ExifInterface: it is the class the app itself reads orientation with.
+@SuppressLint("ExifInterface")
 @RunWith(AndroidJUnit4::class)
 class UiParityAndCameraDraftTest {
     @get:Rule val compose = createComposeRule()
@@ -37,6 +40,11 @@ class UiParityAndCameraDraftTest {
     }
 
     @After fun tearDown() {
+        // Leave nothing behind in the app's real queue database: this suite's rows and drafts belong to its own loopback project.
+        runCatching {
+            val db = ReportQueue.get(context).writableDatabase
+            db.delete("queue", "project=?", arrayOf(server.url)); db.delete("drafts", "project=?", arrayOf(server.url))
+        }
         runCatching { WorkManager.getInstance(context).cancelAllWork() }
         SupabaseBackend.resetForTesting()
         server.close()

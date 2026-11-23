@@ -198,7 +198,7 @@ fun MyReportsScreen(
                     item {
                         Surface(shape = RoundedCornerShape(14.dp), color = RedTint) {
                             Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
-                                Text(message, color = AlertRed, style = MaterialTheme.typography.bodySmall)
+                                Text(com.example.pinpoint.data.UiText.humanize(message), color = AlertRed, style = MaterialTheme.typography.bodySmall)
                                 TextButton(onClick = { onFilter(feed.filter) }, enabled = !feed.loading) {
                                     Text("Retry loading reports")
                                 }

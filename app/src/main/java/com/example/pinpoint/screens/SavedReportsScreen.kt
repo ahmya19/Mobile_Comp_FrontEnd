@@ -177,7 +177,7 @@ fun SavedReportsScreen(
                     }
                     item.error?.let { reason ->
                         Surface(shape = RoundedCornerShape(10.dp), color = RedTint) {
-                            Text(reason, color = AlertRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(10.dp))
+                            Text(com.example.pinpoint.data.UiText.humanize(reason), color = AlertRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(10.dp))
                         }
                     }
                     if (canModifyLocally) {

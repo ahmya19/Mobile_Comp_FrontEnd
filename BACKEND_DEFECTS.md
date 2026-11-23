@@ -113,3 +113,15 @@ Owner: Kotlin auth/data. Status: **Fixed** (November 23), verified on the emulat
 ## BG-020 — a deleted or edited unsent report was still submitted from the worker's stale snapshot
 
 Owner: Kotlin data. Status: **Fixed** (November 23), found by independent review of CP-47. `ReportSyncWorker` listed Queued rows once and submitted them from that snapshot, while the new `deleteUnsent` and `updateUnsent` could change a row meanwhile: a deleted text-only report was still committed and an edited one was committed with its old content. `ReportQueue.claimForSend` now atomically claims one row and returns its current content (or null if it vanished). `QueueClaimRaceTest` (2 cases) failed before the fix. See [backend/CP47_INDEPENDENT_REVIEW.md](backend/CP47_INDEPENDENT_REVIEW.md).
+
+## BG-021 — status-bar icons were unreadable on a dark-mode phone
+
+Owner: Kotlin UI. Status: **Fixed** (November 23), found on the real TECNO screen. `MainActivity` used the default edge-to-edge style, which picks icon color from the phone's dark mode, so the clock, signal and battery were white on the app's always-light header. It now forces dark icons for the status and navigation bars; verified on the device.
+
+## BG-022 — raw technical text on screen (ISO timestamps, ExceptionClass: message)
+
+Owner: Kotlin UI. Status: **Fixed** (November 23). Report Details and Notifications showed timestamps like `2026-11-21T13:21:22.170879+00:00`, and errors appeared as `IllegalStateException: ...`. `UiText` formats times in the device zone and maps errors to plain sentences; the stored feed and queue diagnostics are unchanged. 9 JVM tests.
+
+## BG-023 — PhotoCompressor had no fallback when BitmapFactory returned nothing
+
+Owner: Kotlin data. Status: **Hardened** (November 23), root cause **unconfirmed**. One of the owner's real gallery photos failed with `Cannot decode the selected image.` and could not be reproduced with synthetic inputs (the photo was not inspected). An Android 9+ `ImageDecoder` fallback now decodes to a bounded size with the orientation applied once and no EXIF; corrupt, empty and vanished sources keep their messages. Six forced-path tests; 4 fail with the fallback disabled. See [backend/CP49_PHONE_VALIDATION_AND_POLISH.md](backend/CP49_PHONE_VALIDATION_AND_POLISH.md).

@@ -90,6 +90,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.11.0")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

@@ -304,7 +304,7 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         val repo = repository ?: return
         queuedItems.firstOrNull { it.id==id && it.state!="Synced" }?.let { item ->
             mutableState.update { it.copy(selectedReport=item.toReport(),detailLoading=false,
-                detailError=item.error ?: "Saved on this device. Waiting for synchronization.") }
+                detailError=item.error?.let { raw -> UiText.humanize(raw) } ?: "Saved on this device. Waiting for synchronization.") }
             item.photoFile?.let { path ->
                 BitmapFactory.decodeFile(path)?.asImageBitmap()?.let { bitmap -> mutableState.update { it.copy(photo=bitmap) } }
             }
@@ -429,6 +429,6 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         mutableState.update { it.copy(error = errorText(error)) }
     }
 
-    private fun errorText(error: Throwable): String = "${error.javaClass.simpleName}: ${error.message ?: "Request failed."}"
+    private fun errorText(error: Throwable): String = UiText.friendlyError(error)
 
 }

@@ -69,7 +69,7 @@ class MapRecoveryTest {
     }
 
     @Test fun feedErrorKeepsLoadedMarkersAndRetryRecoversToExactlyTheServerReports() {
-        var state by mutableStateOf(ReportFeedState(ReportFilter(), listOf(road, garbage), error = "BackendException: HTTP 503"))
+        var state by mutableStateOf(ReportFeedState(ReportFilter(), listOf(road, garbage), error = "BackendException: HTTP_503: unavailable"))
         var retried = 0
         compose.setContent {
             MapScreen({}, {}, {}, state.reports, {}, state, { filter ->
@@ -79,16 +79,16 @@ class MapRecoveryTest {
         }
         captureMap()
         rendered(setOf(road.id, garbage.id))                        // loaded reports stay on the map during the error
-        compose.onNodeWithText("BackendException: HTTP 503").assertExists()
+        compose.onNodeWithText("The server had a problem. Please try again shortly.").assertExists()  // shown humanized; the state keeps the technical text
         compose.onNodeWithText("Retry loading reports").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(1, retried) }
         compose.onNodeWithText("Retry loading reports").assertDoesNotExist()
-        compose.onNodeWithText("BackendException: HTTP 503").assertDoesNotExist()
+        compose.onNodeWithText("The server had a problem. Please try again shortly.").assertDoesNotExist()
         captureMap(); rendered(setOf(garbage.id, water.id))         // road is gone: no stale marker after recovery
     }
 
     @Test fun retryIsDisabledWhileALoadIsInFlight() {
-        val state = ReportFeedState(ReportFilter(), listOf(road), loading = true, error = "BackendException: HTTP 503")
+        val state = ReportFeedState(ReportFilter(), listOf(road), loading = true, error = "BackendException: HTTP_503: unavailable")
         compose.setContent { MapScreen({}, {}, {}, state.reports, {}, state, {}, {}) }
         compose.onNodeWithText("Retry loading reports").performScrollTo().assertIsNotEnabled()
     }
