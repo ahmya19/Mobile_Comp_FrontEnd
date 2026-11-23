@@ -6,11 +6,12 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 ## Current delivery — November 23 (supersedes the dated sections below, which are history)
 
-**Git:** PRs #1–#20 are merged; delivery baseline is 1242bba. This independent deployment follow-up adds reproducible verification and records the approved live changes; inspect actual PR/check state for its final delivery. Earlier stack/next-task paragraphs below are historical. Do not restart the completed merge sequence.
+**Git:** PRs #1–#22 are merged; this fixture-pair FCM follow-up starts from main `11821a1`. Inspect its actual PR/check state before continuing. Earlier stack/next-task paragraphs below are historical. Do not restart completed merge, deployment or identity-provisioning work.
 
 **Historical final-build paging follow-up (merged in #14):** on candidate 1a38747, CP-21 passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 matched all 149 notices/read persistence (1/1, 25.845 s). Its 98 reports/134 notices were cleaned, preserving all 12 baseline fingerprints. Do not automatically repeat that batch for documentation-only changes. Current next tasks are listed below.
 
 **Done this round (Claude continuing backend work; evidence in the linked documents):**
+- CP-43 [fixture-pair real FCM](backend/FIXTURE_PAIR_FCM_VALIDATION.md): separate citizen reporter/recipient and REST official actor, strict failed-observation exits, exact tray isolation and actual activity-destruction proof. See the final matrix and cleanup evidence there; the physical phone was untouched.
 - CP-31 [migration replay](backend/MIGRATION_REPLAY_VALIDATION.md): all nine migrations replay from an empty PostgreSQL in CI; the live project's catalog is identical to the replayed final state (read-only check); fresh-project steps are written but **no fresh project was created**.
 - CP-32 [security and failure paths](backend/SECURITY_FAILURE_PATH_VALIDATION.md): local policy/grant tests plus a hosted ordinary-client probe (49/49); open decision BG-005.
 - CP-33 [auth/queue failure matrix](backend/AUTH_QUEUE_FAILURE_VALIDATION.md): 12 emulator cases against a local fake server; BG-006 to BG-008 fixed in Kotlin.
@@ -22,9 +23,9 @@ Start here for ownership and current project state. Details: [backend/README.md]
 - CP-35 to CP-37 [real FCM, native picker, recovery](backend/PUSH_PICKER_RECOVERY_VALIDATION.md): real FCM matrix on the emulator, real system photo-picker tests, feed and map recovery; BG-011 to BG-013 fixed.
 - CP-34 [whole-app regression](backend/WHOLE_APP_BACKEND_REGRESSION.md): workflow, maps and permission checks on the emulator with independent verification; BG-009 and BG-010 (Windows tooling) fixed; hosted baseline restored (36 reports, 15 notices).
 
-**Phone:** still unavailable. Do not query, install, launch, sign out, change settings or run tests on it until the user says so. Use the owned emulator `PinPoint_Backend_API36` with an explicit serial.
+**Phone:** not queried or operated in CP-43. The user expects it to be available for the next heavy completion batch; use it when connected, unlocked and released for PinPoint. If absent or occupied, continue independent emulator/backend work and report the missing device accurately. Preserve session/data/settings, keep it powered, and target every device explicitly.
 
-**Next tasks:** deliver/reconcile open evidence/deployment PRs, provision the already-approved dedicated test identities through trusted Auth administration, then complete isolated workflow validation, SMTP, the spare SMS gateway and fresh restore. BG-005 and Alangilan are approved/deployed, not pending decisions. TUS crash/resume, field acceptance and UI parity retain their separate limits; keep the phone unavailable.
+**Next tasks:** the user requested a heavy whole-app completion batch for Claude after CP-43: (1) original-photo TUS crash/resume, real Free-project restore, safe abandoned-upload cleanup and labelled demos; (2) approved PDF UI/action parity, public SMTP/signup and the real spare-phone SMS integration; (3) all pending phone/field/whole-app acceptance and release/owner handover. The detailed private completion assignment includes ordered work, evidence gates and a required return handoff for Codex. Existing product decisions stand. Provider verification, gateway hardware, outdoor measurements and actual SUS participants remain external inputs; continue independent work around them.
 
 ## Latest private-Storage validation — November 23
 
@@ -50,15 +51,15 @@ The user separately authorized Claude to continue Codex backend implementation/i
 
 Latest phone build SHA-256: 659bebd4b9736529b14abc706cefddf46bd36b3be317fa56dd6b36c07b0e1752. On the TECNO, all 11 chooser rows matched SQL, selected details and Back passed, and the existing citizen session/hosted report and notice state were preserved. Phone is left on PinPoint Home, awake with USB stay-awake 2, airplane off/Wi-Fi on. See [hosted map and phone evidence](backend/MAP_HOSTED_NAVIGATION_VALIDATION.md). Historical branch/build notes below describe earlier batches.
 
-## Current ownership — user assignment, November 22
+## Current ownership — updated user assignment, November 23
 
 | Owner | Responsibility |
 | --- | --- |
 | User with Codex | All backend implementation and fixes: Auth, PostgreSQL/schema/RLS/RPCs, private Storage, Edge Functions, FCM server delivery, SMS adapter, security and integration contracts. Preserve the existing session, queue and upload behavior when coordinating mobile changes. |
-| Claude | Restructure the Kotlin/Compose UI and navigation to mirror the user's provided UI/UX; connect every screen to the existing backend integration; test the whole application, including backend behavior and security. This includes finding and documenting backend failures even where Claude did not change backend code. |
-| User/group | Supply the authoritative UI/UX references, approved barangays/thresholds, account/device access and evaluation participants; approve hosted-data/deployment/secret changes and phone operations. |
+| Claude | Complete the assigned backend/recovery/operations work and UI/integration/whole-app checks. Claude may fix backend defects within this completion batch; the former backend/UI split does not block implementation. Deliver reviewable PRs, evidence and a return handoff to Codex. |
+| User/group | Own provider accounts/sender verification, spare gateway phone/SIM, device availability, outdoor participation and actual evaluation responses. The approved PDF, Alangilan, voting thresholds, fixture identities and scoped test authorization are already decided. |
 
-Before UI restructuring or whole-app verification, Claude must read [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md). That work package defines design matching, the complete functional/backend test matrix and the evidence required for completion. Backend defects go to Codex with a reproducible case and exact redacted error; coordinate changes to shared data/ViewModel files through the branch/PR.
+Before UI restructuring or whole-app verification, Claude must read [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) and the latest private heavy-completion assignment. The current assignment takes precedence over the older ownership wording below. Fix discovered backend defects in reviewable branches with exact redacted errors and regression evidence; include all changed integration contracts in the return handoff.
 
 Latest backend work: the queue correction in 2c94c80 remains in the delivered runtime. Codex identified TECNO Battery Lab's separate Intelligent Management restriction: Android Unrestricted alone did not prevent kernel freezing. Setting only PinPoint to No Restrictions allowed existing WorkManager uploads in 1.310 s awake and 1.337 s screen off after observed Wi-Fi availability; a reverse control reproduced the delay and restoring the setting recovered the same report. The transfer-API experiment was removed. Six new diagnostic fixtures recovered once with matching photos. Final five scheduler / ten JVM checks and build/lint pass (0 errors, 35 warnings). BG-001 is mitigated on this configured phone; wider CP-25 acceptance remains partial. See [background setup](backend/ANDROID_BACKGROUND_SETUP.md) and [investigation](backend/BACKGROUND_SYNC_INVESTIGATION.md). Claude must retain both OEM-policy cases in whole-app/backend regression.
 

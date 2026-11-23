@@ -1,4 +1,8 @@
-# Claude work package: UI/UX mirroring and whole-app verification
+# Claude work package: whole-app completion
+
+**Current assignment, November 23:** after Codex finishes CP-43, Claude receives a heavy completion batch covering backend TUS recovery/restore/cleanup, approved PDF UI and integrations, then all pending phone/field/release acceptance. Backend fixes are within this assignment; the older Codex-backend/Claude-UI split below is historical. Use the detailed private `PinPoint-Heavy-Completion-Handoff.md` supplied by the user for ordered steps and evidence gates, and the current [HANDOFF.md](HANDOFF.md) for delivery state. Return a fresh Codex handoff at the end or before usage limits. The phone is for the next batch when actually connected and released; preserve its session and keep it powered. Completed historical cohorts need rerunning only when affected code/build changes or new failures justify it.
+
+## Historical UI work package (reference)
 
 User assignment, November 22, 2026: implement the UI structure to mirror the provided UI/UX and test the entire PinPoint Citizen App, including its backend. Codex remains the backend implementation/fix owner; current responsibilities are in [HANDOFF.md](HANDOFF.md).
 
