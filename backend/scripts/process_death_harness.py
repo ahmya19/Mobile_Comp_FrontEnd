@@ -127,6 +127,16 @@ def make_handler(b):
     return H
 
 
+def jpeg_dims(data):
+    """(width, height) from a JPEG's SOF marker, or None."""
+    i = 2
+    while i + 9 < len(data):
+        if data[i] != 0xFF: i += 1; continue
+        if data[i + 1] in (0xC0, 0xC1, 0xC2): return int.from_bytes(data[i + 7:i + 9], 'big'), int.from_bytes(data[i + 5:i + 7], 'big')
+        i += 2 + int.from_bytes(data[i + 2:i + 4], 'big')
+    return None
+
+
 # ------------------------------------------------------------------ device control
 def missing(data):
     """run-as/cat reports a missing file as text (merged into stdout by exec-out); real files are never this short and textual."""
@@ -134,9 +144,12 @@ def missing(data):
 
 
 class Device:
-    def __init__(self, serial, work):
-        if not re.fullmatch(r'emulator-\d+', serial): raise SystemExit('Use an isolated emulator serial (never a physical device).')
-        self.s, self.work = serial, work
+    def __init__(self, serial, work, allow_physical=False):
+        if not re.fullmatch(r'emulator-\d+', serial):
+            # A physical device only with the explicit opt-in AND a plain adb serial (no spaces, separators or shell characters).
+            if not (allow_physical and re.fullmatch(r'[A-Za-z0-9]{6,32}', serial)):
+                raise SystemExit('Use an isolated emulator serial. A physical device needs --allow-physical-device and a plain serial, and only when its owner has released it.')
+        self.s, self.work, self.physical = serial, work, not serial.startswith('emulator-')
 
     def adb(self, *args, binary=False, timeout=120):
         r = subprocess.run([ADB, '-s', self.s, *args], capture_output=True, timeout=timeout)
@@ -218,9 +231,14 @@ class Device:
             for t, d, b, checkable, pkg in self.ui():
                 if predicate(t, d, checkable, pkg):
                     x1, y1, x2, y2 = map(int, re.findall(r'\d+', b)); self.sh(f'input tap {(x1 + x2) // 2} {(y1 + y2) // 2}'); return True
-            if scroll: self.sh('input swipe 540 1500 540 500 300')
+            if scroll: self.swipe_up()
             time.sleep(1)
         return False
+
+    def swipe_up(self):
+        m = re.search(r'(\d+)x(\d+)', self.sh('wm size'))
+        w, h = (int(m.group(1)), int(m.group(2))) if m else (1080, 2400)
+        self.sh(f'input swipe {w // 2} {int(h * 0.62)} {w // 2} {int(h * 0.2)} 300')
 
     def hide_ime(self):
         if 'mInputShown=true' in self.sh('dumpsys input_method | grep mInputShown'): self.sh('input keyevent KEYCODE_BACK'); time.sleep(1)
@@ -235,7 +253,7 @@ class Device:
             for t, d, b, *_ in self.ui():
                 if needle.lower() in (t + ' ' + d).lower():
                     x1, y1, x2, y2 = map(int, re.findall(r'\d+', b)); self.sh(f'input tap {(x1 + x2) // 2} {(y1 + y2) // 2}'); return True
-            if scroll: self.sh('input swipe 540 1500 540 500 300')
+            if scroll: self.swipe_up()
             time.sleep(1)
         return False
 
@@ -257,8 +275,8 @@ class Harness:
     def phase_blocking(self, phase, **extra):
         t, out = self.dev.start_phase(phase, **extra); t.join(180); return out[0] if out else ''
 
-    def setup(self, email):
-        out = self.phase_blocking('setup', url=self.url, email=email)
+    def setup(self, email, media=False):
+        out = self.phase_blocking('setup', url=self.url, email=email, **({'media': 'yes'} if media else {}))
         return 'OK (1 test)' in out
 
     def kill_cycle(self):
@@ -409,11 +427,10 @@ class Harness:
 
     def s5_picker_retained_task(self, email):
         case = 'S5 real picker selection, process SIGKILLed, task retained'; self.fresh(); d = self.dev
-        assert self.setup(email)
+        assert self.setup(email, media=True)
         # A synthetic, task-owned image the REAL system picker will show first; the app is launched normally (NOT through
         # instrumentation, whose death would force-stop the package and remove the task).
-        name = f'pp-lifecycle-{int(time.time())}.jpg'; local = os.path.join(self.work, name); open(local, 'wb').write(self.JPEG)
-        d.adb('push', local, f'/sdcard/Pictures/{name}'); d.sh(f'am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/{name}')
+        name = None
         d.sh('input keyevent KEYCODE_HOME'); d.sh(f'am start -n {PKG}/.MainActivity'); time.sleep(5)
         steps = {}
         steps['quick_report'] = d.tap_text('Quick Report', 25)
@@ -428,7 +445,7 @@ class Harness:
         d.tap_node(lambda t, dd, c, pkg: c == 'true', 5, scroll=True)             # untick "also upload original"
         old = d.pid(); tasks_before = d.task_ids()
         self.rec(case + ' (prepared)', steps=steps, pid=old, task_ids=tasks_before)
-        if not steps['selection_shown'] or not old: self.cleanup(); d.sh(f'rm -f /sdcard/Pictures/{name}'); return
+        if not steps['selection_shown'] or not old: self.cleanup(); return
         d.sh('input keyevent KEYCODE_HOME'); time.sleep(2)                          # backgrounded: instance state is saved
         killed, secs = d.kill9(old); time.sleep(2); tasks_after_kill = d.task_ids()
         self.rec(case + ' (kill)', old_pid=old, killed=killed, task_ids_before=tasks_before, task_ids_after_kill=tasks_after_kill,
@@ -439,27 +456,31 @@ class Harness:
                  form_restored=form, selection_state_restored=selection)
         result = {}
         if form or selection:
-            mark = self.b.mark(); d.tap_text('Submit Report', 20)
+            mark = self.b.mark(); d.hide_ime(); tapped = d.tap_text('Submit Report', 25)
+            shown = [t for t, dd, *_ in d.ui() if t][:30]
             up = self.b.wait_event('upload_stored', 40, mark); com = self.b.wait_event('rpc_committed', 40, mark)
             err = [t for t, dd, *_ in d.ui() if t and any(w in t.lower() for w in ('cannot', 'security', 'permission', 'error', 'exception', 'unable'))][:3]
             rows = self.rows()
-            result = dict(submit_uploaded_photo=bool(up), report_committed=bool(com), visible_error=err, queue_rows=len(rows),
+            sizes = [len(v) for v in self.b.objects.values()]; dims = [jpeg_dims(v) for v in self.b.objects.values()]
+            result = dict(submit_tapped=tapped, visible_text_after_tap=shown if not tapped else None, uploaded_object_bytes=sizes, uploaded_object_dims=dims,
+                          synthetic_image_chosen=bool(dims) and all(d == (1200, 800) for d in dims),
+                          submit_uploaded_photo=bool(up), report_committed=bool(com), visible_error=err, queue_rows=len(rows),
                           queue_states=[r['state'] for r in rows], note='observation of platform grant lifetime and UI honesty; no draft persistence is specified')
         self.rec(case + ' (submit after restore)', **result)
-        self.cleanup(); d.sh(f'rm -f /sdcard/Pictures/{name}')
-        d.sh('content delete --uri content://media/external/images/media --where "_display_name='' + name + ''"')
+        self.cleanup()
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--serial', required=True); p.add_argument('--work', required=True)
     p.add_argument('--scenarios', default='s1,s2,s2b,s3,s4,s5,s6,s7')
+    p.add_argument('--allow-physical-device', action='store_true', help='only when the device owner has released that phone for this run')
     a = p.parse_args()
     work = os.path.abspath(a.work)
     if os.path.commonpath([work, REPO]) == REPO: raise SystemExit('Use a private --work directory outside the repository.')
     os.makedirs(work, exist_ok=True)
     open(os.path.join(work, 'run.json'), 'x').write(json.dumps({'serial': a.serial, 'scenarios': a.scenarios, 'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}))
-    dev = Device(a.serial, work); backend = Backend()
+    dev = Device(a.serial, work, a.allow_physical_device); backend = Backend()
     server = ThreadingHTTPServer(('127.0.0.1', PORT), make_handler(backend)); server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     dev.adb('reverse', f'tcp:{PORT}', f'tcp:{PORT}')

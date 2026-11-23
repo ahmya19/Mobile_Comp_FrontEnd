@@ -11,6 +11,7 @@ Start here for ownership and current project state. Details: [backend/README.md]
 **Historical final-build paging follow-up (merged in #14):** on candidate 1a38747, CP-21 passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 matched all 149 notices/read persistence (1/1, 25.845 s). Its 98 reports/134 notices were cleaned, preserving all 12 baseline fingerprints. Do not automatically repeat that batch for documentation-only changes. Current next tasks are listed below.
 
 **Done this round (Claude continuing backend work; evidence in the linked documents):**
+- CP-46 [device regression and release checks](backend/BATCH3_DEVICE_AND_RELEASE_VALIDATION.md): phone SIGKILL matrix and suites pass, release APK static checks pass; acceptance cohorts not run.
 - CP-45 [UI parity inventory](backend/UI_PARITY_INVENTORY.md) and [owner actions and field protocols](backend/OWNER_ACTIONS_AND_FIELD_PROTOCOLS.md): 57-screen inventory, reconciliations pending owner confirmation, no parity claimed.
 - CP-44 [original TUS recovery](backend/ORIGINAL_TUS_RECOVERY_VALIDATION.md): 13-case matrix behind the unchanged release checks; BG-017 and BG-018 fixed; real phone Wi-Fi run pending.
 - CP-43 [fixture-pair real FCM](backend/FIXTURE_PAIR_FCM_VALIDATION.md): separate citizen reporter/recipient and REST official actor, strict failed-observation exits, exact tray isolation and actual activity-destruction proof. See the final matrix and cleanup evidence there; the physical phone was untouched.

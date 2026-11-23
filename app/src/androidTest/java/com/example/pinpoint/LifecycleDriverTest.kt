@@ -63,6 +63,15 @@ class LifecycleDriverTest {
             "setup" -> {
                 SupabaseBackend.installPersistedForTesting(context, requireNotNull(args.getString("url")), "sb_publishable_lifecycle")
                 runBlocking { SupabaseBackend.create(context)!!.auth.signIn(requireNotNull(args.getString("email")), "not-a-real-password") }
+                // Optional synthetic gallery image (MediaStore insert with DATE_TAKEN now) so the REAL picker's first item is provably ours.
+                if (args.getString("media") == "yes") {
+                    val bitmap = Bitmap.createBitmap(1200, 800, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.rgb(30, 90, 200)) }
+                    val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray(); bitmap.recycle()
+                    val uri = requireNotNull(context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
+                        put(MediaStore.Images.Media.DISPLAY_NAME, "pp-lifecycle-${System.nanoTime()}.jpg"); put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PinPointTest"); put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis()) }))
+                    context.contentResolver.openOutputStream(uri)!!.use { it.write(bytes) }
+                }
                 note("setup" to "done", "user" to requireNotNull(SupabaseBackend.create(context)!!.auth.currentUser).id)
             }
             "enqueue" -> {
