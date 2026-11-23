@@ -171,6 +171,17 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
         return false
     }
 
+    /** Atomically moves ONE row to Sending and returns its CURRENT stored content, or null if it was deleted, already
+     *  synced or no longer belongs to this account/project. Serialized with deleteUnsent/updateUnsent, so the worker can
+     *  never submit a report the user just removed or an outdated copy of one the user just edited. */
+    @Synchronized fun claimForSend(owner: String,project: String,id: String): QueuedReport? {
+        val changed=writableDatabase.update("queue",ContentValues().apply { put("state","Sending") },
+            "id=? and owner_id=? and project=? and state in ('Queued','Sending')",arrayOf(id,owner,project))
+        if(changed==0) return null
+        revision.value++
+        return items(owner,project).firstOrNull { it.id==id }
+    }
+
     /** Save an account- and project-isolated form draft (never leaks across accounts or projects). */
     suspend fun saveDraft(owner: String,project: String,category: String,description: String,
         location: String,barangay: String,latitude: String,longitude: String,
@@ -324,10 +335,11 @@ class ReportSyncWorker(context: Context,parameters: WorkerParameters) : Coroutin
         val owner=inputData.getString("owner") ?: return@withContext Result.failure()
         if (backend.auth.currentUser?.id!=owner) return@withContext Result.success()
         val queue=ReportQueue.get(applicationContext)
-        for(item in queue.items(owner,backend.url).filter { it.state in listOf("Queued","Sending") }) {
+        for(listed in queue.items(owner,backend.url).filter { it.state in listOf("Queued","Sending") }) {
             if(backend.auth.currentUser?.id!=owner) return@withContext Result.success()
             try {
-                queue.setState(item.id,"Sending")
+                // The list above is a snapshot: re-claim the row and use its CURRENT content (it may have been deleted or edited).
+                val item=queue.claimForSend(owner,backend.url,listed.id) ?: continue
                 val photo=item.photoFile?.let { path ->
                     val file=File(path)
                     check(file.isFile) { "Saved photo is missing. This report needs attention." }
@@ -338,10 +350,10 @@ class ReportSyncWorker(context: Context,parameters: WorkerParameters) : Coroutin
                 item.photoFile?.let { File(it).delete() }
                 if(item.originalFile!=null) queue.scheduleOriginals(owner)
             } catch(error: Exception) {
-                if(error is CancellationException) { queue.setState(item.id,"Queued"); throw error }
-                if(backend.auth.currentUser?.id!=owner) { queue.setState(item.id,"Queued");return@withContext Result.success() }
+                if(error is CancellationException) { queue.setState(listed.id,"Queued"); throw error }
+                if(backend.auth.currentUser?.id!=owner) { queue.setState(listed.id,"Queued");return@withContext Result.success() }
                 val retryable=error is java.io.IOException && (error !is BackendException || error.status>=500 || error.status in listOf(408,429))
-                queue.setState(item.id,if(retryable) "Queued" else "Failed","${error.javaClass.simpleName}: ${error.message}")
+                queue.setState(listed.id,if(retryable) "Queued" else "Failed","${error.javaClass.simpleName}: ${error.message}")
                 if(retryable) return@withContext Result.retry()
             }
         }

@@ -109,3 +109,7 @@ Owner: Kotlin data. Status: **Fixed** (November 23). Same window as BG-015 for t
 ## BG-019 — password-reset verification deadlocked on a non-reentrant Kotlin Mutex
 
 Owner: Kotlin auth/data. Status: **Fixed** (November 23), verified on the emulator against the loopback auth fake (`UiParityAndCameraDraftTest#passwordRecoveryAndChangePasswordWorkAgainstLoopbackAuth` and `AuthQueueFailureTest` 12/12). `SupabaseAuth.completePasswordReset` originally held `mutex.withLock` while calling `backend.json("auth/v1/user", "PUT", ..., authenticated = true)`, which re-entered `accessToken()` on the same non-reentrant `Mutex` and hung the recovery flow indefinitely after OTP verification. The fix releases `mutex` after persisting the verified recovery session and performs the authenticated password update outside the lock.
+
+## BG-020 — a deleted or edited unsent report was still submitted from the worker's stale snapshot
+
+Owner: Kotlin data. Status: **Fixed** (November 23), found by independent review of CP-47. `ReportSyncWorker` listed Queued rows once and submitted them from that snapshot, while the new `deleteUnsent` and `updateUnsent` could change a row meanwhile: a deleted text-only report was still committed and an edited one was committed with its old content. `ReportQueue.claimForSend` now atomically claims one row and returns its current content (or null if it vanished). `QueueClaimRaceTest` (2 cases) failed before the fix. See [backend/CP47_INDEPENDENT_REVIEW.md](backend/CP47_INDEPENDENT_REVIEW.md).
