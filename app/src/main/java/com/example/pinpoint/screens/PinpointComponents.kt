@@ -196,7 +196,10 @@ fun PasswordStrengthChecklist(password: String, modifier: Modifier = Modifier) {
         if (password.isNotEmpty()) {
             Text(s.label, style = MaterialTheme.typography.labelMedium, color = barColor, fontWeight = FontWeight.SemiBold)
         }
-        ChecklistRow("At least 8 characters", s.minLength)
+        // Only the length is enforced by the app; the server applies its own minimum. The other rows are advice, and the
+        // screen says so, so it never claims a rule that is not actually checked.
+        ChecklistRow("Required: at least 8 characters", s.minLength)
+        Text("Recommended, not required:", style = MaterialTheme.typography.labelSmall, color = MutedText)
         ChecklistRow("Upper and lowercase letters", s.hasUpperAndLower)
         ChecklistRow("At least one number", s.hasDigit)
         ChecklistRow("One symbol, like ! or #", s.hasSymbol)

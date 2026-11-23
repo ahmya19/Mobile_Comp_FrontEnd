@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.util.UUID
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import com.example.pinpoint.screens.AppNavigation
 import com.example.pinpoint.ui.theme.PinPointTheme
@@ -18,6 +20,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         readReportIntent(intent)
+        // Every screen is light: force dark status/navigation icons. The default "auto" style follows the phone's dark mode,
+        // which put white icons on a light header (clock and battery unreadable on a dark-mode phone).
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT))
 
         setContent {
             PinPointTheme {

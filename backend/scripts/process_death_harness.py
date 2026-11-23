@@ -244,14 +244,15 @@ class Device:
         if 'mInputShown=true' in self.sh('dumpsys input_method | grep mInputShown'): self.sh('input keyevent KEYCODE_BACK'); time.sleep(1)
 
     def type_into(self, label, text):
-        if not self.tap_text(label, 15): return False
+        # Exact label first: substring matching hits section headers such as "4. Location" on the redesigned form.
+        if not (self.tap_text(label, 6, exact=True) or self.tap_text(label, 10)): return False
         time.sleep(0.8); self.sh('input text ' + text.replace(' ', '%s')); time.sleep(0.8); return True
 
-    def tap_text(self, needle, timeout=20, scroll=True):
+    def tap_text(self, needle, timeout=20, scroll=True, exact=False):
         end = time.monotonic() + timeout
         while time.monotonic() < end:
             for t, d, b, *_ in self.ui():
-                if needle.lower() in (t + ' ' + d).lower():
+                if ((t or d) == needle) if exact else (needle.lower() in (t + ' ' + d).lower()):
                     x1, y1, x2, y2 = map(int, re.findall(r'\d+', b)); self.sh(f'input tap {(x1 + x2) // 2} {(y1 + y2) // 2}'); return True
             if scroll: self.swipe_up()
             time.sleep(1)
@@ -457,12 +458,12 @@ class Harness:
         result = {}
         if form or selection:
             mark = self.b.mark(); d.hide_ime(); tapped = d.tap_text('Submit Report', 25)
-            shown = [t for t, dd, *_ in d.ui() if t][:30]
+            time.sleep(2); shown = [t for t, dd, *_ in d.ui() if t][:40]
             up = self.b.wait_event('upload_stored', 40, mark); com = self.b.wait_event('rpc_committed', 40, mark)
             err = [t for t, dd, *_ in d.ui() if t and any(w in t.lower() for w in ('cannot', 'security', 'permission', 'error', 'exception', 'unable'))][:3]
             rows = self.rows()
             sizes = [len(v) for v in self.b.objects.values()]; dims = [jpeg_dims(v) for v in self.b.objects.values()]
-            result = dict(submit_tapped=tapped, visible_text_after_tap=shown if not tapped else None, uploaded_object_bytes=sizes, uploaded_object_dims=dims,
+            result = dict(submit_tapped=tapped, visible_text_after_tap=shown, uploaded_object_bytes=sizes, uploaded_object_dims=dims,
                           synthetic_image_chosen=bool(dims) and all(d == (1200, 800) for d in dims),
                           submit_uploaded_photo=bool(up), report_committed=bool(com), visible_error=err, queue_rows=len(rows),
                           queue_states=[r['state'] for r in rows], note='observation of platform grant lifetime and UI honesty; no draft persistence is specified')

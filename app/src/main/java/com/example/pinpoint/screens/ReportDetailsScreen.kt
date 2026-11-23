@@ -106,7 +106,7 @@ fun ReportDetailsScreen(
                 Text(text = "Category: ${report.category}", style = MaterialTheme.typography.bodyMedium, color = Black)
                 Text(text = "Location: ${report.location}, ${report.barangay}", style = MaterialTheme.typography.bodyMedium, color = Black)
                 Text(text = "Status: ${report.status} | Priority: ${report.priority}", style = MaterialTheme.typography.bodyMedium, color = DeepViolet, fontWeight = FontWeight.SemiBold)
-                Text(text = "Submitted: ${report.createdAt}", style = MaterialTheme.typography.bodySmall, color = MutedText)
+                Text(text = "Submitted: ${com.example.pinpoint.data.UiText.formatTimestamp(report.createdAt)}", style = MaterialTheme.typography.bodySmall, color = MutedText)
                 Text(text = "Description: ${report.description}", style = MaterialTheme.typography.bodyLarge, color = Black)
                 report.latitude?.let {
                     Text("Coordinates: $it, ${report.longitude}", style = MaterialTheme.typography.bodySmall, color = MutedText)
@@ -172,7 +172,7 @@ fun ReportDetailsScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    "${change.createdAt}: ${change.previousStatus} → ${change.status}",
+                                    "${com.example.pinpoint.data.UiText.formatTimestamp(change.createdAt)}: ${change.previousStatus} → ${change.status}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MutedText
                                 )

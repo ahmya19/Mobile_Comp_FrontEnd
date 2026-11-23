@@ -60,7 +60,7 @@ fun MapScreen(
             feed.error?.let {
                 Surface(shape = RoundedCornerShape(14.dp), color = RedTint) {
                     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                        Text(it, color = AlertRed, style = MaterialTheme.typography.bodySmall)
+                        Text(com.example.pinpoint.data.UiText.humanize(it), color = AlertRed, style = MaterialTheme.typography.bodySmall)
                         // Loaded reports stay on the map; retry reloads the same filter and pages.
                         OutlinedButton(onClick = { onFilter(feed.filter) }, enabled = !feed.loading) {
                             Text("Retry loading reports")
