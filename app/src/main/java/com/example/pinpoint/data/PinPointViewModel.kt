@@ -45,7 +45,9 @@ data class PinPointState(
     val hasVoted: Boolean = false,
     val mineFeed: ReportFeedState = ReportFeedState(ReportFilter(mine=true)),
     val communityFeed: ReportFeedState = ReportFeedState(ReportFilter()),
-    val pendingUploads: Int = 0
+    val pendingUploads: Int = 0,
+    val queuedReports: List<QueuedReport> = emptyList(),
+    val savedDraft: SavedFormDraft? = null
 )
 
 class PinPointViewModel(application: Application) : AndroidViewModel(application) {
@@ -114,6 +116,13 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
                     items.firstOrNull { it.id==lastSubmissionId }?.let { item ->
                         mutableState.update { it.copy(submissionPending=item.state!="Synced") }
                     }
+                }
+            }
+        }
+        listeners += viewModelScope.launch {
+            requireNotNull(backend).let { configured ->
+                queue.observeDraft(uid,configured.url).collect { saved ->
+                    if(observedUid==uid) mutableState.update { it.copy(savedDraft=saved) }
                 }
             }
         }
@@ -196,6 +205,69 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         val repo = requireNotNull(repository)
         repo.saveProfile(name)
         mutableState.update { it.copy(user = repo.citizen(), message = "Profile saved.") }
+    }
+
+    fun requestPasswordReset(email: String) = action {
+        requireNotNull(backend).auth.requestPasswordReset(email)
+        mutableState.update { it.copy(message = "Reset code requested. Check your inbox and spam folder.") }
+    }
+
+    fun completePasswordReset(email: String, code: String, newPassword: String) = action {
+        val repo = requireNotNull(repository)
+        repo.auth.completePasswordReset(email, code, newPassword)
+        mutableState.update { it.copy(user = repo.citizen(), message = "Password updated.") }
+    }
+
+    fun changePassword(currentPassword: String, newPassword: String) = action {
+        requireNotNull(backend).auth.changePassword(currentPassword, newPassword)
+        mutableState.update { it.copy(message = "Password changed successfully.") }
+    }
+
+    fun saveDraft(
+        category: String,
+        description: String,
+        location: String,
+        barangay: String,
+        latitude: String,
+        longitude: String,
+        keepOriginal: Boolean,
+        image: Uri?
+    ) = action {
+        val configured = requireNotNull(backend)
+        val uid = configured.auth.currentUser?.id ?: error("Sign in first.")
+        val saved = queue.saveDraft(uid, configured.url, category, description, location, barangay, latitude, longitude, keepOriginal, image)
+        mutableState.update { it.copy(savedDraft = saved, message = "Draft saved on this device.") }
+    }
+
+    fun discardDraft() {
+        val configured = backend ?: return
+        val uid = configured.auth.currentUser?.id ?: return
+        queue.clearDraft(uid, configured.url)
+        mutableState.update { it.copy(savedDraft = null, message = "Saved draft discarded.") }
+    }
+
+    fun deleteSavedReport(id: String) = action {
+        val configured = requireNotNull(backend)
+        val uid = configured.auth.currentUser?.id ?: error("Sign in first.")
+        check(queue.deleteUnsent(uid, configured.url, id)) { "Could not remove saved report." }
+        mutableState.update { it.copy(message = "Saved offline report removed.") }
+    }
+
+    fun updateSavedReport(id: String, updated: ReportDraft) = action {
+        val configured = requireNotNull(backend)
+        val uid = configured.auth.currentUser?.id ?: error("Sign in first.")
+        check(queue.updateUnsent(uid, configured.url, id, updated)) { "Could not update saved report." }
+        queue.schedule(uid)
+        mutableState.update { it.copy(message = "Saved offline report updated.") }
+    }
+
+    fun markAllNotificationsRead() {
+        val notices = notificationFeed ?: return
+        val unread = state.value.notifications.filter { !it.read }
+        if (unread.isEmpty()) return
+        notificationScope?.launch {
+            unread.forEach { notices.markRead(it.id) }
+        }
     }
 
     fun signOut() = action {
@@ -315,7 +387,11 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
             (filter.after==null || it.createdAt>=filter.after) && (filter.before==null || it.createdAt<=filter.before)
         }
         val enriched=remoteMine.map { report -> report.copy(originalUploadStatus=queuedItems.firstOrNull { it.id==report.id }?.originalState) }
-        mutableState.update { it.copy(reports=local+enriched,pendingUploads=queuedItems.count { item -> item.state!="Synced" || item.originalState !in listOf(null,"Uploaded") }) }
+        mutableState.update { it.copy(
+            reports=local+enriched,
+            queuedReports=queuedItems.filter { item -> item.state!="Synced" || item.originalState !in listOf(null,"Uploaded") },
+            pendingUploads=queuedItems.count { item -> item.state!="Synced" || item.originalState !in listOf(null,"Uploaded") }
+        ) }
     }
     private fun QueuedReport.toReport() = Report(id=id,ownerId=ownerId,category=draft.category,description=draft.description,
         location=draft.location,barangay=draft.barangay,status=when(state) { "Synced"->"Pending";"Failed"->"Needs attention";"Sending"->"Sending";else->"Waiting to sync" },

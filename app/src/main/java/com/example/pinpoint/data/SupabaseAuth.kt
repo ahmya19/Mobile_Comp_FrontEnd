@@ -71,6 +71,33 @@ class SupabaseAuth(private val backend: SupabaseBackend, private val store: Sess
         setConfirmation(if (existing?.email == trimmed) existing else PendingEmailConfirmation(trimmed))
     }
     fun cancelConfirmation() = setConfirmation(null)
+    suspend fun requestPasswordReset(email: String) = mutex.withLock {
+        val trimmed = email.trim()
+        require(trimmed.contains('@') && trimmed.length <= 254) { "Enter a valid email address." }
+        publicPost("auth/v1/recover", mapOf("email" to trimmed))
+    }
+    suspend fun completePasswordReset(email: String, code: String, newPassword: String) {
+        val trimmed = email.trim()
+        require(trimmed.contains('@') && trimmed.length <= 254) { "Enter a valid email address." }
+        require(code.matches(Regex("[0-9]{6}"))) { "Enter the six-digit recovery code from your email." }
+        require(newPassword.length >= 8) { "Use a password with at least 8 characters." }
+        // Release mutex after verify+save so backend.json(..., authenticated = true) can acquire mutex in accessToken().
+        mutex.withLock {
+            save(publicPost("auth/v1/verify", mapOf("email" to trimmed, "token" to code, "type" to "recovery")))
+        }
+        backend.json("auth/v1/user", "PUT", mapOf("password" to newPassword), authenticated = true)
+    }
+    suspend fun changePassword(currentPassword: String, newPassword: String) {
+        require(currentPassword.isNotBlank()) { "Enter your current password." }
+        require(newPassword.length >= 8) { "Use a new password with at least 8 characters." }
+        require(currentPassword != newPassword) { "Choose a new password different from your current one." }
+        val email = currentUser?.email ?: error("Sign in first.")
+        // Re-verify current password before updating credentials.
+        mutex.withLock {
+            save(publicPost("auth/v1/token?grant_type=password", mapOf("email" to email, "password" to currentPassword)))
+        }
+        backend.json("auth/v1/user", "PUT", mapOf("password" to newPassword), authenticated = true)
+    }
     private fun setConfirmation(pending: PendingEmailConfirmation?) {
         // Persist only the email and retry time, never a password or confirmation code.
         if (pending == null) store.clear(pendingKey) else store.write(pendingKey, backend.gson.toJson(pending))

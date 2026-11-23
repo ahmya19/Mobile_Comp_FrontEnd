@@ -32,19 +32,49 @@ data class QueuedReport(val id: String,val ownerId: String,val project: String,v
     val photoFile: String?,val state: String,val error: String?,val createdAt: Long,
     val originalFile: String?=null,val originalMime: String?=null,val originalState: String?=null,val uploadUrl: String?=null)
 
+/** Account- and project-isolated unsent form draft (distinct from the upload queue). */
+data class SavedFormDraft(
+    val ownerId: String,
+    val project: String,
+    val category: String,
+    val description: String,
+    val location: String,
+    val barangay: String,
+    val latitude: String,
+    val longitude: String,
+    val keepOriginal: Boolean,
+    val photoFile: String?,
+    val updatedAt: Long
+)
+
 /** Durable metadata and private photo copies survive worker/process restarts. */
-class ReportQueue private constructor(private val context: Context) : SQLiteOpenHelper(context,"pinpoint_queue.db",null,2) {
+class ReportQueue private constructor(private val context: Context) : SQLiteOpenHelper(context,"pinpoint_queue.db",null,3) {
     private val revision=MutableStateFlow(0L)
+    private val draftRevision=MutableStateFlow(0L)
     private val gson=Gson()
-    override fun onCreate(db: SQLiteDatabase) { db.execSQL("""
-        create table queue(id text primary key,owner_id text not null,project text not null,draft text not null,
-        photo_file text,state text not null,error text,created_at integer not null,
-        original_file text,original_mime text,original_state text,upload_url text)
-    """.trimIndent()) }
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL("""
+            create table queue(id text primary key,owner_id text not null,project text not null,draft text not null,
+            photo_file text,state text not null,error text,created_at integer not null,
+            original_file text,original_mime text,original_state text,upload_url text)
+        """.trimIndent())
+        createDraftsTable(db)
+    }
     override fun onUpgrade(db: SQLiteDatabase,oldVersion: Int,newVersion: Int) {
         if(oldVersion<2) listOf("original_file","original_mime","original_state","upload_url").forEach {
             db.execSQL("alter table queue add column $it text")
         }
+        if(oldVersion<3) createDraftsTable(db)
+    }
+    private fun createDraftsTable(db: SQLiteDatabase) {
+        db.execSQL("""
+            create table if not exists drafts(
+                owner_id text not null,project text not null,category text not null,description text not null,
+                location text not null,barangay text not null,latitude text not null,longitude text not null,
+                keep_original integer not null default 1,photo_file text,updated_at integer not null,
+                primary key(owner_id,project)
+            )
+        """.trimIndent())
     }
 
     suspend fun enqueue(backend: SupabaseBackend,id: String,draft: ReportDraft,image: Uri?,keepOriginal: Boolean=false): String = withContext(Dispatchers.IO) {
@@ -102,10 +132,105 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
                 put("original_state",if(original!=null) "Waiting for Wi-Fi" else null)
             })
         } catch(error: Exception) { file?.let { File(it).delete() };original?.delete();throw error }
+        clearDraft(owner,backend.url)
+        CameraCaptureHelper.deleteCaptureUri(context,image)
         revision.value++
         schedule(owner)
         id
     }
+
+    /** Policy-safe local removal for unsent offline queue rows ONLY. Refuses Synced or Sending rows. */
+    @Synchronized fun deleteUnsent(owner: String,project: String,id: String): Boolean {
+        val target=items(owner,project).firstOrNull { it.id==id } ?: return false
+        require(target.state in listOf("Queued","Failed")) {
+            "Submitted or actively syncing reports cannot be deleted."
+        }
+        val removed=writableDatabase.delete("queue","id=? and owner_id=? and project=? and state in ('Queued','Failed')",
+            arrayOf(id,owner,project))
+        if(removed>0) {
+            target.photoFile?.let { File(it).takeIf { f -> f.isFile }?.delete() }
+            target.originalFile?.let { File(it).takeIf { f -> f.isFile }?.delete() }
+            revision.value++
+            return true
+        }
+        return false
+    }
+
+    /** Policy-safe local edit for unsent offline queue rows ONLY. Refuses Synced or Sending rows. */
+    @Synchronized fun updateUnsent(owner: String,project: String,id: String,updated: ReportDraft): Boolean {
+        updated.validate()
+        val target=items(owner,project).firstOrNull { it.id==id } ?: return false
+        require(target.state in listOf("Queued","Failed")) {
+            "Submitted or actively syncing reports cannot be edited."
+        }
+        val changed=writableDatabase.update("queue",ContentValues().apply {
+            put("draft",gson.toJson(updated))
+            if(target.state=="Failed") { put("state","Queued"); putNull("error") }
+        },"id=? and owner_id=? and project=? and state in ('Queued','Failed')",arrayOf(id,owner,project))
+        if(changed>0) { revision.value++; return true }
+        return false
+    }
+
+    /** Save an account- and project-isolated form draft (never leaks across accounts or projects). */
+    suspend fun saveDraft(owner: String,project: String,category: String,description: String,
+        location: String,barangay: String,latitude: String,longitude: String,
+        keepOriginal: Boolean,image: Uri?): SavedFormDraft = withContext(Dispatchers.IO) {
+        val previous=loadDraft(owner,project)
+        val photoFile: String? = when {
+            image==null -> { previous?.photoFile?.let { File(it).takeIf { f -> f.isFile }?.delete() }; null }
+            previous?.photoFile!=null && Uri.fromFile(File(previous.photoFile))==image -> previous.photoFile
+            else -> {
+                val directory=File(context.filesDir,"draft_photos").apply { check(exists() || mkdirs()) }
+                val jpeg=PhotoCompressor.jpeg(context,image)
+                val key=UUID.nameUUIDFromBytes("$owner|$project".toByteArray()).toString()
+                val target=File(directory,"$key.jpg")
+                val tmp=File(directory,"$key.tmp")
+                try {
+                    tmp.outputStream().use { it.write(jpeg) }
+                    check(tmp.renameTo(target)) { "Could not save the draft photo." }
+                } finally { tmp.delete() }
+                if(previous?.photoFile!=null && previous.photoFile!=target.absolutePath) {
+                    File(previous.photoFile).takeIf { it.isFile }?.delete()
+                }
+                target.absolutePath
+            }
+        }
+        val now=System.currentTimeMillis()
+        synchronized(this@ReportQueue) {
+            writableDatabase.insertWithOnConflict("drafts",null,ContentValues().apply {
+                put("owner_id",owner);put("project",project);put("category",category);put("description",description)
+                put("location",location);put("barangay",barangay);put("latitude",latitude);put("longitude",longitude)
+                put("keep_original",if(keepOriginal) 1 else 0);put("photo_file",photoFile);put("updated_at",now)
+            },SQLiteDatabase.CONFLICT_REPLACE)
+            draftRevision.value++
+        }
+        SavedFormDraft(owner,project,category,description,location,barangay,latitude,longitude,keepOriginal,photoFile,now)
+    }
+
+    @Synchronized fun loadDraft(owner: String,project: String): SavedFormDraft? {
+        readableDatabase.query("drafts",null,"owner_id=? and project=?",arrayOf(owner,project),null,null,null,"1").use { rows ->
+            if(!rows.moveToNext()) return null
+            fun text(name: String)=rows.getString(rows.getColumnIndexOrThrow(name))
+            val file=text("photo_file")?.takeIf { File(it).isFile }
+            return SavedFormDraft(
+                ownerId=text("owner_id"),project=text("project"),category=text("category"),
+                description=text("description"),location=text("location"),barangay=text("barangay"),
+                latitude=text("latitude"),longitude=text("longitude"),
+                keepOriginal=rows.getInt(rows.getColumnIndexOrThrow("keep_original"))!=0,
+                photoFile=file,updatedAt=rows.getLong(rows.getColumnIndexOrThrow("updated_at"))
+            )
+        }
+    }
+
+    @Synchronized fun clearDraft(owner: String,project: String) {
+        val existing=loadDraft(owner,project)
+        writableDatabase.delete("drafts","owner_id=? and project=?",arrayOf(owner,project))
+        existing?.photoFile?.let { File(it).takeIf { f -> f.isFile }?.delete() }
+        draftRevision.value++
+    }
+
+    fun observeDraft(owner: String,project: String)=draftRevision.map { loadDraft(owner,project) }
+
     fun observe(owner: String,project: String)=revision.map { items(owner,project) }
     @Synchronized fun items(owner: String,project: String): List<QueuedReport> {
         val result=mutableListOf<QueuedReport>()
@@ -140,6 +265,7 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
     fun schedule(owner: String) {
         val project=SupabaseBackend.create(context)?.url ?: return
         purgeSyncedPhotos(owner,project)
+        CameraCaptureHelper.purgeStaleCaptures(context)
         val pending=items(owner,project)
         if(pending.none { it.state in listOf("Queued","Sending") }) {
             // An empty ordinary drain would become a predecessor of the next urgent report.
