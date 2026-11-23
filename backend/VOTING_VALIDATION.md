@@ -16,7 +16,7 @@ Independent privileged SQL confirmed six expected report states, zero remaining 
 
 The full backend suite passed **30/30**. Two new SQL tests exercise ten distinct local users voting from zero through ten and removing back to zero: Low at 0-2, Medium at 3-9 and High at 10. They verify the downward boundaries, the official Medium floor, closed add/remove rejection, null choice and missing-report errors. The existing High-floor and idempotency tests remain.
 
-Thresholds 3/10 remain provisional pending the group decision. No server policy was changed. These checks do not establish mobile vote UI behavior after Claude's restructuring, multi-phone contention or notification/push timing.
+Thresholds 3 (Medium) and 10 (High) were APPROVED by the group on November 23, 2026; they are already deployed, so no migration was made, and the boundary and floor tests stay. No server policy was changed. These checks do not establish mobile vote UI behavior after Claude's restructuring, multi-phone contention or notification/push timing.
 
 ## Fixtures, cleanup and repeat
 

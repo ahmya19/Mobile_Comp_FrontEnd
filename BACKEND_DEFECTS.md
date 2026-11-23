@@ -38,11 +38,11 @@ Owner: Codex. Status: **Fixed and verified on the isolated emulator**, physical 
 
 The native map rendered all 26 report IDs but the chooser retained only 25 via hits.take(25), making older loaded reports unreachable. The new regression failed with the expected 26-versus-25 chooser count. The fix keeps all loaded hits and uses a bounded LazyColumn with stable report-ID keys. Final native checks cover report 26, a 75-report stack, Cancel/reopen and selection of report 75; existing small-stack, map filter, form pin and notification regressions also pass (6/6 combined). Ten JVM tests and builds pass; lint 0 errors/34 warnings. No hosted data, schema, dependency or phone changes. Details and remaining acceptance limits: [backend/MAP_STACK_VALIDATION.md](backend/MAP_STACK_VALIDATION.md).
 
-## BG-005 — priority-only official change is recorded and notified as a status event
+## BG-005 — priority-only official change was recorded and notified as a status event
 
-Owner: backend. Status: **Open, product decision needed** (found November 23 by the migration-replay and security work; pinned by a characterization test).
+Owner: backend. Status: **Decision approved November 23; fixed in forward migration 202611230010 and proven locally; not yet deployed to the hosted project.**
 
-When an assigned official calls `update_report_status` with the report's current status and a different priority, the function writes a history row `Under Review -> Under Review` and inserts a second notification and push-outbox row ("Your ... report is under review."), although nothing about the status changed. Reproduction: `backend/tests/security-failure-paths.test.mjs`, test "characterization: a priority-only change...". An exact repeat changes nothing. Proposed fix, for review as a new forward migration (not an edit of an applied one and not deployed): when only the priority changes, update priority and `updated_at` without history, notification or outbox rows. The group should confirm whether priority changes should notify. See backend/SECURITY_FAILURE_PATH_VALIDATION.md.
+Before: an assigned official's priority-only call wrote a `Status -> Status` history row and a second citizen notification and push-outbox row. Approved policy: only an actual status change writes those; a priority-only change updates the official priority, the effective priority (3 votes Medium, 10 votes High floors preserved, votes never lower an official assessment) and `updated_at`; exact repeats stay idempotent. Replay tests cover priority-only, repeats, a real status change still producing exactly one history/notification/outbox event, the vote floors and ordinary-role denial, and fail when the migration is absent. See [backend/APPROVED_DECISIONS.md](backend/APPROVED_DECISIONS.md).
 
 ## BG-006 — a captive-portal page marked a queued report Failed
 
