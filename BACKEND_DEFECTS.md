@@ -125,3 +125,7 @@ Owner: Kotlin UI. Status: **Fixed** (November 23). Report Details and Notificati
 ## BG-023 — PhotoCompressor had no fallback when BitmapFactory returned nothing
 
 Owner: Kotlin data. Status: **Hardened** (November 23), root cause **unconfirmed**. One of the owner's real gallery photos failed with `Cannot decode the selected image.` and could not be reproduced with synthetic inputs (the photo was not inspected). An Android 9+ `ImageDecoder` fallback now decodes to a bounded size with the orientation applied once and no EXIF; corrupt, empty and vanished sources keep their messages. Six forced-path tests; 4 fail with the fallback disabled. See [backend/CP49_PHONE_VALIDATION_AND_POLISH.md](backend/CP49_PHONE_VALIDATION_AND_POLISH.md).
+
+## BG-024 — two submissions took about 27 s on the real phone
+
+Owner: Kotlin data. Status: **Open observation** (November 23). In 20 physical submissions, one on Wi-Fi and one on cellular took about 27.5 s instead of 1 to 5 s (the mean stayed under 10 s). Cause not investigated (suspect WorkManager scheduling or a retry backoff). A push-harness tap miss (shade timing) was a test-driver matter, not an app defect. See [backend/CP50_PHONE_ACCEPTANCE_COHORTS.md](backend/CP50_PHONE_ACCEPTANCE_COHORTS.md).

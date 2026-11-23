@@ -21,7 +21,7 @@ from real_fcm_probe import Probe, adb, now, MAX_WAIT  # noqa: E402
 class Phone(Probe):
     def __init__(self, a, creds):
         super().__init__(a, creds)
-        self.ctoken = None
+        self.ctoken = None; self.cuid = self.uid
         self.marker = f'PUSHFCM-PHONE-{a.report_id[:6]} real FCM phone probe fixture'
 
     def csession(self):
@@ -35,7 +35,8 @@ class Phone(Probe):
         if self.installation not in rows: raise SystemExit(f'{label}: phone installation not registered for the citizen')
         if not set(rows) <= set(self.base_rows):
             raise SystemExit(f'{label}: a new citizen device row appeared; aborting before send')
-        if self.devices(self.uid): raise SystemExit(f'{label}: unexpected official registration')
+        if self.devices(self.ouid): raise SystemExit(f'{label}: unexpected official registration')
+        if self.protected_fp() != self.cfp: raise SystemExit(f'{label}: protected (shared demo) device rows changed; aborting before send')
 
     def new_notice(self, before):
         status, rows = call('GET', f'/rest/v1/notifications?report_id=eq.{self.report_id}&select=id,message,created_at&order=created_at.desc', self.csession())
@@ -60,7 +61,7 @@ class Phone(Probe):
         self.installation = self.installed_id()
         self.base_rows = self.rows()
         if self.installation not in self.base_rows: raise SystemExit('This phone is not registered for the citizen; open the app signed in first.')
-        self.cfp = self.citizen_fp()
+        self.cfp = self.protected_fp()
         base = {k: sql(q)[0]['c'] for k, q in {
             'reports': 'select count(*) c from public.reports', 'notifications': 'select count(*) c from public.notifications',
             'outbox': 'select count(*) c from private.push_outbox', 'history': 'select count(*) c from public.report_history'}.items()}
