@@ -9,6 +9,7 @@ import sys
 import tempfile
 import types
 import unittest
+import unittest.mock
 
 SCRIPTS = pathlib.Path(__file__).resolve().parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPTS))
@@ -153,7 +154,10 @@ class ProvisionTest(unittest.TestCase):
 
     def test_admin_errors_never_include_the_key(self):
         def boom(req, timeout=0): raise OSError('connection failed for ' + req.headers.get('Apikey', ''))
-        with self.assertRaises(RuntimeError) as cm: prov.admin('POST', '/auth/v1/admin/users', FAKE_KEY, {}, urlopen=boom)
+        for base in ('https://project.example.test', ''):    # '' = CI without private configuration: still a safe, key-free error
+            with unittest.mock.patch.object(prov, 'BASE', base):
+                with self.assertRaises(RuntimeError) as cm: prov.admin('POST', '/auth/v1/admin/users', FAKE_KEY, {}, urlopen=boom)
+                self.assertNotIn(FAKE_KEY, str(cm.exception))
         self.assertNotIn(FAKE_KEY, str(cm.exception))
 
 

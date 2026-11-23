@@ -49,8 +49,8 @@ def fetch_secret_key(run=subprocess.run):
 
 def admin(method, path, key, body=None, urlopen=urllib.request.urlopen):
     """Auth Admin API call. Errors carry only the HTTP status, never headers, bodies with credentials, or the key."""
-    req = urllib.request.Request(BASE + path, json.dumps(body).encode() if body is not None else None, {'apikey': key, 'Content-Type': 'application/json'}, method=method)
     try:
+        req = urllib.request.Request(BASE + path, json.dumps(body).encode() if body is not None else None, {'apikey': key, 'Content-Type': 'application/json'}, method=method)
         with urlopen(req, timeout=30) as r: raw = r.read().decode('utf-8', 'replace'); status = r.status
     except urllib.error.HTTPError as e: raw = e.read().decode('utf-8', 'replace'); status = e.code
     except Exception as e: raise RuntimeError(f'admin {method} {path.split("?")[0]} failed: {type(e).__name__}') from None
