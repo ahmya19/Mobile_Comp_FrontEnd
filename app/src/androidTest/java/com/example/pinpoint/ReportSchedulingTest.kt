@@ -76,6 +76,8 @@ class ReportSchedulingTest {
         assertTrue("User-submitted reports need expedited priority",spec.expedited)
         assertEquals(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST,spec.outOfQuotaPolicy)
         assertEquals(NetworkType.CONNECTED,spec.constraints.requiredNetworkType)
+        assertEquals(BackoffPolicy.EXPONENTIAL,spec.backoffPolicy)
+        assertEquals(WorkRequest.MIN_BACKOFF_MILLIS,spec.backoffDelayDuration)
         requireNotNull(WorkManagerTestInitHelper.getTestDriver(context)).setAllConstraintsMet(work.id)
         assertEquals(WorkInfo.State.SUCCEEDED,manager.getWorkInfoById(work.id).get(5,TimeUnit.SECONDS).state)
         assertEquals(1,SchedulingProbeWorker.runs.get())

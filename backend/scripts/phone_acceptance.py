@@ -223,7 +223,10 @@ def cohort_submit(r, per_condition):
             ok, _ = p.instrument('enqueue', id=t['id'], marker=t['marker'], original='no', wait='yes', timeout_s=90)
             rc = p.receipt(); d = net_delta(net0, p.net()); vis = r.row_visible(t['id'])
             iface = d['cellular_tx_bytes'] if cond == 'cellular_only' else d['wifi_or_eth_tx_bytes']
-            e = dict(condition=cond, ack_ms=rc.get('ack_duration_ms'), client_submit_ms=rc.get('client_submit_ms'), app_payload_bytes=rc.get('app_payload_bytes'), photo_bytes=rc.get('queued_photo_bytes'),
+            e = dict(condition=cond, ack_ms=rc.get('ack_duration_ms'), client_submit_ms=rc.get('client_submit_ms'),
+                     worker_start_delay_ms=rc.get('worker_start_delay_ms'), submit_exec_ms=rc.get('submit_exec_ms'),
+                     worker_attempts=rc.get('worker_attempts'), worker_last_error=rc.get('worker_last_error'),
+                     app_payload_bytes=rc.get('app_payload_bytes'), photo_bytes=rc.get('queued_photo_bytes'),
                      interface_tx_bytes=iface, on_server=bool(vis), synced=bool(rc.get('synced')))
             e['pass'] = bool(e['synced'] and e['on_server'] and (e['app_payload_bytes'] or 10**9) <= 300_000 and (e['client_submit_ms'] or 10**9) <= 10_000)
             r.record(t, **e); res.append(e); print(json.dumps({k: e[k] for k in ('condition', 'client_submit_ms', 'app_payload_bytes', 'on_server', 'pass')}))

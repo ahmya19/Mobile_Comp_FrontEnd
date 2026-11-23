@@ -35,6 +35,7 @@ class FakeSupabaseServer : Closeable {
     val reportDescriptions = ConcurrentHashMap<String, String>()   // report id -> description as committed
     val creations = CopyOnWriteArrayList<Pair<String, String>>() // (owner uid, report id) per actual creation
     val photos = ConcurrentHashMap<String, ByteArray>()
+    val photoBehaviors = ConcurrentLinkedQueue<Rpc>()
     val rpcBehaviors = ConcurrentLinkedQueue<Rpc>()
     @Volatile var refreshBehavior = Refresh.OK
     @Volatile var nextExpiresIn = 3600
@@ -170,6 +171,12 @@ class FakeSupabaseServer : Closeable {
         }
         if (r.method == "POST" && r.path.startsWith("/storage/v1/object/report-images/")) {
             val name = r.path.removePrefix("/storage/v1/object/report-images/")
+            when (photoBehaviors.poll() ?: Rpc.OK) {
+                Rpc.DROP_BEFORE_COMMIT -> return null
+                Rpc.DROP_AFTER_COMMIT -> { photos.putIfAbsent(name, r.body); return null }
+                Rpc.SERVER_500 -> return json(500, JSONObject().put("message", "storage unavailable"))
+                else -> {}
+            }
             if (photos.containsKey(name)) return json(400, JSONObject().put("statusCode", "409").put("error", "Duplicate").put("message", "The resource already exists"))
             photos[name] = r.body
             return json(200, JSONObject().put("Key", "report-images/$name"))

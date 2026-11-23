@@ -94,7 +94,7 @@ class Phone(Probe):
             adb(self.s, 'shell', 'input keyevent KEYCODE_WAKEUP')
             self.record('P4 screen off', status='Resolved', notification_in_tray=seen, tray_observed_seconds=round(t_seen, 1) if seen else None,
                         fcm_accepted_by_outbox=bool(ob and ob['d'] in (True, 't', 'true')), outbox_attempts=ob and ob['a'],
-                        outbox_error=ob and ob['e'], tap_attempted=False)
+                        outbox_error=ob and ob['e'], created_to_dispatch_seconds=ob and ob['lat'], tap_attempted=False)
             adb(self.s, 'shell', 'cmd statusbar collapse')
         finally:
             self.finish(ledger)
