@@ -2,6 +2,7 @@ package com.example.pinpoint
 
 import android.Manifest
 import android.content.Intent
+import android.app.NotificationManager
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -15,7 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Signs the real app in or out of the live backend through the real UI so a host script can exercise real FCM.
- *  Phases: signin (credentials via instrumentation args, never printed) and signout. Leaves the app signed in/out. */
+ *  Phases: signin (credentials via instrumentation args, never printed), signout, and destroy. */
 @RunWith(AndroidJUnit4::class)
 class PushRecipientSetupTest {
     @get:Rule(order = 0) val notifications: GrantPermissionRule = GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
@@ -31,6 +32,34 @@ class PushRecipientSetupTest {
         instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         val signedIn = SupabaseBackend.create(context)?.auth?.currentUser != null
         when (phase) {
+            "clear-tray" -> {
+                val manager = context.getSystemService(NotificationManager::class.java)
+                val deadline = System.currentTimeMillis() + 5000
+                do {
+                    manager.cancelAll()
+                    Thread.sleep(150)
+                } while (manager.activeNotifications.isNotEmpty() && System.currentTimeMillis() < deadline)
+                check(manager.activeNotifications.isEmpty()) { "Owned notification cancellation did not complete" }
+            }
+            "destroy" -> {
+                instrumentation.runOnMainSync {
+                    Stage.values().filter { it != Stage.DESTROYED }.flatMap {
+                        ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(it).toList()
+                    }.distinct().forEach { it.finish() }
+                }
+                instrumentation.waitForIdleSync()
+                var alive = true
+                val deadline = System.currentTimeMillis() + 10000
+                while (alive && System.currentTimeMillis() < deadline) {
+                    instrumentation.runOnMainSync {
+                        alive = Stage.values().filter { it != Stage.DESTROYED }.any {
+                            ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(it).isNotEmpty()
+                        }
+                    }
+                    if (alive) Thread.sleep(100)
+                }
+                check(!alive) { "Activity destruction was not observed" }
+            }
             "signin" -> {
                 if (signedIn) { waitText("Quick Report"); compose.onNodeWithText("Profile").performClick(); compose.onNodeWithText("Sign out").performClick() }
                 waitText("Sign in to your community")

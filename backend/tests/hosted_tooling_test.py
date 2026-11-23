@@ -307,30 +307,32 @@ class ForbiddenUploadTest(unittest.TestCase):
 
 
 class FcmGuardTest(unittest.TestCase):
-    def make(self, official_rows, citizen_fp):
+    def make(self, recipient_rows, protected_fp):
         a = types.SimpleNamespace(work=tempfile.mkdtemp(), serial='emulator-5556', report_id=RID, run_id='t')
         p = fcm.Probe(a, CREDS); p.installation = 'inst-emulator'; p.cfp = {'f': 'x', 'n': 2}
-        p.devices = lambda uid: [{'i': i} for i in official_rows]; p.citizen_fp = lambda: citizen_fp
+        p.devices = lambda uid: [{'i': i} for i in recipient_rows] if uid == p.uid else []
+        p.protected_fp = lambda: protected_fp
+        p.validate_pair = lambda: None; p.verify_report = lambda: None
         self.sent = []
-        p.rpc = lambda name, body: self.sent.append((name, body)); p.session = lambda: 'tok'
+        p.rpc = lambda name, body: self.sent.append((name, body)); p.session = lambda: 'tok'; p.reporter_session = lambda: 'recipient-tok'
         return p
 
     def test_signed_out_status_change_is_guarded_and_aborts_on_a_new_registration(self):
         p = self.make(['inst-someone-else'], {'f': 'x', 'n': 2})
         with patch.object(fcm, 'call', lambda *a, **k: (200, [])):
-            with self.assertRaises(SystemExit) as cm: p.change('Under Review', '5b signed out')
-        self.assertIn('unexpected official device registration', str(cm.exception)); self.assertEqual(self.sent, [], 'no RPC may be sent')
+            with self.assertRaises(SystemExit) as cm: p.change('Under Review', '5b signed out', registered=False)
+        self.assertIn('unexpected recipient device registration', str(cm.exception)); self.assertEqual(self.sent, [], 'no RPC may be sent')
 
     def test_zero_registrations_signed_out_is_allowed_through_the_same_guard(self):
         p = self.make([], {'f': 'x', 'n': 2})
         with patch.object(fcm, 'call', lambda *a, **k: (200, [])):
-            with self.assertRaises(SystemExit) as cm: p.change('Under Review', '5b signed out')   # no notification row in the stub
+            with self.assertRaises(SystemExit) as cm: p.change('Under Review', '5b signed out', registered=False)   # no notification row in the stub
         self.assertEqual(len(self.sent), 1, 'the guard passed and the RPC was issued exactly once'); self.assertIn('no notification', str(cm.exception))
 
     def test_changed_citizen_rows_abort_before_send(self):
         p = self.make([], {'f': 'CHANGED', 'n': 2})
         with patch.object(fcm, 'call', lambda *a, **k: (200, [])):
-            with self.assertRaises(SystemExit): p.change('Under Review', 'x')
+            with self.assertRaises(SystemExit): p.change('Under Review', 'x', registered=False)
         self.assertEqual(self.sent, [])
 
     def test_5b_path_uses_change_and_has_no_direct_status_rpc(self):
