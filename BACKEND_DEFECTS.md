@@ -97,3 +97,11 @@ Owner: Kotlin data. Status: **Fixed** (November 23). `ReportSyncWorker` marked a
 ## BG-016 — real-FCM probe could pass a failed observation and tap a stale notice
 
 Owner: backend test tooling. Status: **Fixed** (November 23). Failed matrix observations were merely logged; cleanup could still produce a successful exit. Back did not prove activity destruction, and identical notification text could select an older fixture's notice. The hardened probe raises on failed expectations, observes lifecycle destruction, clears its own tray before a case and requires exactly the expected notification ID before tapping. It uses a distinct admin-labelled citizen/official fixture pair and protects all non-fixture registrations, with guarded transactional cleanup and independent session outcomes. Regression/failing-control evidence and the separate emulator-connection investigation: [backend/FIXTURE_PAIR_FCM_VALIDATION.md](backend/FIXTURE_PAIR_FCM_VALIDATION.md). No production application or RLS defect is claimed from the stalled emulator connection.
+
+## BG-017 — the original-photo upload never refreshed a server-rejected token
+
+Owner: Kotlin data. Status: **Fixed** (November 23), proven by the CP-44 matrix with a failing control. `WifiOriginals.call` used `accessToken(owner)` once, so an upload whose token looked unexpired locally but was rejected (for example device clock skew) ended in permanent `UPLOAD_401`. It now refreshes once and repeats the request, the same rule `SupabaseBackend` applies. See [backend/ORIGINAL_TUS_RECOVERY_VALIDATION.md](backend/ORIGINAL_TUS_RECOVERY_VALIDATION.md).
+
+## BG-018 — a kill after the attach was acknowledged left the private original on disk
+
+Owner: Kotlin data. Status: **Fixed** (November 23). Same window as BG-015 for the optional original: `original_state=Uploaded` was written before the local file delete, and nothing revisited the file. `ReportQueue.purgeSyncedPhotos` now removes it on the next schedule.

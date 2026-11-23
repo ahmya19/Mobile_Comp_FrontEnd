@@ -132,6 +132,9 @@ class ReportQueue private constructor(private val context: Context) : SQLiteOpen
     fun purgeSyncedPhotos(owner: String,project: String) {
         items(owner,project).filter { it.state=="Synced" }.forEach { item ->
             item.photoFile?.let { path -> File(path).takeIf { it.isFile }?.delete() }
+            // The same window exists for the optional original: once its attach was acknowledged ("Uploaded") the local copy
+            // must go; a kill between the acknowledgement and the delete would otherwise leave a private original forever.
+            if(item.originalState=="Uploaded") item.originalFile?.let { path -> File(path).takeIf { it.isFile }?.delete() }
         }
     }
     fun schedule(owner: String) {
@@ -230,7 +233,7 @@ class OriginalUploadWorker(context: Context,parameters: WorkerParameters): Corou
         for(item in queue.items(owner,backend.url).filter { it.state=="Synced" && it.originalFile!=null && it.originalState !in listOf("Uploaded","Failed") }) {
             try {
                 queue.setOriginalState(item.id,"Uploading on Wi-Fi")
-                WifiOriginals(applicationContext,backend).upload(item) { url -> queue.saveUploadSession(item.id,url) }
+                WifiOriginals.create(applicationContext,backend).upload(item) { url -> queue.saveUploadSession(item.id,url) }
                 backend.json("rest/v1/rpc/attach_original","POST",mapOf("p_report_id" to item.id),expectedUserId=owner)
                 queue.setOriginalState(item.id,"Uploaded")
                 queue.saveUploadSession(item.id,null)

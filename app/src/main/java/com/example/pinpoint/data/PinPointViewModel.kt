@@ -289,7 +289,7 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         queue.retry(uid,configured.url)
     }
     fun showOriginal(path: String) = action {
-        val bytes=WifiOriginals(getApplication(),requireNotNull(backend)).download(path)
+        val bytes=WifiOriginals.create(getApplication(),requireNotNull(backend)).download(path)
         val bounds=BitmapFactory.Options().apply { inJustDecodeBounds=true }
         BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
         require(bounds.outWidth>0 && bounds.outHeight>0) { "Could not decode the original photo." }

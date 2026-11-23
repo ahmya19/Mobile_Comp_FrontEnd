@@ -47,6 +47,10 @@ class FakeSupabaseServer : Closeable {
     val readBehaviors = ConcurrentLinkedQueue<Rpc>()
     val readEntered = CountDownLatch(1)
     val releaseRead = CountDownLatch(1)
+    /** attach_original is idempotent per report id; attachCommits records each FIRST attach only. */
+    val attachBehaviors = ConcurrentLinkedQueue<Rpc>()
+    val attached: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    val attachCommits = CopyOnWriteArrayList<String>()
     val rpcEntered = CountDownLatch(1)
     val releaseHold = CountDownLatch(1)
 
@@ -151,6 +155,17 @@ class FakeSupabaseServer : Closeable {
                 Rpc.SERVER_500 -> json(500, JSONObject().put("message", "internal"))
                 Rpc.VALIDATION_400 -> json(400, JSONObject().put("code", "22023").put("message", "bad"))
                 Rpc.HOLD_THEN_OK -> { readEntered.countDown(); releaseRead.await(30, TimeUnit.SECONDS); json2(200, reportsJson(r.query, uid)) }
+            }
+        }
+        if (r.method == "POST" && r.path == "/rest/v1/rpc/attach_original") {
+            val id = JSONObject(String(r.body)).getString("p_report_id")
+            fun commit() { if (attached.add(id)) attachCommits += id }
+            return when (attachBehaviors.poll() ?: Rpc.OK) {
+                Rpc.OK -> { commit(); json(200, JSONObject()) }
+                Rpc.DROP_AFTER_COMMIT -> { commit(); null }
+                Rpc.DROP_BEFORE_COMMIT -> null
+                Rpc.SERVER_500 -> json(500, JSONObject().put("message", "internal"))
+                else -> json(400, JSONObject().put("message", "unsupported test behavior"))
             }
         }
         if (r.method == "POST" && r.path == "/rest/v1/rpc/my_profile") return json(200, JSONObject().put("id", uid).put("display_name", "Test User").put("official", false))

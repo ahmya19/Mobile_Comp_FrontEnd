@@ -20,9 +20,17 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+/** The network-bound transport. Production binds sockets and DNS to ONE actual unmetered Wi-Fi network; a test double can
+ *  model a resumable-upload server, but every URL, host, port and token rule below runs in front of it on both paths. */
+interface OriginalLink {
+    /** Throws IOException when the pinned network is no longer an unmetered Wi-Fi network. */
+    fun ensure()
+    suspend fun execute(request: Request): Response
+}
+
 /** Sockets and DNS stay on one actual Wi-Fi network, including during handoff.
  * Losing that network fails the call; OkHttp cannot silently use cellular. */
-class WifiOriginals(context: Context, private val backend: SupabaseBackend) {
+internal class WifiLink(context: Context): OriginalLink {
     private val connectivity=context.getSystemService(ConnectivityManager::class.java)
     private val network: Network=connectivity.allNetworks.firstOrNull { wifi(it) }
         ?: throw IOException("Waiting for unmetered Wi-Fi to transfer the original photo.")
@@ -30,31 +38,43 @@ class WifiOriginals(context: Context, private val backend: SupabaseBackend) {
         .dns(object: Dns { override fun lookup(hostname: String)=network.getAllByName(hostname).toList() })
         .connectTimeout(15,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS).writeTimeout(30,TimeUnit.SECONDS)
         .callTimeout(90,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
-    private val project=backend.url.toHttpUrl()
-    private val uploadHost=project.host.removeSuffix(".supabase.co")+".storage.supabase.co"
     private fun wifi(candidate: Network): Boolean = connectivity.getNetworkCapabilities(candidate)?.let {
         it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             it.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }==true
-    private fun ensureWifi() { if(!wifi(network)) throw IOException("Wi-Fi changed. The original will resume on Wi-Fi.") }
+    override fun ensure() { if(!wifi(network)) throw IOException("Wi-Fi changed. The original will resume on Wi-Fi.") }
+    override suspend fun execute(request: Request): Response = suspendCancellableCoroutine { continuation ->
+        val call=http.newCall(request)
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(object: Callback {
+            override fun onFailure(call: Call,e: IOException) { if(continuation.isActive) continuation.resumeWithException(e) }
+            override fun onResponse(call: Call,response: Response) {
+                if(continuation.isActive) continuation.resume(response) { _,value,_ -> value.close() } else response.close()
+            }
+        })
+    }
+}
+
+class WifiOriginals private constructor(private val backend: SupabaseBackend,private val project: HttpUrl,private val link: OriginalLink) {
+    constructor(context: Context, backend: SupabaseBackend): this(backend,backend.url.toHttpUrl(),WifiLink(context))
+    private val uploadHost=project.host.removeSuffix(".supabase.co")+".storage.supabase.co"
+    private fun ensureWifi() = link.ensure()
 
     private suspend fun call(url: HttpUrl,method: String,owner: String,headers: Map<String,String> = emptyMap(),body: RequestBody?=null): Response {
         ensureWifi()
         require(url.isHttps && url.host in setOf(project.host,uploadHost) && url.port==443) { "Unexpected upload server." }
-        val token=backend.auth.accessToken(owner)
-        val request=Request.Builder().url(url).header("apikey",backend.publishableKey)
-            .header("Authorization","Bearer $token").apply { headers.forEach { (name,value)->header(name,value) } }
-            .method(method,body).build()
-        return suspendCancellableCoroutine { continuation ->
-            val call=http.newCall(request)
-            continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(object: Callback {
-                override fun onFailure(call: Call,e: IOException) { if(continuation.isActive) continuation.resumeWithException(e) }
-                override fun onResponse(call: Call,response: Response) {
-                    if(continuation.isActive) continuation.resume(response) { _,value,_ -> value.close() } else response.close()
-                }
-            })
+        var token=backend.auth.accessToken(owner)
+        for(attempt in 0..1) {
+            val request=Request.Builder().url(url).header("apikey",backend.publishableKey)
+                .header("Authorization","Bearer $token").apply { headers.forEach { (name,value)->header(name,value) } }
+                .method(method,body).build()
+            val response=link.execute(request)
+            // A token the server just refused (e.g. device clock skew) is refreshed once and the same request repeated:
+            // a 401 is rejected before execution, so this is safe for POST and PATCH too (same rule as SupabaseBackend).
+            if(response.code==401 && attempt==0) { response.close(); token=backend.auth.accessToken(owner,token); continue }
+            return response
         }
+        error("unreachable")
     }
 
     suspend fun upload(item: QueuedReport,onProgress: (Long)->Unit = {},saveSession: (String?)->Unit) = withContext(Dispatchers.IO) {
@@ -75,7 +95,7 @@ class WifiOriginals(context: Context, private val backend: SupabaseBackend) {
         if(session==null) {
             // A completed upload may have lost its final acknowledgment. Verify
             // the immutable object rather than replacing it or uploading twice.
-            val existing=(backend.url+"/storage/v1/object/authenticated/report-originals/$path").toHttpUrl()
+            val existing=(project.toString().trimEnd('/')+"/storage/v1/object/authenticated/report-originals/$path").toHttpUrl()
             var complete=false
             call(existing,"GET",item.ownerId).use { response ->
                 if(response.isSuccessful) {
@@ -133,7 +153,7 @@ class WifiOriginals(context: Context, private val backend: SupabaseBackend) {
     suspend fun download(path: String): ByteArray = withContext(Dispatchers.IO) {
         require(path.matches(Regex("[0-9a-f-]{36}/[0-9a-f-]{36}/original")))
         val owner=backend.auth.currentUser?.id ?: error("Sign in first.")
-        call((backend.url+"/storage/v1/object/authenticated/report-originals/$path").toHttpUrl(),"GET",owner).use {
+        call((project.toString().trimEnd('/')+"/storage/v1/object/authenticated/report-originals/$path").toHttpUrl(),"GET",owner).use {
             if(!it.isSuccessful) fail(it)
             it.body?.bytes() ?: throw IOException("Original photo is unavailable.")
         }
@@ -141,5 +161,27 @@ class WifiOriginals(context: Context, private val backend: SupabaseBackend) {
     private fun fail(response: Response): Nothing {
         // Upload URLs can contain authorization material. Keep them out of errors.
         throw BackendException(response.code,"UPLOAD_${response.code}","Original photo transfer failed (${response.code}).")
+    }
+
+    companion object {
+        class TestSetup(val project: HttpUrl,val link: OriginalLink)
+        /** Debug builds only: lets instrumented tests put a resumable-upload server model BEHIND the unchanged URL/host/port/token
+         *  rules. The project must still be https on *.supabase.co. Real Wi-Fi/cellular behavior is NOT tested through this seam. */
+        @Volatile var testSetup: (() -> TestSetup)?=null
+            private set
+        fun installForTesting(setup: () -> TestSetup) {
+            check(com.example.pinpoint.BuildConfig.DEBUG) { "Test transport is available in debug builds only." }
+            testSetup=setup
+        }
+        fun resetForTesting() { testSetup=null }
+        /** Entry point for the worker and viewer: the real pinned Wi-Fi transport unless a debug test double is installed. */
+        fun create(context: Context,backend: SupabaseBackend): WifiOriginals {
+            val setup=if(com.example.pinpoint.BuildConfig.DEBUG) testSetup?.invoke() else null
+            if(setup!=null) {
+                require(setup.project.isHttps && setup.project.host.endsWith(".supabase.co")) { "Test project must be https on supabase.co." }
+                return WifiOriginals(backend,setup.project,setup.link)
+            }
+            return WifiOriginals(context,backend)
+        }
     }
 }
