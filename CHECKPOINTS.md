@@ -60,7 +60,6 @@ Statuses: **Done** = stated setup/implementation condition verified; **Prototype
 | CP-40 | Queue and photo recovery across real OS process death (emulator) | Emulator verified; TUS resume Blocked; BG-015 fixed | A host-coordinated harness SIGKILLs the real app process (PID replaced, task retained for the picker case) against a host-side fake backend: save-then-kill, upload without ack, different-body object, committed-ack-lost, account A/B ownership, real-picker selection with retained task (grant survives and the report submits), original/upload-session durability, and the Synced-before-delete window (BG-015, fixed with a failing control). TUS offset/chunk resume is Blocked by the HTTPS-443 and Wi-Fi-network pin. Backend 62 tests, JVM 11, lint 0 errors, earlier emulator suites green. See backend/PROCESS_DEATH_RECOVERY_VALIDATION.md. |
 | CP-41 | Approved decisions: BG-005 policy, Alangilan, voting, roles | Deployed and hosted verified | Forward files 010/011 applied as hosted versions 20261123043105/20261123043113; older nine history records preserved. Eighteen rollback-only hosted checks pass, function body/security metadata verified, all 11 protected-table fingerprints unchanged. Three simulation barangays intentionally replaced by Alangilan. Local suite 69/69 plus Edge checks pass. No phone/emulator command or committed test push. See backend/APPROVED_POLICY_DEPLOYMENT.md. |
 | CP-42 | Dedicated project-owned test identities and a safe isolated whole-app workflow | Hosted verified (emulator); phone untouched | Two labelled, admin-confirmed fixture identities (citizen; Alangilan official) created through the Auth Admin API with the key held only in memory, verified by ordinary sign-in, with the demo accounts' device rows unchanged. The workflow driver now refuses shared accounts, drains the push outbox before deleting and removes only the fixtures' registrations. The hosted whole-app workflow passed with real push to the owned emulator, exact-identity cleanup and confirmed logouts. 70 backend tests. See backend/TEST_IDENTITIES.md. |
-
 | CP-43 | Real FCM through distinct fixture citizen/official and strict oracle | Emulator verified; phone untouched | Final a07 passes all six scenario groups, with exact active notification/report correlation, lifecycle destruction, OS permission oracle and honest force-stop control. BG-016 tooling defects fixed; 18 mocked fixture-pair tests, backend 76/76, JVM 11/11 and lint 0 errors/37 warnings. Independent twelve-table fingerprints preserved, fixture registrations/sessions zero, permanent identities retained, owned emulator stopped. Failed/intervention-assisted cohorts retained in backend/FIXTURE_PAIR_FCM_VALIDATION.md. |
 
 ## Implementation ownership
@@ -90,8 +89,6 @@ The user has approved Alangilan, 3/10 voting floors and the other choices in bac
 Do not enable a paid plan to close any checkpoint. Ask about genuinely missing infrastructure or permissions, while continuing independent work.
 
 ## Checkpoint log
-
-| 2026-11-23 | CP-43 | Strict real-FCM fixture-pair matrix passed on unchanged app APK; BG-016 checker defects fixed, all protected data restored and fixture Auth/device sessions cleared. Phone untouched. Prepared Claude's three heavy whole-app completion batches with mandatory return handoff. |
 
 | Date | Checkpoints | Result |
 | --- | --- | --- |
@@ -135,5 +132,6 @@ Do not enable a paid plan to close any checkpoint. Ask about genuinely missing i
 
 | 2026-11-23 | CP-41 deployment | Applied only approved 010/011; hosted history now 11 entries with the old nine preserved. Full reviewed function body/ACL matched; Alangilan-only SMS routing verified. Eighteen hosted checks rolled back all fixtures/events, 11 original table fingerprints preserved. No phone or test push; catalog has zero drift. |
 | 2026-11-23 | CP-42 | Provisioned the two permanent test identities (Auth Admin API, key in memory only) and ran the hardened hosted workflow on the owned emulator with them: real push to the emulator, guarded cleanup, sessions confirmed, baseline preserved. The demo accounts and the user's phone were not involved. |
+| 2026-11-23 | CP-43 | Strict real-FCM fixture-pair matrix passed on unchanged app APK; BG-016 checker defects fixed, all protected data restored and fixture Auth/device sessions cleared. Phone untouched. Prepared Claude's three heavy whole-app completion batches with mandatory return handoff. |
 
 Setup: [backend/README.md](backend/README.md). Evidence and manual matrix: [backend/VERIFICATION.md](backend/VERIFICATION.md).
