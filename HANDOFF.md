@@ -6,11 +6,12 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 ## Current delivery — November 23 (supersedes the dated sections below, which are history)
 
-**Git:** PRs #1–#22 are merged; this fixture-pair FCM follow-up starts from main `11821a1`. Inspect its actual PR/check state before continuing. Earlier stack/next-task paragraphs below are historical. Do not restart completed merge, deployment or identity-provisioning work.
+**Git:** PRs #1–#26 are merged (`main` `64311ad`); CP-47 completion changes are delivered in reviewable PRs from `64311ad`. Inspect actual GitHub PR/check state before continuing. Earlier stack/next-task paragraphs below are historical. Do not restart completed merge, deployment or identity-provisioning work.
 
 **Historical final-build paging follow-up (merged in #14):** on candidate 1a38747, CP-21 passed 17 SQL-oracle cases and the insert-burst traversal (1/1, 67.646 s); CP-14 matched all 149 notices/read persistence (1/1, 25.845 s). Its 98 reports/134 notices were cleaned, preserving all 12 baseline fingerprints. Do not automatically repeat that batch for documentation-only changes. Current next tasks are listed below.
 
-**Done this round (Claude continuing backend work; evidence in the linked documents):**
+**Done this round (Antigravity & Claude continuing whole-app completion; evidence in the linked documents):**
+- CP-47 [abandoned-upload cleanup, demos & restore harness](backend/ABANDONED_UPLOAD_CLEANUP_AND_DEMOS.md), [real Wi-Fi TUS smoke](backend/ORIGINAL_TUS_RECOVERY_VALIDATION.md), [UI parity implementation](backend/UI_PARITY_INVENTORY.md), and [owner operations & defense guide](backend/OWNER_OPERATIONS_AND_DEMO_GUIDE.md): real Wi-Fi HTTPS TUS interrupt/resume/hash smoke on `emulator-5556` (cellular TX 0, baseline restored), live 1C synthetic cleanup proof, 6-report Alangilan demo driver, isolated 1B restore harness (Blocked on owner $0 quote), Batch 2A UI parity + camera FileProvider + account-isolated drafts + policy-safe queue management + password recovery/change + SMS guide + unsynced logout dialog. Backend 81/81, JVM 14/14, lint 0 errors/38 warnings, emulator 73/73, release APK static audit pass.
 - CP-46 [device regression and release checks](backend/BATCH3_DEVICE_AND_RELEASE_VALIDATION.md): phone SIGKILL matrix and suites pass, release APK static checks pass; acceptance cohorts not run.
 - CP-45 [UI parity inventory](backend/UI_PARITY_INVENTORY.md) and [owner actions and field protocols](backend/OWNER_ACTIONS_AND_FIELD_PROTOCOLS.md): 57-screen inventory, reconciliations pending owner confirmation, no parity claimed.
 - CP-44 [original TUS recovery](backend/ORIGINAL_TUS_RECOVERY_VALIDATION.md): 13-case matrix behind the unchanged release checks; BG-017 and BG-018 fixed; real phone Wi-Fi run pending.

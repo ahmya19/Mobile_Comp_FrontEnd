@@ -26,6 +26,7 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 import org.maplibre.android.module.http.HttpRequestUtil
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
@@ -67,7 +68,18 @@ private const val REPORT_SOURCE="reports"
 private const val REPORT_LAYER="reports-layer"
 
 private fun List<Report>.toFeatures(): FeatureCollection = FeatureCollection.fromFeatures(mapNotNull { report ->
-    report.mapCoordinate()?.let { Feature.fromGeometry(Point.fromLngLat(it.longitude,it.latitude)).apply { addStringProperty("id",report.id) } }
+    report.mapCoordinate()?.let {
+        Feature.fromGeometry(Point.fromLngLat(it.longitude,it.latitude)).apply {
+            addStringProperty("id",report.id)
+            addStringProperty("pinColor", when {
+                report.status == "Resolved" -> "#2E9E6B"
+                report.priority == "High" -> "#D63A3F"
+                report.priority == "Medium" -> "#F5B13E"
+                report.priority == "Low" -> "#62B6CF"
+                else -> "#7C4DCC"
+            })
+        }
+    }
 })
 
 private fun Report.mapCoordinate(): LatLng? {
@@ -106,7 +118,8 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
                 // Core style APIs (source + layer) replace the deprecated marker annotations.
                 it.addSource(GeoJsonSource(REPORT_SOURCE,latestReports.toFeatures()))
                 it.addLayer(CircleLayer(REPORT_LAYER,REPORT_SOURCE).withProperties(
-                    circleColor("#7C4DCC"),circleRadius(9f),circleStrokeColor("#FFFFFF"),circleStrokeWidth(2f)))
+                    circleColor(Expression.coalesce(Expression.get("pinColor"), Expression.literal("#7C4DCC"))),
+                    circleRadius(9f),circleStrokeColor("#FFFFFF"),circleStrokeWidth(2f)))
                 map.cameraPosition=CameraPosition.Builder().target(LatLng(13.7565,121.0583)).zoom(13.0).build()
                 ready=map
             }

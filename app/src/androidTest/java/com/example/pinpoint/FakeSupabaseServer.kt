@@ -56,6 +56,9 @@ class FakeSupabaseServer : Closeable {
 
     private val accessTokens = ConcurrentHashMap<String, String>()
     private val refreshTokens = ConcurrentHashMap<String, String>()
+    val passwords = ConcurrentHashMap<String, String>()
+    val recoveryRequests = CopyOnWriteArrayList<String>()
+    @Volatile var validRecoveryCode = "654321"
     private var sequence = 0
 
     fun userId(email: String): String = UUID.nameUUIDFromBytes(email.toByteArray()).toString()
@@ -120,7 +123,26 @@ class FakeSupabaseServer : Closeable {
     private fun handle(r: Seen): Triple<Int, String, ByteArray>? {
         when {
             r.path == "/auth/v1/token" && r.query.contains("grant_type=password") -> {
+                val payload = JSONObject(String(r.body))
+                val email = payload.getString("email")
+                val expectedPw = passwords[email]
+                if (expectedPw != null && payload.optString("password") != expectedPw) {
+                    return json(400, JSONObject().put("error_code", "invalid_credentials").put("msg", "Invalid login credentials"))
+                }
+                return json(200, session(userId(email), email))
+            }
+            r.path == "/auth/v1/recover" && r.method == "POST" -> {
                 val email = JSONObject(String(r.body)).getString("email")
+                recoveryRequests += email
+                return json(200, JSONObject())
+            }
+            r.path == "/auth/v1/verify" && r.method == "POST" -> {
+                val payload = JSONObject(String(r.body))
+                val email = payload.getString("email")
+                val token = payload.getString("token")
+                if (token != validRecoveryCode) {
+                    return json(403, JSONObject().put("error_code", "otp_expired").put("msg", "Token has expired or is invalid"))
+                }
                 return json(200, session(userId(email), email))
             }
             r.path == "/auth/v1/token" && r.query.contains("grant_type=refresh_token") -> return when (refreshBehavior) {
@@ -137,6 +159,14 @@ class FakeSupabaseServer : Closeable {
         // Everything below needs a valid bearer token.
         val uid = r.bearer?.let { accessTokens[it] } ?: return json(401, JSONObject().put("code", "PGRST301").put("message", "JWT invalid"))
         if (rejectOnce.remove(r.bearer)) return json(401, JSONObject().put("code", "PGRST303").put("message", "JWT expired"))
+        if (r.method == "PUT" && r.path == "/auth/v1/user") {
+            val payload = JSONObject(String(r.body))
+            payload.optString("password").takeIf { it.isNotBlank() }?.let { newPw ->
+                recoveryRequests.lastOrNull()?.let { passwords[it] = newPw }
+                passwords["user-$uid"] = newPw
+            }
+            return json(200, JSONObject().put("id", uid))
+        }
         if (r.method == "POST" && r.path.startsWith("/storage/v1/object/report-images/")) {
             val name = r.path.removePrefix("/storage/v1/object/report-images/")
             if (photos.containsKey(name)) return json(400, JSONObject().put("statusCode", "409").put("error", "Duplicate").put("message", "The resource already exists"))

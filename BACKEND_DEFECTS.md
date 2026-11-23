@@ -105,3 +105,7 @@ Owner: Kotlin data. Status: **Fixed** (November 23), proven by the CP-44 matrix 
 ## BG-018 — a kill after the attach was acknowledged left the private original on disk
 
 Owner: Kotlin data. Status: **Fixed** (November 23). Same window as BG-015 for the optional original: `original_state=Uploaded` was written before the local file delete, and nothing revisited the file. `ReportQueue.purgeSyncedPhotos` now removes it on the next schedule.
+
+## BG-019 — password-reset verification deadlocked on a non-reentrant Kotlin Mutex
+
+Owner: Kotlin auth/data. Status: **Fixed** (November 23), verified on the emulator against the loopback auth fake (`UiParityAndCameraDraftTest#passwordRecoveryAndChangePasswordWorkAgainstLoopbackAuth` and `AuthQueueFailureTest` 12/12). `SupabaseAuth.completePasswordReset` originally held `mutex.withLock` while calling `backend.json("auth/v1/user", "PUT", ..., authenticated = true)`, which re-entered `accessToken()` on the same non-reentrant `Mutex` and hung the recovery flow indefinitely after OTP verification. The fix releases `mutex` after persisting the verified recovery session and performs the authenticated password update outside the lock.
