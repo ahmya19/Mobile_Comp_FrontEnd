@@ -254,8 +254,13 @@ class Probe:
             self.expect(case + ' isolated tray', self.tray() == [nid], expected_notice_is_only_owned_tray_entry=self.tray() == [nid])
             adb(self.s, 'shell', 'cmd statusbar expand-notifications')
             time.sleep(2)
-            opened = self.tap_text(notice['message'])
+            opened = self.tap_text(notice['message'], 8)
+            if not opened:   # harness retry: the shade can still be animating or collapsed on this phone; recorded, never hides a missing notification
+                res['tap_first_attempt_missed'] = True
+                adb(self.s, 'shell', 'cmd statusbar collapse'); time.sleep(2); adb(self.s, 'shell', 'cmd statusbar expand-notifications'); time.sleep(3)
+                opened = self.tap_text(notice['message'], 12)
             res['tap_found_notification'] = bool(opened)
+            if not opened: res['shade_texts_diagnostic'] = [t[:60] for t, d, _, _ in self.ui() if t][:30]
             if opened:
                 res['details_show_fixture'] = self.screen_has('Report Details', 20) and self.screen_has(self.marker[:20], 10)
                 if rotate and res['details_show_fixture']:
