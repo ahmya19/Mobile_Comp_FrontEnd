@@ -16,8 +16,8 @@ Use this guide to share PinPoint with your **Group 2 teammates and usability tes
    - If Google Play Protect asks *"Install anyway?"*, tap **More details → Install anyway** (normal for student-built debug APKs not yet on Play Store).
 
 ### Step B — First Launch (Onboarding, Permissions & Sign In)
-1. Open **PinPoint** — observe the animated violet **Splash Screen** → swipe through all **3 Onboarding slides** → review the **Permission Primer** (allow **Location**, **Notifications**, and **Camera**).
-2. On the **Sign in** screen, enter the **Citizen Demo Account** email and password shared privately by the project lead.
+1. Open **PinPoint** — observe the animated violet **Splash Screen** → swipe or tap **Next** through all **3 Onboarding slides** (**Get started** on the last one; **Skip** jumps straight to the sign-in screen) → on the **Permission Primer** tap **Allow while using the app** (Location), the Notifications and **Allow camera** buttons, then **Allow & continue** (or **Maybe later**). You can replay both anytime from **Profile → App tour & onboarding / App permissions**.
+2. On the **Welcome back / Sign in** screen, enter the **Citizen Demo Account** email and password shared privately by the project lead.
    - *(Note: Public self-signup email confirmation requires a custom SMTP sender; during testing, everyone uses the confirmed demo citizen account—or the official account only for Task 5.)*
 3. **Important for TECNO / Xiaomi / Vivo / Oppo / Realme phones (background sync):**
    - Go to **Android Settings → Apps → PinPoint → Battery → Unrestricted**.
@@ -37,31 +37,31 @@ Mark every task **Pass** or **Fail** in the feedback sheet below, and write `[TE
 - [ ] Open **Profile** → try **App tour & onboarding**, **App permissions**, **Help and support** (expand FAQ items), and **SMS reporting guide** (type a sample message and verify the 160-character GSM-7 counter works; do not need to actually send an SMS).
 
 ### Task 2 — Real Camera Photo Report Submission (Online) (~5 min)
-- [ ] Tap the center **violet Camera FAB** (or any Quick Report category tile on Home).
-- [ ] Pick a category (e.g., `Road Damage` or `Garbage`).
-- [ ] Tap **Take Photo** (real camera sensor — *do not only use gallery*), take a photo of a harmless street/desk/campus object, and confirm the preview shows `"EXIF & GPS stripped on upload"`.
+- [ ] Tap the center **violet Camera button** in the bottom bar (or the **Quick Report** button / a category tile such as **Road** on Home).
+- [ ] Pick a category tile (e.g., **Road** or **Trash**).
+- [ ] Tap **Take Photo** (real camera sensor — *do not only use gallery*), take a photo of a harmless street/desk/campus object, and confirm the preview shows **"EXIF & GPS stripped on upload"**.
 - [ ] Enter description: `[TEST - YourName] Real camera upload check`, Location: `Alangilan test spot`, Barangay: `Alangilan`.
-- [ ] Tap **Use my current location** (or pick a pin on the mini-map).
-- [ ] Submit → confirm the **Report submitted!** animated confirmation screen appears with a `#PP-` issue number.
+- [ ] Tap **Use my current location** (or **Choose or adjust map pin** and long-press the spot on the map).
+- [ ] Tap **Submit Report** → confirm the **Report submitted!** animated confirmation screen appears with a `#PP-` issue number.
 - [ ] Tap **View My Reports** → open your report → confirm your photo loads clearly and status is **Pending**.
 
 ### Task 3 — Offline Report Queue, Local Edit/Delete & Auto-Reconnect Sync (~5 min)
 - [ ] Turn **Airplane Mode ON** (both Wi-Fi and mobile data OFF).
 - [ ] Open the Report form, pick a category, type `[TEST - YourName] Offline sync check`, fill Location + Barangay (`Alangilan`), and submit.
 - [ ] Verify PinPoint shows **"Report Saved on Device"** instead of crashing or losing your report.
-- [ ] Go to **My Reports → Saved offline reports** (or **Profile → Saved offline reports**):
-  - Try **Edit** on the unsent report (change one word) and verify the edit saves.
-  - Create a second dummy offline report and tap **Delete** to confirm unsent local reports can be removed (while already-submitted reports cannot be deleted).
+- [ ] Go to **Profile → Saved offline reports (N)** (the row shows how many unsent reports there are):
+  - Tap **Edit** on the unsent report (change one word, tap **Save changes**) and verify the edit saves.
+  - Create a second dummy offline report and tap **Delete** (then **Delete saved report**) to confirm unsent local reports can be removed (while already-submitted reports cannot be deleted).
 - [ ] Turn **Airplane Mode OFF** (turn Wi-Fi or mobile data back ON). Wait up to 60 seconds **without pressing Retry** and confirm the first offline report automatically transitions to **Synced** and appears in **My Reports**.
 
 ### Task 4 — Community Feed, Upvoting, Filters & Map Pin Exploration (~4 min)
-- [ ] Open **Map**: verify pins are visible (not hidden under filter chips or legend), test category filter pills (`Road Damage`, `Flooding`, `All`), and tap a marker (or stacked marker chooser) to open **Report Details**.
-- [ ] In **Report Details**, tap the **Upvote / Support** button (`↑`) → confirm the vote count increments by 1; tap again to verify toggle/persistence.
-- [ ] Open **Community** feed (from Home → *"See all"* or Community link) → test search, category chips, and switching **Newest | Most upvoted**.
+- [ ] Open **Map**: verify pins are visible (not hidden under the filter chips or legend), test the chips (**All · N**, **Road**, **Lights**, **Flood**, **Trash**, ...), and tap a pin (or pick from the stacked-pin list) to open **Report Details**.
+- [ ] In **Report Details** (not your own report, if possible), tap **Vote for urgency** → confirm **Community votes: N** goes up by 1; tap **Remove my urgency vote** to verify it toggles back. (3 votes raise urgency to Medium; 10 to High.)
+- [ ] Open the Community feed (Home → **View community reports**) → test **Search loaded reports...**, the category chips, and switching **Newest | Most upvoted**.
 
 ### Task 5 — Official Status Update & Real-Time Push Notification (Paired Test, 2 Groupmates) (~5 min)
 - [ ] **Groupmate A** stays signed in as the **Citizen** (locks screen or goes to Home screen).
-- [ ] **Groupmate B** signs in as the **Alangilan Official**, opens Groupmate A's `[TEST]` report, and changes status from `Pending` → `Under Review` (or `In Progress`).
+- [ ] **Groupmate B** signs in as the **Alangilan Official**, opens Groupmate A's `[TEST]` report (Community feed or Map), sets **Status** to `Under Review` (or `In Progress`) and taps **Save status**.
 - [ ] **Groupmate A** times how many seconds until the PinPoint push notification appears in the Android tray (target **≤ 30 seconds**), then taps the notification and confirms it opens the exact **Report Details** screen with the updated **Status History** timeline.
 
 ### Task 6 — Field Contribution A: 10-Point Outdoor Alangilan GPS Walk (~20 min, 1–2 Groupmates)

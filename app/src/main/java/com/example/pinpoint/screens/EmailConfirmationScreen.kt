@@ -10,6 +10,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material3.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,7 +75,8 @@ fun EmailConfirmationScreen(
             )
         }
 
-        OtpDigitBoxes(code)
+        val codeFocus = remember { FocusRequester() }
+        OtpDigitBoxes(code, Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { codeFocus.requestFocus() })
 
         OutlinedTextField(
             value = code,
@@ -80,7 +85,7 @@ fun EmailConfirmationScreen(
             singleLine = true,
             enabled = !busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().focusRequester(codeFocus),
             shape = RoundedCornerShape(14.dp),
             colors = pinPointFieldColors()
         )

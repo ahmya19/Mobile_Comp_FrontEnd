@@ -1,5 +1,6 @@
 package com.example.pinpoint.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -47,6 +48,9 @@ fun AuthScreen(
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var acceptedTerms by rememberSaveable { mutableStateOf(true) }
+
+    // System Back on Register returns to Sign in (it is a mode of this screen, not a separate destination) instead of leaving the app (CP-55).
+    BackHandler(enabled = register) { register = false; password = "" }
 
     Column(
         modifier = Modifier
@@ -213,7 +217,7 @@ fun AuthScreen(
                     onClick = { password = ""; onConfirmEmail(email) },
                     enabled = !busy && email.isNotBlank()
                 ) {
-                    Text("Confirm an existing account", color = MutedText)
+                    Text("Confirm an existing account", color = if (email.isNotBlank()) MutedText else MutedText.copy(alpha = 0.5f))
                 }
                 if (onViewTour != null) {
                     TextButton(onClick = onViewTour, enabled = !busy) {
