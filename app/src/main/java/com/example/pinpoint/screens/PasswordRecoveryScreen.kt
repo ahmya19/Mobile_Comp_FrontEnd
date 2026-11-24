@@ -14,6 +14,10 @@ import androidx.compose.material.icons.filled.LockReset
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -123,7 +127,8 @@ fun PasswordRecoveryScreen(
                 Text("Enter the code sent to $email, then choose a new password.", style = MaterialTheme.typography.bodyMedium, color = MutedText)
             }
 
-            OtpDigitBoxes(code)
+            val codeFocus = remember { FocusRequester() }
+            OtpDigitBoxes(code, Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { codeFocus.requestFocus() })
 
             OutlinedTextField(
                 value = code,
@@ -132,7 +137,7 @@ fun PasswordRecoveryScreen(
                 enabled = !busy,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(codeFocus),
                 shape = RoundedCornerShape(14.dp),
                 colors = pinPointFieldColors()
             )

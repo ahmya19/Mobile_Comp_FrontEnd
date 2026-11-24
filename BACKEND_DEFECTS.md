@@ -137,3 +137,7 @@ Status: **Not reproduced in 40 physical submissions** (20 Wi-Fi, 20 cellular; ma
 ## BG-025 — Map pins hidden under the floating chips and legend (CP-51 regression)
 
 Owner: Kotlin UI. Status: **Fixed** (November 24), found on the real TECNO screen. The camera framed reports with 80 px padding, so edge pins sat under the filter chips and legend. `ReportMap.kt` now pads 100/260/100/240 px; verified on the phone. Also: latitude/longitude fields now use the same label size so they stay equal height.
+
+## BG-026 — Auth screen polish: Back on Register, OTP boxes, disabled Confirm link
+
+Owner: Kotlin UI. Status: **Fixed** (November 24), found on the emulator against Board 1. System Back on Register exited the app instead of returning to Sign in (`BackHandler` added); the six code boxes were display-only so tapping them did nothing (now focus the real code field); "Confirm an existing account" looked enabled while disabled (now dimmed). See [backend/CP55_BOARD1_DESIGN_AND_PREGROUP_AUDIT.md](backend/CP55_BOARD1_DESIGN_AND_PREGROUP_AUDIT.md).
