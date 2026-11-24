@@ -147,7 +147,7 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
                 framed=true
                 if(points.size==1) map.cameraPosition=CameraPosition.Builder().target(points.first()).zoom(15.0).build()
                 else map.easeCamera(CameraUpdateFactory.newLatLngBounds(
-                    LatLngBounds.Builder().includes(points).build(),80),600)
+                    LatLngBounds.Builder().includes(points).build(),100,260,100,240),600)   // top/bottom padding keeps edge pins clear of the floating filter chips and legend (CP-53)
             }
             if(onPick!=null && reports.size==1) reports.first().let { point ->
                 point.mapCoordinate()?.let { coordinate -> map.cameraPosition=CameraPosition.Builder(map.cameraPosition)

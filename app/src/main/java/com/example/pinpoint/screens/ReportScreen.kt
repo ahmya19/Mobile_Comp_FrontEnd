@@ -571,7 +571,7 @@ fun ReportScreen(
                 OutlinedTextField(
                     value = latitude,
                     onValueChange = { latitude = it },
-                    label = { Text("Latitude (optional)") },
+                    label = { Text("Latitude (optional)", style = MaterialTheme.typography.bodyMedium) },
                     modifier = Modifier.weight(1f),
                     enabled = !busy,
                     singleLine = true,
@@ -581,7 +581,7 @@ fun ReportScreen(
                 OutlinedTextField(
                     value = longitude,
                     onValueChange = { longitude = it },
-                    label = { Text("Longitude (optional)") },
+                    label = { Text("Longitude (optional)", style = MaterialTheme.typography.bodyMedium) },
                     modifier = Modifier.weight(1f),
                     enabled = !busy,
                     singleLine = true,
