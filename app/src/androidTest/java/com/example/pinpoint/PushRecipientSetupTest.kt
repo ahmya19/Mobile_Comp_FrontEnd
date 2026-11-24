@@ -62,6 +62,13 @@ class PushRecipientSetupTest {
             }
             "signin" -> {
                 if (signedIn) { waitText("Quick Report"); compose.onNodeWithText("Profile").performClick(); compose.onNodeWithText("Sign out").performClick() }
+                compose.waitUntil(45000) {
+                    compose.onAllNodesWithText("Sign in to your community").fetchSemanticsNodes(false).isNotEmpty() ||
+                        compose.onAllNodesWithText("Skip").fetchSemanticsNodes(false).isNotEmpty()
+                }
+                if (compose.onAllNodesWithText("Skip").fetchSemanticsNodes(false).isNotEmpty()) {
+                    compose.onNodeWithText("Skip").performClick()
+                }
                 waitText("Sign in to your community")
                 compose.onNodeWithText("Email").performTextReplacement(requireNotNull(args.getString("email")))
                 compose.onNodeWithText("Password").performTextReplacement(requireNotNull(args.getString("password")))

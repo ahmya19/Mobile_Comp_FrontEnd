@@ -1,5 +1,11 @@
 package com.example.pinpoint.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,11 +20,13 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,7 +59,9 @@ fun ProfileScreen(
     onReportCreateClick: (() -> Unit)? = null,
     onChangePassword: (String, String) -> Unit = { _, _ -> },
     onSmsGuideClick: () -> Unit = {},
-    onManageSavedClick: () -> Unit = {}
+    onManageSavedClick: () -> Unit = {},
+    onAppTourClick: () -> Unit = {},
+    onPermissionsClick: () -> Unit = {}
 ) {
     var editing by remember { mutableStateOf(false) }
     var name by remember(user.displayName) { mutableStateOf(user.displayName) }
@@ -240,7 +250,7 @@ fun ProfileScreen(
                 ProfileStatBox("Upvotes", upvotesTotal, Modifier.weight(1f))
             }
 
-            if (editing) {
+            AnimatedVisibility(visible = editing, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 SectionSurfaceCard {
                     OutlinedTextField(
                         value = name,
@@ -283,13 +293,15 @@ fun ProfileScreen(
                     ProfileMenuRow(Icons.Filled.CloudOff, "Saved offline reports ($pendingUploads)", "Review, edit, retry or remove unsent reports", onClick = onManageSavedClick)
                 }
                 ProfileMenuRow(Icons.Filled.Sms, "SMS reporting guide", "Format a 160-character report when data is gone", onClick = onSmsGuideClick)
+                ProfileMenuRow(Icons.Filled.Explore, "App tour & onboarding", "Preview the 3-step citizen walkthrough anytime", onClick = onAppTourClick)
+                ProfileMenuRow(Icons.Filled.Security, "App permissions", "Location, notification, and camera access", onClick = onPermissionsClick)
                 ProfileMenuRow(
                     icon = Icons.Filled.HelpOutline,
                     title = "Help and support",
                     subtitle = "FAQ, evidence policy, and background sync tips",
                     expanded = showHelp
                 ) { showHelp = !showHelp }
-                if (showHelp) {
+                AnimatedVisibility(visible = showHelp, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         FaqAccordionItem("Can I report without internet?", "Yes. Reports save safely in encrypted local storage and upload automatically once you reconnect. Full originals upload only on unmetered Wi-Fi.")
                         FaqAccordionItem("Why can't I delete a submitted report?", "Committed reports and photos are preserved as auditable community records. You can edit or delete unsent saved reports before they upload.")
@@ -302,7 +314,7 @@ fun ProfileScreen(
                     subtitle = "Version ${BuildConfig.VERSION_NAME} · Alangilan, Batangas City",
                     expanded = showAbout
                 ) { showAbout = !showAbout }
-                if (showAbout) {
+                AnimatedVisibility(visible = showAbout, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     SectionSurfaceCard {
                         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Box(
@@ -412,12 +424,12 @@ private fun FaqAccordionItem(question: String, answer: String) {
         shape = RoundedCornerShape(14.dp),
         color = PinPointSurface
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().animateContentSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(question, style = MaterialTheme.typography.labelLarge, color = Black, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = DeepViolet, modifier = Modifier.size(18.dp))
             }
-            if (open) {
+            AnimatedVisibility(visible = open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Text(answer, style = MaterialTheme.typography.bodySmall, color = MutedText)
             }
         }

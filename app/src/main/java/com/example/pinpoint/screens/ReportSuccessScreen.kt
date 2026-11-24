@@ -1,5 +1,8 @@
 package com.example.pinpoint.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -11,9 +14,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -27,6 +33,11 @@ fun ReportSuccessScreen(
     pending: Boolean = false,
     reportId: String? = null
 ) {
+    val haloScale = remember { Animatable(0.72f) }
+    LaunchedEffect(Unit) {
+        haloScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -36,9 +47,9 @@ fun ReportSuccessScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Concentric soft violet halo with solid violet centre checkmark (PDF 3.8)
+        // Concentric soft violet halo with solid violet centre checkmark and spring entrance (PDF 3.8)
         Box(
-            modifier = Modifier.size(116.dp).clip(CircleShape).background(VioletTint.copy(alpha = 0.55f)),
+            modifier = Modifier.size(116.dp).scale(haloScale.value).clip(CircleShape).background(VioletTint.copy(alpha = 0.55f)),
             contentAlignment = Alignment.Center
         ) {
             Box(

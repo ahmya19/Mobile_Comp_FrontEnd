@@ -6,6 +6,9 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -214,7 +217,8 @@ fun ReportScreen(
             .background(White)
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .animateContentSize(),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         // Top header bar + Save as draft (PDF 3.1 / 3.7; preserves "Create a Report" selector for NativePickerTest)
@@ -234,19 +238,24 @@ fun ReportScreen(
             }
         )
 
-        // 5-segment horizontal violet progress bar (PDF Board 3.1–3.7)
+        // 5-segment horizontal violet progress bar with smooth color fill (PDF Board 3.1–3.7)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(5) { idx ->
+                val segColor by animateColorAsState(
+                    targetValue = if (idx < filledSteps) Violet else SoftBorder,
+                    animationSpec = tween(220),
+                    label = "reportStep$idx"
+                )
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(4.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (idx < filledSteps) Violet else SoftBorder)
+                        .background(segColor)
                 )
             }
             Spacer(Modifier.width(4.dp))

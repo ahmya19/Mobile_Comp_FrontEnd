@@ -1,5 +1,14 @@
 package com.example.pinpoint.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -137,11 +146,19 @@ fun HomeScreen(
                 Text("Take care of\nyour community", style = MaterialTheme.typography.headlineLarge, color = Black)
             }
 
-            // Charcoal Active Report Card with pager dots (PDF 2.1) OR Dashed Empty Card (PDF 2.3)
+            // Charcoal Active Report Card with smooth AnimatedContent & animated pager dots (PDF 2.1) OR Dashed Empty Card (PDF 2.3)
             if (active != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    AnimatedContent(
+                        targetState = active,
+                        transitionSpec = {
+                            (slideInHorizontally(tween(220)) { it / 4 } + fadeIn(tween(200)))
+                                .togetherWith(slideOutHorizontally(tween(180)) { -it / 4 } + fadeOut(tween(160)))
+                        },
+                        label = "activeReportCard"
+                    ) { shown ->
                     Surface(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable { onReportClick(active.id) },
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable { onReportClick(shown.id) },
                         shape = RoundedCornerShape(22.dp),
                         color = InkCard
                     ) {
@@ -157,7 +174,7 @@ fun HomeScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = active.title,
+                                        text = shown.title,
                                         style = MaterialTheme.typography.titleMedium,
                                         color = White,
                                         fontWeight = FontWeight.Bold,
@@ -166,35 +183,38 @@ fun HomeScreen(
                                         modifier = Modifier.weight(1f, fill = false)
                                     )
                                     Icon(
-                                        imageVector = categoryStyle(active.category).first,
+                                        imageVector = categoryStyle(shown.category).first,
                                         contentDescription = null,
                                         tint = Amber,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
                                 Spacer(Modifier.width(8.dp))
-                                PriorityPill(active.priority, darkCard = true)
+                                PriorityPill(shown.priority, darkCard = true)
                             }
                             Text(
                                 text = buildAnnotatedString {
                                     withStyle(SpanStyle(color = DarkBarText)) { append("Issue number: ") }
-                                    withStyle(SpanStyle(color = Amber, fontWeight = FontWeight.Bold)) { append(shortIssueCode(active.id)) }
+                                    withStyle(SpanStyle(color = Amber, fontWeight = FontWeight.Bold)) { append(shortIssueCode(shown.id)) }
                                 },
                                 style = MaterialTheme.typography.labelMedium
                             )
-                            ReportProgressTimeline(status = active.status, darkCard = true)
+                            ReportProgressTimeline(status = shown.status, darkCard = true)
                         }
+                    }
                     }
                     // Carousel pager indicator dots when multiple active reports exist (PDF 2.1)
                     if (activeReports.size > 1) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             activeReports.indices.forEach { idx ->
+                                val dotWidth by animateDpAsState(targetValue = if (idx == activeIndex) 22.dp else 8.dp, label = "homeDotW")
+                                val dotColor by animateColorAsState(targetValue = if (idx == activeIndex) Violet else SoftBorder, label = "homeDotC")
                                 Box(
                                     modifier = Modifier
                                         .height(6.dp)
-                                        .width(if (idx == activeIndex) 22.dp else 8.dp)
+                                        .width(dotWidth)
                                         .clip(RoundedCornerShape(999.dp))
-                                        .background(if (idx == activeIndex) Violet else SoftBorder)
+                                        .background(dotColor)
                                         .clickable { activeIndex = idx }
                                 )
                             }
