@@ -1,5 +1,11 @@
 package com.example.pinpoint.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -32,7 +38,8 @@ fun AuthScreen(
     busy: Boolean,
     onAuthenticate: (Boolean, String, String, String) -> Unit,
     onConfirmEmail: (String) -> Unit,
-    onForgotPassword: (String) -> Unit = {}
+    onForgotPassword: (String) -> Unit = {},
+    onViewTour: (() -> Unit)? = null
 ) {
     var register by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -47,7 +54,8 @@ fun AuthScreen(
             .background(White)
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(horizontal = 24.dp, vertical = 20.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp)
+            .animateContentSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (register) {
@@ -96,7 +104,11 @@ fun AuthScreen(
 
         Spacer(Modifier.height(2.dp))
 
-        if (register) {
+        AnimatedVisibility(
+            visible = register,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -202,6 +214,11 @@ fun AuthScreen(
                     enabled = !busy && email.isNotBlank()
                 ) {
                     Text("Confirm an existing account", color = MutedText)
+                }
+                if (onViewTour != null) {
+                    TextButton(onClick = onViewTour, enabled = !busy) {
+                        Text("View app tour", color = MutedText)
+                    }
                 }
             }
         }

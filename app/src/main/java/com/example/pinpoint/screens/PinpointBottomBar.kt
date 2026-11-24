@@ -1,7 +1,14 @@
 package com.example.pinpoint.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,9 +27,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -113,11 +123,19 @@ fun PinPointBottomBar(
             }
         }
 
-        // Elevated protruding centre Report FAB with soft violet glow (PDF Page 1)
+        // Elevated protruding centre Report FAB with soft violet glow and tactile spring press (PDF Page 1)
         if (onReportClick != null) {
+            val interactionSource = remember { MutableInteractionSource() }
+            val pressed by interactionSource.collectIsPressedAsState()
+            val fabScale by animateFloatAsState(
+                targetValue = if (pressed) 0.91f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "fabScale"
+            )
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .scale(fabScale)
                     .size(66.dp)
                     .clip(CircleShape)
                     .background(VioletGlow),
@@ -128,10 +146,10 @@ fun PinPointBottomBar(
                         .size(56.dp)
                         .clip(CircleShape)
                         .semantics { contentDescription = "Create report" }
-                        .clickable(role = Role.Button, onClick = onReportClick),
+                        .clickable(interactionSource = interactionSource, indication = null, role = Role.Button, onClick = onReportClick),
                     shape = CircleShape,
                     color = Violet,
-                    shadowElevation = 6.dp
+                    shadowElevation = if (pressed) 2.dp else 6.dp
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -157,7 +175,7 @@ private fun BarItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tint = if (selected) Amber else DarkBarText
+    val tint by animateColorAsState(targetValue = if (selected) Amber else DarkBarText, animationSpec = tween(180), label = "tabTint")
     Column(
         modifier = modifier
             .fillMaxHeight()

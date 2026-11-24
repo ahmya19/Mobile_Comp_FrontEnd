@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- White rounded badge centered in the 72dp adaptive safe zone (matching PDF 1.1) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,30 L66,30 C72.6,30 78,35.4 78,42 L78,66 C78,72.6 72.6,78 66,78 L42,78 C35.4,78 30,72.6 30,66 L30,42 C30,35.4 35.4,30 42,30 Z" />
+    <!-- Brand violet PinPoint location pin -->
+    <path
+        android:fillColor="#7C4DCC"
+        android:pathData="M54,39 C46.8,39 41,44.8 41,52 C41,61.6 54,70.5 54,70.5 C54,70.5 67,61.6 67,52 C67,44.8 61.2,39 54,39 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,47.5 A4.5,4.5 0 1,0 54,56.5 A4.5,4.5 0 1,0 54,47.5 Z" />
+</vector>

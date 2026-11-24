@@ -6,6 +6,12 @@ import android.app.NotificationManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -25,6 +31,7 @@ import com.example.pinpoint.data.notificationTargetAllowed
 import com.example.pinpoint.data.PinPointViewModel
 import com.example.pinpoint.ui.theme.White
 import java.net.URLEncoder
+import kotlinx.coroutines.delay
 
 @Composable
 fun AppNavigation(
@@ -35,19 +42,37 @@ fun AppNavigation(
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showSplash by rememberSaveable { mutableStateOf(true) }
+    var onboardingDone by rememberSaveable { mutableStateOf(OnboardingStore.isOnboardingDone(context)) }
+    var showPrimerBeforeAuth by rememberSaveable { mutableStateOf(false) }
+    var replayTourAuth by rememberSaveable { mutableStateOf(false) }
     var recoveryEmail by rememberSaveable { mutableStateOf<String?>(null) }
     var lastSuccessId by rememberSaveable { mutableStateOf<String?>(null) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         if (it) model.registerPushToken()
     }
+    LaunchedEffect(Unit) {
+        if (showSplash) {
+            delay(650)
+            showSplash = false
+        }
+    }
     LaunchedEffect(state.user?.id) {
         if (state.user != null) {
+            // Returning signed-in users should never be sent back through first-run onboarding on sign-out.
+            if (!onboardingDone) {
+                OnboardingStore.markOnboardingDone(context)
+                onboardingDone = true
+            }
+            showPrimerBeforeAuth = false
+            replayTourAuth = false
             recoveryEmail = null
             if (Build.VERSION.SDK_INT >= 26) context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(NotificationChannel("report_updates", "Report updates", NotificationManager.IMPORTANCE_DEFAULT))
             if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+    Box(Modifier.fillMaxSize().background(White)) {
     Column(Modifier.fillMaxSize().background(White).systemBarsPadding()) {
         state.error?.let { error ->
             Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
@@ -75,14 +100,50 @@ fun AppNavigation(
                     onResetPassword = model::completePasswordReset,
                     onBack = { recoveryEmail = null; model.clearFeedback() }
                 )
+                state.user == null && showPrimerBeforeAuth -> PermissionPrimerScreen(
+                    onContinue = {
+                        OnboardingStore.markPrimerDone(context)
+                        OnboardingStore.markOnboardingDone(context)
+                        onboardingDone = true
+                        showPrimerBeforeAuth = false
+                        replayTourAuth = false
+                    },
+                    onSkip = {
+                        OnboardingStore.markPrimerDone(context)
+                        OnboardingStore.markOnboardingDone(context)
+                        onboardingDone = true
+                        showPrimerBeforeAuth = false
+                        replayTourAuth = false
+                    }
+                )
+                state.user == null && (!onboardingDone || replayTourAuth) -> OnboardingScreen(
+                    onGetStarted = {
+                        OnboardingStore.markOnboardingDone(context)
+                        onboardingDone = true
+                        replayTourAuth = false
+                        showPrimerBeforeAuth = true
+                    },
+                    onAlreadyHaveAccount = {
+                        OnboardingStore.markOnboardingDone(context)
+                        onboardingDone = true
+                        replayTourAuth = false
+                    },
+                    onSkip = {
+                        OnboardingStore.markOnboardingDone(context)
+                        onboardingDone = true
+                        replayTourAuth = false
+                    }
+                )
                 state.user == null -> AuthScreen(
                     busy = state.busy,
                     onAuthenticate = model::authenticate,
                     onConfirmEmail = model::enterConfirmation,
-                    onForgotPassword = { email -> recoveryEmail = email; model.clearFeedback() }
+                    onForgotPassword = { email -> recoveryEmail = email; model.clearFeedback() },
+                    onViewTour = { replayTourAuth = true }
                 )
                 else -> key(state.user?.id) {
                     val nav = rememberNavController()
+                    val tabRoutes = remember { setOf("home", "reports", "map", "profile") }
                     fun go(route: String) { nav.navigate(route) { launchSingleTop = true } }
                     fun details(id: String) { go("reportDetails/$id") }
                     fun openReport(category: String = "") {
@@ -94,7 +155,30 @@ fun AppNavigation(
                         // A notification belongs to the account that received it; another signed-in account ignores it.
                         notificationReportId?.let { if (notificationTargetAllowed(notificationUserId, state.user?.id)) details(it); onNotificationConsumed() }
                     }
-                    NavHost(navController = nav, startDestination = "home") {
+                    NavHost(
+                        navController = nav,
+                        startDestination = "home",
+                        enterTransition = {
+                            val dest = targetState.destination.route?.substringBefore('?')?.substringBefore('/')
+                            if (dest in tabRoutes) fadeIn(tween(180))
+                            else slideInHorizontally(tween(240)) { it / 3 } + fadeIn(tween(200))
+                        },
+                        exitTransition = {
+                            val dest = targetState.destination.route?.substringBefore('?')?.substringBefore('/')
+                            if (dest in tabRoutes) fadeOut(tween(150))
+                            else slideOutHorizontally(tween(240)) { -it / 6 } + fadeOut(tween(180))
+                        },
+                        popEnterTransition = {
+                            val src = initialState.destination.route?.substringBefore('?')?.substringBefore('/')
+                            if (src in tabRoutes) fadeIn(tween(180))
+                            else slideInHorizontally(tween(240)) { -it / 6 } + fadeIn(tween(200))
+                        },
+                        popExitTransition = {
+                            val src = initialState.destination.route?.substringBefore('?')?.substringBefore('/')
+                            if (src in tabRoutes) fadeOut(tween(150))
+                            else slideOutHorizontally(tween(240)) { it / 3 } + fadeOut(tween(180))
+                        }
+                    ) {
                         composable("home") {
                             HomeScreen(
                                 onQuickReportClick = { openReport() },
@@ -232,7 +316,24 @@ fun AppNavigation(
                                 onReportCreateClick = { openReport() },
                                 onChangePassword = model::changePassword,
                                 onSmsGuideClick = { go("smsGuide") },
-                                onManageSavedClick = { go("savedReports") }
+                                onManageSavedClick = { go("savedReports") },
+                                onAppTourClick = { go("appTour") },
+                                onPermissionsClick = { go("permissions") }
+                            )
+                        }
+                        composable("appTour") {
+                            OnboardingScreen(
+                                onGetStarted = { go("permissions") },
+                                onAlreadyHaveAccount = { nav.popBackStack() },
+                                onSkip = { nav.popBackStack() },
+                                previewMode = true
+                            )
+                        }
+                        composable("permissions") {
+                            PermissionPrimerScreen(
+                                onContinue = { nav.popBackStack("profile", inclusive = false) },
+                                onSkip = { nav.popBackStack("profile", inclusive = false) },
+                                stepLabel = "APP PERMISSIONS"
                             )
                         }
                         composable("notifications") {
@@ -254,5 +355,13 @@ fun AppNavigation(
                 }
             }
         }
+    }
+    AnimatedVisibility(
+        visible = showSplash,
+        enter = fadeIn(tween(150)),
+        exit = fadeOut(tween(280))
+    ) {
+        PinPointSplashScreen()
+    }
     }
 }
