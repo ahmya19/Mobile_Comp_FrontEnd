@@ -6,7 +6,7 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 ## CP-56 — November 27 (newest)
 
-Email now sends a six-digit code through Brevo Free SMTP (hosted setting; key only in Supabase). Groupmate feedback fixes are on branch `fix/cp56-groupmate-feedback` (see backend/CP56_GROUPMATE_FEEDBACK.md). **Before the profile contact/location fields work for anyone, migration `supabase/migrations/202611270012_profile_contact_location.sql` must be applied to the hosted project with a guarded, reviewed statement (never bare `supabase db push`), then `python backend/scripts/catalog_drift.py` must report 0 differences.** Name-only edits work without it.
+Email now sends a six-digit code through Brevo Free SMTP (hosted setting; key only in Supabase). Groupmate feedback fixes are on branch `fix/cp56-groupmate-feedback` (see backend/CP56_GROUPMATE_FEEDBACK.md). Migration `202611270012_profile_contact_location.sql` was applied to the hosted project on November 27 (guarded `db query -f`; drift check 0 differences); PR #39 is merged. Latest shareable debug APK SHA-256: `aecc319edaf534505db748594f73839763a6e34ce2fe1c9e2f93d0c941461d1a`.
 
 ## Current delivery — November 23 (supersedes the dated sections below, which are history)
 
