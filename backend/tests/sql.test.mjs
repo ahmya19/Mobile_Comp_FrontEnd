@@ -30,6 +30,7 @@ before(async () => {
   await db.exec(await readFile(new URL('../../supabase/migrations/202611210005_push_retries.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/202611210009_push_recipient.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/202611230010_priority_only_status_policy.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/202611270012_profile_contact_location.sql',import.meta.url),'utf8'));
   await db.query('insert into private.officials(user_id,barangay) values($1,$2),($3,$4)',[official,'Alangilan',outsider,'Another Barangay']);
 });
 after(async () => { await db?.close(); });
@@ -83,6 +84,25 @@ test('profiles are private and clients cannot assign official roles or directly 
   await assert.rejects(asUser(alice,()=>db.query("update public.reports set status='Resolved' where id=$1",[r.id])),{code:'42501'});
   const profile=(await asUser(official,()=>db.query('select public.my_profile() result'))).rows[0].result;
   assert.equal(profile.official,true); assert.equal(profile.barangay,'Alangilan');
+});
+
+test('CP-56 profile contact number and location: private, normalized, validated and clearable',async () => {
+  await asUser(alice,()=>db.query('select public.save_profile($1)',['Alice Citizen']));
+  await asUser(alice,()=>db.query('select public.save_profile_details($1,$2)',['0917 123-4567','  Purok 3,   Alangilan ']));
+  const mine=(await asUser(alice,()=>db.query('select public.my_profile() p'))).rows[0].p;
+  assert.equal(mine.contact_number,'09171234567'); assert.equal(mine.home_location,'Purok 3, Alangilan');
+  // Another citizen can neither read the row nor see the number through their own profile.
+  assert.equal((await asUser(bob,()=>db.query('select * from public.profiles where id=$1',[alice]))).rows.length,0);
+  assert.equal((await asUser(bob,()=>db.query('select public.my_profile() p'))).rows[0].p.contact_number ?? null,null);
+  // Bad values are rejected by the database even if the app check were bypassed (23514 = check_violation).
+  await assert.rejects(asUser(alice,()=>db.query('select public.save_profile_details($1,$2)',['not a number','Purok 3'])),{code:'23514'});
+  await assert.rejects(asUser(alice,()=>db.query('select public.save_profile_details($1,$2)',['09171234567','x'])),{code:'23514'});
+  // Anonymous callers and callers without a saved name are refused.
+  await assert.rejects(db.query('select public.save_profile_details($1,$2)',['09171234567','Purok 3']),/permission denied|Sign in first/);
+  // Blank clears both fields; the name is untouched.
+  await asUser(alice,()=>db.query('select public.save_profile_details($1,$2)',['','']));
+  const cleared=(await asUser(alice,()=>db.query('select public.my_profile() p'))).rows[0].p;
+  assert.equal(cleared.contact_number,null); assert.equal(cleared.home_location,null); assert.equal(cleared.display_name,'Alice Citizen');
 });
 
 test('official authorization, legal transitions and atomic notification history',async () => {

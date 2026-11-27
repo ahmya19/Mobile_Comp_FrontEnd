@@ -97,7 +97,18 @@ fun ReportMap(reports: List<Report>,modifier: Modifier=Modifier,
     val latestReports by rememberUpdatedState(reports)
     val reportClick by rememberUpdatedState(onReportClick)
     val pick by rememberUpdatedState(onPick)
-    val view=remember(context) { MapLibre.getInstance(context);MapNetwork.initialize(context.applicationContext); MapView(context) }
+    val view=remember(context) { MapLibre.getInstance(context);MapNetwork.initialize(context.applicationContext); MapView(context).apply {
+        // The map sits inside a vertically scrolling page: while a finger is on the map, pan/zoom the map instead of scrolling the page.
+        setOnTouchListener { v, event ->
+            when(event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_POINTER_DOWN, android.view.MotionEvent.ACTION_MOVE ->
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL ->
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            false
+        }
+    } }
     var ready by remember { mutableStateOf<MapLibreMap?>(null) }
     var framed by remember { mutableStateOf(false) }
     var stacked by remember { mutableStateOf<List<Report>>(emptyList()) }

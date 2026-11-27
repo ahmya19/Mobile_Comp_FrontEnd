@@ -41,7 +41,8 @@ fun SmsGuideScreen(onBackClick: () -> Unit) {
 
     val formatted = SmsFormatHelper.buildMessage(selectedCode, "Alangilan", details)
     val septets = SmsFormatHelper.gsm7Septets(formatted)
-    val validSms = septets in 1..160 && details.trim().length >= 10
+    val cleanDetails = SmsFormatHelper.stripPinPrefix(details)
+    val validSms = septets in 1..160 && cleanDetails.length >= 10
 
     Column(
         modifier = Modifier
@@ -118,6 +119,7 @@ fun SmsGuideScreen(onBackClick: () -> Unit) {
                 value = details,
                 onValueChange = { details = it },
                 label = { Text("Short issue details (min 10 chars)") },
+                supportingText = { Text("${cleanDetails.length} characters. Type only the description; PinPoint adds \"PIN ${selectedCode};Alangilan;\" for you.") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2,
                 shape = RoundedCornerShape(14.dp),

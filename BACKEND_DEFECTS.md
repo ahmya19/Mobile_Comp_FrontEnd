@@ -141,3 +141,15 @@ Owner: Kotlin UI. Status: **Fixed** (November 24), found on the real TECNO scree
 ## BG-026 — Auth screen polish: Back on Register, OTP boxes, disabled Confirm link
 
 Owner: Kotlin UI. Status: **Fixed** (November 24), found on the emulator against Board 1. System Back on Register exited the app instead of returning to Sign in (`BackHandler` added); the six code boxes were display-only so tapping them did nothing (now focus the real code field); "Confirm an existing account" looked enabled while disabled (now dimmed). See [backend/CP55_BOARD1_DESIGN_AND_PREGROUP_AUDIT.md](backend/CP55_BOARD1_DESIGN_AND_PREGROUP_AUDIT.md).
+
+## BG-027 — Confirmation and reset emails carried a link to localhost, and codes were 8 digits
+
+Owner: Supabase Auth configuration. Status: **Fixed on the hosted project** (November 27); found by two groupmates. The project still sent Supabase's default link email whose redirect target (Site URL) is `http://localhost:3000`, so a phone showed "This site can't be reached". Supabase blocks template edits on the Free plan with the built-in sender, so custom SMTP (Brevo Free) was enabled first; then `supabase/templates/confirmation.html` and `recovery.html` were published and the OTP length was changed from 8 to 6 to match the app's six-digit field. Account confirmation had already succeeded by the link; only the redirect page failed. No app change. Remaining: a real outside-address signup and Spam-folder check (a free Gmail sender is less trusted by receivers). The SMTP key lives only in Supabase.
+
+## BG-028 — Barangay filter returned nothing for "alangilan"
+
+Owner: Kotlin data layer. Status: **Fixed** (CP-56). The filter used an exact, case-sensitive match (`barangay=eq.`), so typing `alangilan` found none of the 34 hosted Alangilan reports. It now uses a case-insensitive contains match (`ilike`, with `%`, `_` and `\` escaped), and the local offline rows use the same rule. Test: `GroupmateFeedbackTest`.
+
+## BG-029 — Smaller UI defects from the groupmate round
+
+Owner: Kotlin UI. Status: **Fixed in code** (CP-56), phone confirmation pending. (a) Logout confirmed only when unsent reports existed; it now always asks. (b) The report-form photo preview ignored the camera's EXIF rotation, so a portrait shot looked landscape (the uploaded photo was already correct); the preview now applies the rotation, and tapping a photo opens a full-screen pinch-zoom viewer on the form and on Report Details. (c) Touching the map in the report form scrolled the page instead of moving the map; the map now asks its parent not to intercept while a finger is down. (d) A raw `UnknownHostException ... supabase.co` banner appeared when offline; feed errors now pass through `UiText.humanize`. (e) A full `PIN ROAD;Alangilan;text` typed into the SMS details box was prefixed twice; the prefix is stripped. (f) Profile could edit only the name; contact number and location are now editable (see CP-56, migration 202611270012; adds nullable `profiles.contact_number` and `profiles.home_location` and the RPC `save_profile_details`, private to the owner).

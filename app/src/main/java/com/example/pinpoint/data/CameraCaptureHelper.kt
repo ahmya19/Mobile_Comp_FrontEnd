@@ -47,9 +47,14 @@ object SmsFormatHelper {
     fun buildMessage(categoryCode: String, barangay: String, description: String): String {
         val code = categoryCode.trim().uppercase().ifBlank { "ROAD" }
         val area = barangay.trim().ifBlank { "Alangilan" }
-        val details = description.trim().replace(';', ',')
+        val details = stripPinPrefix(description).replace(';', ',')
         return "PIN $code;$area;$details"
     }
+
+    private val pinPrefix = Regex("""^\s*PIN\s+[A-Za-z]+\s*[;,]\s*[^;,]*[;,]\s*""", RegexOption.IGNORE_CASE)
+
+    /** Someone who types or pastes a whole "PIN ROAD;Alangilan;text" message into the details box must not get the prefix twice. */
+    fun stripPinPrefix(description: String): String = description.replaceFirst(pinPrefix, "").trim()
 
     /** Returns the GSM-7 septet count, or -1 if the text contains non-GSM characters. */
     fun gsm7Septets(text: String): Int {

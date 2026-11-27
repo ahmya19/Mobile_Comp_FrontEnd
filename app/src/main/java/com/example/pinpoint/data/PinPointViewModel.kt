@@ -201,9 +201,16 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         clearFeedback()
     }
 
-    fun editProfile(name: String) = action {
+    fun editProfile(name: String, contact: String, location: String) = action {
         val repo = requireNotNull(repository)
+        val current = state.value.user
+        // Validate everything before saving anything, so a bad contact number does not leave a half-saved profile.
+        val newContact = ProfileInput.contact(contact); val newLocation = ProfileInput.location(location)
         repo.saveProfile(name)
+        // Only touch the details when they changed, so a name-only edit never depends on the details function.
+        if (newContact != current?.contactNumber?.takeIf { it.isNotBlank() } || newLocation != current?.homeLocation?.takeIf { it.isNotBlank() }) {
+            repo.saveProfileDetails(contact,location)
+        }
         mutableState.update { it.copy(user = repo.citizen(), message = "Profile saved.") }
     }
 
@@ -381,7 +388,7 @@ class PinPointViewModel(application: Application) : AndroidViewModel(application
         val known=remoteMine.map { it.id }.toSet()
         val filter=state.value.mineFeed.filter
         val local=queuedItems.filter { it.id !in known && it.state!="Synced" }.map { it.toReport() }.filter {
-            (filter.barangay.isNullOrBlank() || it.barangay==filter.barangay) &&
+            barangayMatches(it.barangay,filter.barangay) &&
             (filter.category.isNullOrBlank() || it.category==filter.category) &&
             (filter.status.isNullOrBlank() || it.status==filter.status) &&
             (filter.after==null || it.createdAt>=filter.after) && (filter.before==null || it.createdAt<=filter.before)

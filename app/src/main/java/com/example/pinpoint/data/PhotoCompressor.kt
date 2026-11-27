@@ -23,6 +23,21 @@ object PhotoCompressor {
         forceFallback = enabled
     }
 
+    /** Small on-screen preview with the camera's EXIF rotation applied, so a portrait shot is not shown sideways. Null if unreadable. */
+    fun preview(context: Context, uri: Uri, maxEdge: Int = 640): Bitmap? = runCatching {
+        val resolver = context.contentResolver
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > maxEdge) sample *= 2
+        val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
+            ?: return@runCatching null
+        val orientation = runCatching {
+            resolver.openInputStream(uri)?.use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }
+        }.getOrNull() ?: ExifInterface.ORIENTATION_NORMAL
+        upright(decoded, orientation)
+    }.getOrNull()
+
     suspend fun jpeg(context: Context, uri: Uri): ByteArray = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         // 1. BitmapFactory with a bounded sample size (fast, works for every JPEG/PNG/WebP we have met).

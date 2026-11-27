@@ -209,7 +209,7 @@ class UiParityAndCameraDraftTest {
         compose.setContent {
             ProfileScreen(
                 onHomeClick = {}, onReportsClick = {}, onMapClick = {},
-                user = user, busy = false, onSaveProfile = {},
+                user = user, busy = false, onSaveProfile = { _, _, _ -> },
                 onSignOut = { signedOut = true }, pendingUploads = 2
             )
         }

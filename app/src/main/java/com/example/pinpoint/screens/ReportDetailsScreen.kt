@@ -44,6 +44,8 @@ fun ReportDetailsScreen(
     onShowOriginal: (String) -> Unit,
     history: List<StatusChange>
 ) {
+    var showFullPhoto by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (showFullPhoto && photo != null) FullPhotoViewer(photo) { showFullPhoto = false }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -56,6 +58,7 @@ fun ReportDetailsScreen(
                 .fillMaxWidth()
                 .height(if (photo != null) 250.dp else 170.dp)
                 .background(if (report != null) categoryHeroColor(report.category) else InkCard)
+                .then(if (photo != null) Modifier.clickable { showFullPhoto = true } else Modifier)
         ) {
             if (photo != null) {
                 Image(

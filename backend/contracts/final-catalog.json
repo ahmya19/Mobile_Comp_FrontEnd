@@ -162,7 +162,9 @@
    "columns": [
     "id uuid not null",
     "display_name text not null",
-    "updated_at timestamp with time zone not null default now()"
+    "updated_at timestamp with time zone not null default now()",
+    "contact_number text",
+    "home_location text"
    ],
    "privileges": {
     "anon": [],
@@ -180,7 +182,9 @@
     ]
    },
    "constraints": [
+    "profiles_contact_number_check CHECK (((contact_number IS NULL) OR (contact_number ~ '^\\+?[0-9]{7,15}$'::text)))",
     "profiles_display_name_check CHECK (((char_length(btrim(display_name)) >= 2) AND (char_length(btrim(display_name)) <= 80)))",
+    "profiles_home_location_check CHECK (((home_location IS NULL) OR ((char_length(btrim(home_location)) >= 2) AND (char_length(btrim(home_location)) <= 120))))",
     "profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
     "profiles_pkey PRIMARY KEY (id)"
    ]
@@ -649,6 +653,22 @@
    "returns": "void",
    "language": "plpgsql",
    "signature": "public.save_profile(p_display_name text)",
+   "volatility": "v",
+   "public_execute": false,
+   "security_definer": true
+  },
+  {
+   "config": [
+    "search_path=\"\""
+   ],
+   "execute": {
+    "anon": false,
+    "service_role": true,
+    "authenticated": true
+   },
+   "returns": "void",
+   "language": "plpgsql",
+   "signature": "public.save_profile_details(p_contact_number text, p_home_location text)",
    "volatility": "v",
    "public_execute": false,
    "security_definer": true

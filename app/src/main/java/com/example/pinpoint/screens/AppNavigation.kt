@@ -75,7 +75,7 @@ fun AppNavigation(
     Box(Modifier.fillMaxSize().background(White)) {
     Column(Modifier.fillMaxSize().background(White).systemBarsPadding()) {
         state.error?.let { error ->
-            Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
+            Text(com.example.pinpoint.data.UiText.humanize(error), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
             Row {
                 TextButton(onClick = model::retry, enabled = !state.busy) { Text("Refresh") }
                 TextButton(onClick = model::clearFeedback) { Text("Dismiss") }

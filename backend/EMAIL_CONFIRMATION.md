@@ -1,6 +1,6 @@
 # CP-08 email confirmation
 
-The user chose **demo accounts for now**. Existing citizen and official accounts remain usable without an SMTP provider. No Brevo account, SMTP credential, paid plan or billing account was created. Public registration is still a partial checkpoint.
+The user chose **demo accounts for now**. Existing citizen and official accounts remain usable without an SMTP provider. **Update, November 27:** a free Brevo account and SMTP key now exist and custom SMTP is enabled on the hosted project (host `smtp-relay.brevo.com`, port 587, sender name PinPoint, minimum interval 30 s). The code-only templates are published and the OTP length is 6. No paid plan or billing was created. A real outside-address signup is still to be recorded.
 
 ## Implemented Android flow
 

@@ -1,6 +1,24 @@
 package com.example.pinpoint.data
 
-data class Citizen(val id: String, val email: String, val displayName: String, val official: Boolean = false,val barangay: String?=null)
+data class Citizen(val id: String, val email: String, val displayName: String, val official: Boolean = false,val barangay: String?=null,
+    val contactNumber: String?=null, val homeLocation: String?=null)
+
+/** Profile fields typed by the citizen. Blank means "not set"; anything else is validated the same way the database CHECKs it. */
+object ProfileInput {
+    /** Accepts "0917 123 4567", "+63 917-123-4567", "(043) 123 4567"; returns digits with an optional leading +, or null if blank. */
+    fun contact(raw: String): String? {
+        val cleaned = raw.trim().replace(Regex("""[\s\-().]"""), "")
+        if (cleaned.isEmpty()) return null
+        require(cleaned.matches(Regex("""\+?[0-9]{7,15}"""))) { "Enter a valid contact number (7 to 15 digits, for example 0917 123 4567)." }
+        return cleaned
+    }
+    fun location(raw: String): String? {
+        val trimmed = raw.trim().replace(Regex("""\s+"""), " ")
+        if (trimmed.isEmpty()) return null
+        require(trimmed.length in 2..120) { "Location must contain 2 to 120 characters." }
+        return trimmed
+    }
+}
 
 data class Report(
     val id: String = "",

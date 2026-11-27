@@ -21,7 +21,8 @@ class PinPointRepository(private val backend: SupabaseBackend) {
     suspend fun citizen(): Citizen? {
         val user = auth.currentUser ?: return null
         val profile = rpc("my_profile").takeUnless { it.isJsonNull }?.asJsonObject
-        return Citizen(user.id,user.email,profile?.string("display_name") ?: user.displayName,profile?.get("official")?.asBoolean == true,profile?.string("barangay"))
+        return Citizen(user.id,user.email,profile?.string("display_name") ?: user.displayName,profile?.get("official")?.asBoolean == true,profile?.string("barangay"),
+            profile?.string("contact_number"),profile?.string("home_location"))
     }
     suspend fun signIn(email: String, password: String) = auth.signIn(email,password)
     suspend fun register(name: String, email: String, password: String): Boolean {
@@ -33,6 +34,10 @@ class PinPointRepository(private val backend: SupabaseBackend) {
         require(name.trim().length in 2..80) { "Name must contain 2 to 80 characters." }
         rpc("save_profile",mapOf("p_display_name" to name.trim()))
     }
+    /** Blank clears the field. Validation mirrors the database CHECK constraints. */
+    suspend fun saveProfileDetails(contact: String, location: String) {
+        rpc("save_profile_details",mapOf("p_contact_number" to ProfileInput.contact(contact),"p_home_location" to ProfileInput.location(location)))
+    }
     // Short polling avoids a persistent socket while preserving the existing
     // screen contract. The durable queue is separate from these remote reads.
     fun reports(mine: Boolean) = flow {
@@ -42,7 +47,9 @@ class PinPointRepository(private val backend: SupabaseBackend) {
         require(limit in 1..100)
         val params = mutableListOf("select=*","order=created_at.desc,id.desc","limit=${limit+1}")
         if (filter.mine) params += "owner_id=eq.${requireNotNull(auth.currentUser).id}"
-        listOf("barangay" to filter.barangay,"category" to filter.category,"status" to filter.status).forEach { (key,value) ->
+        // Barangay is typed by hand, so match it case-insensitively and by any part of the name ("alangilan", "Alang").
+        filter.barangay?.trim()?.takeIf { it.isNotEmpty() }?.let { params += "barangay=ilike.${encode(barangayPattern(it))}" }
+        listOf("category" to filter.category,"status" to filter.status).forEach { (key,value) ->
             if (!value.isNullOrBlank()) params += "$key=eq.${encode(value)}"
         }
         filter.after?.let { params += "created_at=gte.${encode(it)}" }
@@ -142,3 +149,10 @@ data class ReportFilter(val mine: Boolean=false,val barangay: String?=null,val c
     val status: String?=null,val after: String?=null,val before: String?=null)
 data class ReportCursor(val createdAt: String,val id: String)
 data class ReportPage(val reports: List<Report>,val next: ReportCursor?)
+
+/** PostgREST ilike pattern: `*` is the wildcard; backslash, percent and underscore typed by the user are matched literally. */
+internal fun barangayPattern(typed: String): String =
+    "*" + typed.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").replace("*", "") + "*"
+
+internal fun barangayMatches(stored: String, typed: String?): Boolean =
+    typed.isNullOrBlank() || stored.contains(typed.trim(), ignoreCase = true)

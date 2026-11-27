@@ -61,7 +61,7 @@ class PushRecipientSetupTest {
                 check(!alive) { "Activity destruction was not observed" }
             }
             "signin" -> {
-                if (signedIn) { waitText("Quick Report"); compose.onNodeWithText("Profile").performClick(); compose.onNodeWithText("Sign out").performClick() }
+                if (signedIn) { waitText("Quick Report"); compose.onNodeWithText("Profile").performClick(); compose.onNodeWithText("Sign out").performClick(); compose.onNodeWithText("Log out").performClick() }
                 compose.waitUntil(45000) {
                     compose.onAllNodesWithText("Sign in to your community").fetchSemanticsNodes(false).isNotEmpty() ||
                         compose.onAllNodesWithText("Skip").fetchSemanticsNodes(false).isNotEmpty()
@@ -78,7 +78,7 @@ class PushRecipientSetupTest {
                 waitText("Quick Report", 60000)
             }
             "signout" -> {
-                if (signedIn) { waitText("Quick Report"); compose.onNodeWithText("Profile").performClick(); compose.onNodeWithText("Sign out").performClick() }
+                if (signedIn) { waitText("Quick Report"); compose.onNodeWithText("Profile").performClick(); compose.onNodeWithText("Sign out").performClick(); compose.onNodeWithText("Log out").performClick() }
                 waitText("Sign in to your community")
             }
             else -> error("Unknown phase")
