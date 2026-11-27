@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pinpoint.BuildConfig
 import com.example.pinpoint.data.Citizen
+import com.example.pinpoint.data.ProfileInput
 import com.example.pinpoint.data.Report
 import com.example.pinpoint.ui.theme.*
 
@@ -52,7 +54,7 @@ fun ProfileScreen(
     onMapClick: () -> Unit,
     user: Citizen,
     busy: Boolean,
-    onSaveProfile: (String) -> Unit,
+    onSaveProfile: (String, String, String) -> Unit,
     onSignOut: () -> Unit,
     reports: List<Report> = emptyList(),
     pendingUploads: Int = 0,
@@ -65,6 +67,9 @@ fun ProfileScreen(
 ) {
     var editing by remember { mutableStateOf(false) }
     var name by remember(user.displayName) { mutableStateOf(user.displayName) }
+    var contact by remember(user.contactNumber) { mutableStateOf(user.contactNumber.orEmpty()) }
+    var homeLocation by remember(user.homeLocation) { mutableStateOf(user.homeLocation.orEmpty()) }
+    var profileError by remember { mutableStateOf<String?>(null) }
     var showChangePassword by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
@@ -268,15 +273,55 @@ fun ProfileScreen(
                             unfocusedBorderColor = SoftBorder
                         )
                     )
+                    OutlinedTextField(
+                        value = contact,
+                        onValueChange = { contact = it; profileError = null },
+                        label = { Text("Contact number (optional)") },
+                        leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp)) },
+                        enabled = !busy,
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = White,
+                            unfocusedContainerColor = White,
+                            focusedBorderColor = Violet,
+                            unfocusedBorderColor = SoftBorder
+                        )
+                    )
+                    OutlinedTextField(
+                        value = homeLocation,
+                        onValueChange = { homeLocation = it; profileError = null },
+                        label = { Text("Location (optional)") },
+                        supportingText = { Text("Your purok, street or area in Alangilan.") },
+                        leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp)) },
+                        enabled = !busy,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = White,
+                            unfocusedContainerColor = White,
+                            focusedBorderColor = Violet,
+                            unfocusedBorderColor = SoftBorder
+                        )
+                    )
+                    profileError?.let { Text(it, color = AlertRed, style = MaterialTheme.typography.bodySmall) }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
-                            onClick = { onSaveProfile(name); editing = false },
+                            onClick = {
+                                try {
+                                    ProfileInput.contact(contact); ProfileInput.location(homeLocation)
+                                    onSaveProfile(name, contact, homeLocation); editing = false; profileError = null
+                                } catch (failure: IllegalArgumentException) { profileError = failure.message }
+                            },
                             enabled = !busy,
                             modifier = Modifier.weight(1f).height(46.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) { Text("Save Profile", fontWeight = FontWeight.Bold) }
                         OutlinedButton(
-                            onClick = { name = user.displayName; editing = false },
+                            onClick = { name = user.displayName; contact = user.contactNumber.orEmpty(); homeLocation = user.homeLocation.orEmpty(); profileError = null; editing = false },
                             enabled = !busy,
                             modifier = Modifier.height(46.dp),
                             shape = RoundedCornerShape(12.dp)
@@ -287,7 +332,7 @@ fun ProfileScreen(
 
             // Individual #F5F5F8 chevron rows matching PDF 9.1 / 9.4
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ProfileMenuRow(Icons.Filled.Person, "Edit Profile", "Name, contact, barangay") { editing = !editing }
+                ProfileMenuRow(Icons.Filled.Person, "Edit Profile", "Name, contact number, location") { editing = !editing }
                 ProfileMenuRow(Icons.Filled.Lock, "Change password", "Update your account password") { showChangePassword = true }
                 if (pendingUploads > 0) {
                     ProfileMenuRow(Icons.Filled.CloudOff, "Saved offline reports ($pendingUploads)", "Review, edit, retry or remove unsent reports", onClick = onManageSavedClick)
@@ -342,7 +387,7 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .clickable(enabled = !busy) { if (pendingUploads > 0) showLogoutDialog = true else onSignOut() },
+                    .clickable(enabled = !busy) { showLogoutDialog = true },
                 shape = RoundedCornerShape(16.dp),
                 color = RedTint
             ) {

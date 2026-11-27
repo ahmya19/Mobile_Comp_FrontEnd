@@ -4,6 +4,10 @@ Start here for ownership and current project state. Details: [backend/README.md]
 
 **Budget rule: Supabase Free and free Firebase FCM only. Never enable Blaze or attach billing.**
 
+## CP-56 — November 27 (newest)
+
+Email now sends a six-digit code through Brevo Free SMTP (hosted setting; key only in Supabase). Groupmate feedback fixes are on branch `fix/cp56-groupmate-feedback` (see backend/CP56_GROUPMATE_FEEDBACK.md). **Before the profile contact/location fields work for anyone, migration `supabase/migrations/202611270012_profile_contact_location.sql` must be applied to the hosted project with a guarded, reviewed statement (never bare `supabase db push`), then `python backend/scripts/catalog_drift.py` must report 0 differences.** Name-only edits work without it.
+
 ## Current delivery — November 23 (supersedes the dated sections below, which are history)
 
 **Git:** PRs #1–#26 are merged (`main` `64311ad`); CP-47 completion changes are delivered in reviewable PRs from `64311ad`. Inspect actual GitHub PR/check state before continuing. Earlier stack/next-task paragraphs below are historical. Do not restart completed merge, deployment or identity-provisioning work.

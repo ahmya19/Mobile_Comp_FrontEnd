@@ -2,7 +2,6 @@ package com.example.pinpoint.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -94,6 +93,7 @@ fun ReportScreen(
     var pendingCameraPath by rememberSaveable { mutableStateOf<String?>(null) }
     var activeCameraPath by rememberSaveable { mutableStateOf<String?>(null) }
     var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var showFullPhoto by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -126,15 +126,7 @@ fun ReportScreen(
     LaunchedEffect(selectedImage) {
         val uri = selectedImage
         previewBitmap = if (uri == null) null else withContext(Dispatchers.IO) {
-            runCatching {
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-                var sample = 1
-                while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 640) sample *= 2
-                context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-                }?.asImageBitmap()
-            }.getOrNull()
+            com.example.pinpoint.data.PhotoCompressor.preview(context, uri)?.asImageBitmap()
         }
     }
 
@@ -366,17 +358,19 @@ fun ReportScreen(
             Text("PHOTO EVIDENCE", style = MaterialTheme.typography.labelSmall, color = MutedText, fontWeight = FontWeight.Bold)
             if (selectedImage != null) {
                 previewBitmap?.let { bmp ->
+                    if (showFullPhoto) FullPhotoViewer(bmp) { showFullPhoto = false }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(210.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .background(InkCard)
+                            .clickable { showFullPhoto = true }
                     ) {
                         Image(
                             bitmap = bmp,
                             contentDescription = "Selected photo preview",
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize()
                         )
                         IconButton(
@@ -413,6 +407,11 @@ fun ReportScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = ResolvedGreen,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Tap the photo to view it in full.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedText
                 )
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

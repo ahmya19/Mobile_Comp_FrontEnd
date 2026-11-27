@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { alice, bob, official, platformExtensions, readMigration, migrationFiles, createReplayDb, roleRunner } from './support/replay.mjs';
 
 /*
- * Replays ALL eleven supabase/migrations files, in order, from an empty database and checks the FINAL state
+ * Replays ALL twelve supabase/migrations files, in order, from an empty database and checks the FINAL state
  * (several migrations are superseded later: 006 -> 008 dispatcher, 006 finish_push, 009 claim_push_batch).
  * The shared harness (tests/support/replay.mjs) documents what the platform stubs do and do not prove.
  * This is NOT a fresh hosted restore. See backend/MIGRATION_REPLAY_VALIDATION.md.
@@ -33,11 +33,12 @@ async function pendingNotification(owner = alice, status = 'Under Review') {
   return { reportId: id, ...(await one('select n.id notification_id from public.notifications n where n.report_id=$1', [id])) };
 }
 
-test('inventory: exactly eleven migrations, ordered, each atomic, each contributing its objects', async () => {
+test('inventory: exactly twelve migrations, ordered, each atomic, each contributing its objects', async () => {
   assert.deepEqual(files, [
     '202611210001_pinpoint.sql', '202611210002_delivery.sql', '202611210003_indexes.sql', '202611210004_originals.sql',
     '202611210005_push_retries.sql', '202611210006_push_dispatch.sql', '202611210007_dispatch_acl.sql',
-    '202611210008_dispatch_nonce.sql', '202611210009_push_recipient.sql', '202611230010_priority_only_status_policy.sql', '202611230011_alangilan_jurisdiction.sql']);
+    '202611210008_dispatch_nonce.sql', '202611210009_push_recipient.sql', '202611230010_priority_only_status_policy.sql', '202611230011_alangilan_jurisdiction.sql',
+    '202611270012_profile_contact_location.sql']);
   for (const name of files) {
     const sql = (await readMigration(name)).replace(/^(--[^\n]*\n)+/, '').trim();
     assert.ok(/^begin;/i.test(sql) && /commit;\s*$/i.test(sql), `${name} must be one transaction so a failure leaves no partial state`);
@@ -68,6 +69,9 @@ test('inventory: exactly eleven migrations, ordered, each atomic, each contribut
   assert.match((await one("select prosrc from pg_proc where oid='public.update_report_status(uuid,text,text)'::regprocedure")).prosrc, /status_changed/);
   // 009
   assert.match((await one("select prosrc from pg_proc where oid='public.claim_push_batch(uuid)'::regprocedure")).prosrc, /'user_id'/);
+  // 012 (CP-56 profile contact number and location)
+  assert.ok(await fn('public.save_profile_details(text,text)'));
+  assert.equal((await one("select count(*)::int n from information_schema.columns where table_schema='public' and table_name='profiles' and column_name in ('contact_number','home_location')")).n, 2);
 });
 
 test('final catalog (tables, columns, constraints, RLS, indexes, functions, grants, policies, cron) matches the committed snapshot', async () => {
@@ -81,7 +85,7 @@ test('final catalog (tables, columns, constraints, RLS, indexes, functions, gran
 
 test('grant matrix after replay: client RPCs, service-only RPCs, private objects and direct table writes', async () => {
   const exec = async (sig, role) => (await one('select has_function_privilege($1,$2::regprocedure,\'execute\') ok', [role, sig])).ok;
-  const clientRpcs = ['public.my_profile()', 'public.save_profile(text)', 'public.submit_report(uuid,text,text,text,text,double precision,double precision,text)',
+  const clientRpcs = ['public.my_profile()', 'public.save_profile(text)', 'public.save_profile_details(text,text)', 'public.submit_report(uuid,text,text,text,text,double precision,double precision,text)',
     'public.update_report_status(uuid,text,text)', 'public.vote_report(uuid,boolean)', 'public.register_device(uuid,text)', 'public.remove_device(uuid)',
     'public.mark_notification_read(uuid)', 'public.attach_original(uuid)', 'public.can_read_original(text)', 'public.pending_push_reports()'];
   const serviceOnly = ['public.ingest_sms_report(text,text,text,text,text,text)', 'public.claim_push_batch(uuid)', 'public.finish_push(uuid,uuid,text)',
